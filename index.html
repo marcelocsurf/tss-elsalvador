@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TSS — The Surf Sequence® | Equipo El Salvador</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ocean:   #08192B;
+  --navy:    #0D2137;
+  --wave:    #1A4A6B;
+  --gold:    #F5C842;
+  --amber:   #F97316;
+  --green:   #22C55E;
+  --red:     #EF4444;
+  --white:   #F8FAFC;
+  --muted:   rgba(248,250,252,0.45);
+  --glass:   rgba(255,255,255,0.06);
+  --border:  rgba(255,255,255,0.09);
+  --r:       12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--ocean);color:var(--white);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 85%,rgba(26,74,107,.5) 0%,transparent 55%),linear-gradient(160deg,#08192B 0%,#0B1F32 50%,#0E2A42 100%);z-index:-1;}
+
+/* ═══ SCREENS ═══ */
+.screen{display:none;min-height:100vh;}
+.screen.active{display:block;}
+
+/* ═══ LANDING ═══ */
+#landingScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;}
+.brand{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:6px;color:var(--gold);line-height:1;}
+.brand-sub{font-size:13px;letter-spacing:3px;color:var(--muted);margin-top:4px;text-transform:uppercase;}
+.brand-tagline{font-size:15px;color:rgba(248,250,252,.6);margin:24px 0 40px;line-height:1.6;max-width:320px;}
+.landing-btns{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;}
+.btn-main{padding:16px 24px;border-radius:14px;border:none;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px;}
+.btn-coach{background:linear-gradient(135deg,var(--gold),var(--amber));color:#1a1a1a;}
+.btn-coach:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,200,66,.3);}
+.btn-athlete{background:var(--glass);border:1px solid var(--border);color:var(--white);}
+.btn-athlete:hover{background:rgba(255,255,255,.1);border-color:var(--gold);}
+.btn-icon{font-size:20px;}
+
+/* ═══ HEADER ═══ */
+header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(8,25,43,.8);backdrop-filter:blur(14px);position:sticky;top:0;z-index:200;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:var(--gold);cursor:pointer;}
+.logo span{font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:1px;color:var(--muted);display:block;font-weight:300;margin-top:-2px;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.mode-badge{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:20px;}
+.mode-badge.coach{background:rgba(245,200,66,.15);color:var(--gold);border:1px solid rgba(245,200,66,.3);}
+.mode-badge.athlete{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);}
+.hdr-btn{background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;}
+.hdr-btn:hover{color:var(--white);border-color:rgba(255,255,255,.25);}
+
+/* ═══ MAIN LAYOUT ═══ */
+main{max-width:640px;margin:0 auto;padding:20px 14px 100px;}
+
+/* ═══ ATHLETE SELECTOR ═══ */
+.athlete-bar{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:18px;padding-bottom:2px;}
+.athlete-bar::-webkit-scrollbar{display:none;}
+.ath-btn{flex-shrink:0;padding:7px 14px;border-radius:30px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .18s;white-space:nowrap;}
+.ath-btn:hover{color:var(--white);border-color:rgba(255,255,255,.25);}
+.ath-btn.active{background:var(--gold);border-color:var(--gold);color:#1a1a1a;font-weight:700;}
+
+/* ═══ STATS ═══ */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.stat{background:var(--glass);border:1px solid var(--border);border-radius:var(--r);padding:11px;text-align:center;}
+.stat-n{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--gold);line-height:1;}
+.stat-l{font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:.8px;text-transform:uppercase;}
+
+/* ═══ WEEK HEADER ═══ */
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.nav-btn{background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;}
+.nav-btn:hover{color:var(--gold);border-color:var(--gold);}
+.nav-btn:disabled{opacity:.2;cursor:default;}
+.week-ind{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+.week-card{background:var(--glass);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;}
+.week-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.week-id{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;color:var(--gold);line-height:1;}
+.week-dates{font-size:11px;color:var(--muted);margin-top:1px;}
+.phase-badge{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:var(--gold);}
+.week-goal{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:10px;}
+.prog-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px;font-family:'Space Mono',monospace;}
+.prog-bar{height:5px;background:rgba(255,255,255,.07);border-radius:10px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--amber));border-radius:10px;transition:width .5s ease;}
+
+/* ═══ DAY TABS ═══ */
+.day-tabs{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin-bottom:14px;padding-bottom:2px;}
+.day-tabs::-webkit-scrollbar{display:none;}
+.day-tab{flex-shrink:0;padding:7px 11px;border-radius:30px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .18s;}
+.day-tab:hover{color:var(--white);}
+.day-tab.active{background:var(--gold);border-color:var(--gold);color:#1a1a1a;font-weight:700;}
+.day-tab.done{border-color:rgba(34,197,94,.4);color:var(--green);}
+.day-tab.done::after{content:' ✓';font-size:9px;}
+.day-tab.presencial{border-color:rgba(245,200,66,.35);color:var(--gold);}
+.day-tab.rest{opacity:.4;}
+
+/* ═══ DAY CARD ═══ */
+.day-card{background:var(--glass);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;animation:slideUp .22s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.day-hdr{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.type-badge{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:20px;margin-bottom:4px;display:inline-block;}
+.tb-presencial{background:rgba(245,200,66,.12);color:var(--gold);border:1px solid rgba(245,200,66,.3);}
+.tb-autonomo{background:rgba(148,163,184,.08);color:#94A3B8;border:1px solid rgba(148,163,184,.18);}
+.tb-descanso{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.22);}
+.day-name{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;line-height:1;}
+.day-pill{font-family:'Space Mono',monospace;font-size:11px;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--muted);flex-shrink:0;}
+.day-pill.full{color:var(--green);background:rgba(34,197,94,.1);}
+.done-banner{margin:0 16px 12px;padding:10px 14px;border-radius:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);text-align:center;font-size:13px;font-weight:600;color:var(--green);display:none;}
+
+/* ═══ STEP BLOCK ═══ */
+.step-block{border-bottom:1px solid rgba(255,255,255,.04);transition:background .2s;}
+.step-block:last-child{border-bottom:none;}
+.step-block.s-done{background:rgba(34,197,94,.03);}
+.step-hdr{display:flex;align-items:center;gap:11px;padding:13px 16px;cursor:pointer;}
+.step-hdr:hover{background:rgba(255,255,255,.025);}
+
+.step-chk{width:26px;height:26px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.18);background:transparent;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .22s;color:transparent;user-select:none;}
+.step-chk.on{background:var(--green);border-color:var(--green);color:#fff;}
+.step-chk:hover:not(.on){border-color:rgba(34,197,94,.5);}
+
+.step-info{flex:1;min-width:0;}
+.step-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;font-family:'Space Mono',monospace;}
+.step-title{font-size:14px;font-weight:600;color:var(--white);line-height:1.3;}
+.step-title.crossed{color:rgba(255,255,255,.35);text-decoration:line-through;}
+.step-arrow{color:rgba(255,255,255,.2);font-size:11px;flex-shrink:0;transition:transform .18s;}
+.step-arrow.open{transform:rotate(90deg);}
+
+.step-body{padding:0 16px 14px 53px;display:none;}
+.step-body.open{display:block;animation:fadeIn .18s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.step-desc{font-size:13px;color:rgba(248,250,252,.68);line-height:1.65;margin-bottom:10px;white-space:pre-line;}
+
+/* drill box */
+.drill-box{background:rgba(245,200,66,.05);border:1px solid rgba(245,200,66,.15);border-left:3px solid var(--gold);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+.drill-code{font-family:'Space Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:3px;}
+.drill-name-h{font-size:14px;font-weight:600;margin-bottom:6px;}
+.drill-rule{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:7px;padding:7px 10px;font-size:12px;color:#FCA5A5;}
+.drill-rule strong{color:#EF4444;}
+
+/* youtube */
+.yt-row{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap;}
+.yt-link-show{display:flex;align-items:center;gap:7px;flex:1;}
+.yt-open{background:#FF0000;border:none;border-radius:8px;padding:7px 12px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;transition:opacity .18s;flex-shrink:0;}
+.yt-open:hover{opacity:.82;}
+.yt-open svg{width:13px;height:13px;fill:#fff;}
+.yt-title-small{font-size:12px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* complete btn */
+.complete-btn{width:100%;padding:11px;border-radius:9px;border:1px solid rgba(34,197,94,.35);background:rgba(34,197,94,.09);color:var(--green);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;transition:all .18s;}
+.complete-btn:hover{background:rgba(34,197,94,.18);}
+
+/* rest */
+.rest-wrap{text-align:center;padding:28px 20px;}
+.rest-icon{font-size:40px;margin-bottom:8px;}
+.rest-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;color:var(--green);margin-bottom:6px;}
+.rest-txt{font-size:13px;color:var(--muted);line-height:1.6;}
+
+/* ═══ COACH PANEL ═══ */
+.coach-panel{max-width:640px;margin:0 auto;padding:20px 14px 100px;}
+.cp-section{margin-bottom:24px;}
+.cp-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--gold);margin-bottom:12px;}
+.cp-subtitle{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;}
+
+/* week/day selectors */
+.sel-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.cp-select{background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;outline:none;appearance:none;flex:1;min-width:120px;}
+.cp-input{width:100%;background:var(--glass);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color .2s;margin-bottom:8px;}
+.cp-input:focus{border-color:var(--gold);}
+.cp-input::placeholder{color:rgba(255,255,255,.25);}
+.cp-textarea{width:100%;background:var(--glass);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:vertical;min-height:70px;transition:border-color .2s;margin-bottom:8px;}
+.cp-textarea:focus{border-color:var(--gold);}
+.cp-textarea::placeholder{color:rgba(255,255,255,.25);}
+
+/* task cards in coach */
+.task-cards{display:flex;flex-direction:column;gap:8px;}
+.task-card{background:var(--glass);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
+.task-card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.task-card-label{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-family:'Space Mono',monospace;}
+.task-card-title{font-size:14px;font-weight:600;color:var(--white);}
+.tc-icon{font-size:18px;}
+.task-fields{display:flex;flex-direction:column;gap:6px;}
+.cp-label{font-size:11px;color:var(--muted);margin-bottom:2px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;}
+.yt-input-wrap{display:flex;gap:7px;}
+.yt-test-btn{background:rgba(255,0,0,.15);border:1px solid rgba(255,0,0,.25);border-radius:7px;padding:7px 11px;color:#FCA5A5;font-size:12px;cursor:pointer;flex-shrink:0;text-decoration:none;display:flex;align-items:center;gap:5px;transition:all .18s;font-family:'DM Sans',sans-serif;}
+.yt-test-btn:hover{background:rgba(255,0,0,.25);}
+.yt-test-btn svg{width:13px;height:13px;fill:#FCA5A5;}
+
+.save-day-btn{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--gold),var(--amber));color:#1a1a1a;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;cursor:pointer;margin-top:8px;transition:all .2s;}
+.save-day-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(245,200,66,.25);}
+.save-ok{text-align:center;padding:10px;font-size:13px;color:var(--green);font-weight:600;display:none;}
+
+/* info tip */
+.info-tip{background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.15);border-radius:9px;padding:10px 13px;font-size:12px;color:rgba(248,250,252,.6);line-height:1.6;margin-bottom:16px;}
+.info-tip strong{color:var(--gold);}
+
+/* overview table */
+.overview-grid{display:flex;flex-direction:column;gap:6px;}
+.ov-row{background:var(--glass);border:1px solid var(--border);border-radius:9px;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.ov-athlete{font-size:14px;font-weight:600;}
+.ov-bars{display:flex;gap:4px;}
+.ov-day-dot{width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;transition:all .15s;}
+.ov-day-dot.has-tasks{background:rgba(245,200,66,.08);border-color:rgba(245,200,66,.2);color:var(--gold);}
+.ov-day-dot.full-done{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3);color:var(--green);}
+.ov-day-dot.partial{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.25);color:var(--gold);}
+
+/* confetti */
+.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:999;display:none;}
+.cp{position:absolute;border-radius:2px;animation:cf 1.3s ease-in forwards;}
+@keyframes cf{0%{opacity:1;transform:translateY(-10px) rotate(0)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+
+/* assign chips */
+.assign-chip{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:30px;border:1px solid var(--border);background:var(--glass);font-size:13px;font-weight:500;cursor:pointer;transition:all .18s;user-select:none;}
+.assign-chip:has(input:checked){border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.1);color:var(--green);}
+.assign-chip input{display:none;}
+.assign-all-btn{padding:6px 14px;border-radius:30px;border:1px solid rgba(245,200,66,.35);background:rgba(245,200,66,.08);color:var(--gold);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;font-family:'DM Sans',sans-serif;}
+.assign-all-btn:hover{background:rgba(245,200,66,.15);}
+/* util */
+.sep{height:1px;background:var(--border);margin:16px 0;}
+</style>
+</head>
+<body>
+<div class="confetti-wrap" id="confetti"></div>
+
+<!-- ═══ LANDING ═══ -->
+<div id="landingScreen" class="screen active">
+  <div class="brand">TSS®</div>
+  <div class="brand-sub">The Surf Sequence</div>
+  <div class="brand-tagline">Plan de entrenamiento diario · Equipo El Salvador 2026</div>
+  <div class="landing-btns">
+    <button class="btn-main btn-coach" onclick="enterCoach()">
+      <span class="btn-icon">📋</span> Entrar como Coach
+    </button>
+    <button class="btn-main btn-athlete" onclick="showAthleteSelect()">
+      <span class="btn-icon">🏄</span> Entrar como Atleta
+    </button>
+  </div>
+  <div id="athletePickWrap" style="display:none;width:100%;max-width:320px;margin-top:16px;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-align:center;">¿Quién sos?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="btn-main btn-athlete" style="padding:12px 20px;" onclick="enterAthlete('bryan')">Bryan Perez</button>
+      <button class="btn-main btn-athlete" style="padding:12px 20px;" onclick="enterAthlete('daniel')">Daniel Monterrosa</button>
+      <button class="btn-main btn-athlete" style="padding:12px 20px;" onclick="enterAthlete('amado')">Amado De Jesús</button>
+      <button class="btn-main btn-athlete" style="padding:12px 20px;" onclick="enterAthlete('cindy')">Cindy Portillo</button>
+      <button class="btn-main btn-athlete" style="padding:12px 20px;" onclick="enterAthlete('tirara')">Tirara Ramos</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ATHLETE SCREEN ═══ -->
+<div id="athleteScreen" class="screen">
+  <header>
+    <div class="logo" onclick="goHome()">TSS® <span>The Surf Sequence</span></div>
+    <div class="header-right">
+      <span class="mode-badge athlete" id="athModeBadge">Atleta</span>
+      <button class="hdr-btn" onclick="goHome()">← Salir</button>
+    </div>
+  </header>
+  <main>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-n" id="athStatDone">0</div><div class="stat-l">Días completos</div></div>
+      <div class="stat"><div class="stat-n" id="athStatStreak">0</div><div class="stat-l">Racha 🔥</div></div>
+      <div class="stat"><div class="stat-n" id="athStatPct">0%</div><div class="stat-l">Esta semana</div></div>
+    </div>
+
+    <div class="week-nav">
+      <button class="nav-btn" id="prevWk" onclick="changeWeek(-1)">← Anterior</button>
+      <span class="week-ind" id="wkInd">1 / 1</span>
+      <button class="nav-btn" id="nextWk" onclick="changeWeek(1)">Siguiente →</button>
+    </div>
+
+    <div class="week-card">
+      <div class="week-top">
+        <div><div class="week-id" id="wkId">—</div><div class="week-dates" id="wkDates">—</div></div>
+        <div><div class="phase-badge" id="wkPhase">—</div></div>
+      </div>
+      <div class="week-goal" id="wkGoal">—</div>
+      <div class="prog-lbl"><span>Progreso semanal</span><span id="wkProgLbl">—</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="wkProgFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="day-tabs" id="dayTabs"></div>
+    <div id="dayContent"></div>
+  </main>
+</div>
+
+<!-- ═══ COACH SCREEN ═══ -->
+<div id="coachScreen" class="screen">
+  <header>
+    <div class="logo" onclick="goHome()">TSS® <span>Coach Panel</span></div>
+    <div class="header-right">
+      <span class="mode-badge coach">Coach</span>
+      <button class="hdr-btn" onclick="goCoachTab('editor')" id="tabEditor">✏️ Editor</button>
+      <button class="hdr-btn" onclick="goCoachTab('overview')" id="tabOverview">📊 Control</button>
+      <button class="hdr-btn" onclick="goHome()">← Salir</button>
+    </div>
+  </header>
+
+  <!-- EDITOR TAB -->
+  <div id="coachEditor" class="coach-panel">
+    <div class="info-tip">
+      <strong>Flujo:</strong> Elegí semana + día → escribí las tareas → pegá los links de YouTube → elegí a quién asignar → Guardar. Cada atleta sigue su progreso de forma independiente.
+    </div>
+
+    <div class="cp-section">
+      <div class="cp-title">Seleccionar Sesión</div>
+      <div class="sel-row">
+        <select class="cp-select" id="coachWeek" onchange="loadCoachDay()">
+          <!-- populated by JS -->
+        </select>
+        <select class="cp-select" id="coachDay" onchange="loadCoachDay()">
+          <option value="0">Lunes</option>
+          <option value="1">Martes</option>
+          <option value="2">Miércoles</option>
+          <option value="3">Jueves</option>
+          <option value="4">Viernes ⭐</option>
+          <option value="5">Sábado</option>
+          <option value="6">Domingo</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div class="cp-label" style="margin-bottom:8px;">📌 Asignar a atletas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;">
+          <button class="assign-all-btn" onclick="toggleAllAthletes(this)">✓ Todos</button>
+          <label class="assign-chip"><input type="checkbox" class="assign-chk" value="bryan" checked> Bryan</label>
+          <label class="assign-chip"><input type="checkbox" class="assign-chk" value="daniel" checked> Daniel</label>
+          <label class="assign-chip"><input type="checkbox" class="assign-chk" value="amado" checked> Amado</label>
+          <label class="assign-chip"><input type="checkbox" class="assign-chk" value="cindy" checked> Cindy</label>
+          <label class="assign-chip"><input type="checkbox" class="assign-chk" value="tirara" checked> Tirara</label>
+        </div>
+      </div>
+
+      <div id="dayTypeSel" style="margin-bottom:14px;">
+        <div class="cp-label">Tipo de día</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="hdr-btn day-type-opt" data-type="AUTÓNOMO" onclick="setDayType(this)">Autónomo</button>
+          <button class="hdr-btn day-type-opt" data-type="PRESENCIAL" onclick="setDayType(this)">⭐ Presencial</button>
+          <button class="hdr-btn day-type-opt" data-type="DESCANSO" onclick="setDayType(this)">🌊 Descanso</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="coachTasksWrap">
+      <div class="task-cards" id="taskCards"></div>
+      <button class="save-day-btn" onclick="saveCoachDay()">💾 GUARDAR SESIÓN</button>
+      <div class="save-ok" id="saveOk">✅ ¡Guardado! Los atletas ya pueden ver el plan.</div>
+    </div>
+  </div>
+
+  <!-- OVERVIEW TAB -->
+  <div id="coachOverview" class="coach-panel" style="display:none">
+    <div class="cp-section">
+      <div class="cp-title">Control de Cumplimiento</div>
+      <div class="cp-subtitle">Estado de cada atleta en la semana actual.</div>
+      <div class="sel-row">
+        <select class="cp-select" id="ovWeekSel" onchange="renderOverview()" style="max-width:200px;">
+          <!-- populated -->
+        </select>
+      </div>
+      <div class="overview-grid" id="overviewGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG — SEMANAS BASE (el coach puede sobrescribir cada día)
+// ══════════════════════════════════════════════════════
+const WEEK_META = [
+  {id:'M01', dates:'11–17 Feb 2026', phase:'Prep. General', goal:'Crear rutina: remada, respiración, lectura del mar'},
+  {id:'M02', dates:'18–24 Feb 2026', phase:'Prep. General', goal:'Círculo 1: Postura · Hold · Rotación · Cambio de Riel'},
+  {id:'M03', dates:'25 Feb – 3 Mar', phase:'Prep. General', goal:'Círculo 2: Posición de pies · Oblicuos · Tabla como extensión'},
+  {id:'M04', dates:'4–10 Mar 2026', phase:'Prep. General', goal:'Círculo 3: Fuerza de la ola · Velocidad · Análisis de venue'},
+  {id:'M05', dates:'11–17 Mar 2026', phase:'Prep. Específica', goal:'SHOCK — Bottom Turn + Proyección. La base de toda maniobra.'},
+  {id:'M06', dates:'18–24 Mar 2026', phase:'Prep. Específica', goal:'Círculo Infinito: conectar maniobras de inicio a fin.'},
+  {id:'M07', dates:'25–31 Mar 2026', phase:'Prep. Específica', goal:'TÁCTICA — Score máximo en 1 hora. Conciencia del heat.'},
+  {id:'M08', dates:'1–7 Abr 2026',  phase:'Pre-Comp Venao', goal:'Simulación Venao · Prueba de tablas · Score máximo'},
+  {id:'M09', dates:'8–14 Abr 2026', phase:'Pre-Comp Venao', goal:'Prioridad · Posicionamiento · Escenarios de competencia'},
+  {id:'M10', dates:'15–21 Abr 2026',phase:'Pre-Comp Venao', goal:'Ritual pre-comp · Cuerpo listo · Mente ganadora'},
+  {id:'M11', dates:'22–28 Abr 2026',phase:'🏆 Competencia', goal:'PANAMERICANO — Playa Venao, Panamá'},
+  {id:'M12', dates:'29 Abr–5 May',  phase:'🏆 Competencia', goal:'PANAMERICANO — Fin de competencia'},
+  {id:'M13', dates:'6–12 May 2026', phase:'Transición', goal:'Descanso activo + análisis del evento'},
+  {id:'M14', dates:'13–19 May 2026',phase:'Transición', goal:'Evaluación post-evento · Plan para Cabarete'},
+  {id:'M15', dates:'20–26 May 2026',phase:'Prep. Esp. II', goal:'Retomar rutina progresiva'},
+  {id:'M16', dates:'27 May–2 Jun',  phase:'Prep. Esp. II', goal:'Shock de intensidad: reactivar rendimiento'},
+  {id:'M17', dates:'3–9 Jun 2026',  phase:'Prep. Esp. II', goal:'Físico específico para Cabarete'},
+  {id:'M18', dates:'10–16 Jun 2026',phase:'Prep. Esp. II', goal:'Técnica + Estrategia Cabarete'},
+  {id:'M19', dates:'17–23 Jun 2026',phase:'Prep. Cabarete', goal:'Maniobras de alto rendimiento'},
+  {id:'M20', dates:'24–30 Jun 2026',phase:'Prep. Cabarete', goal:'Simulaciones de heat Cabarete'},
+  {id:'M21', dates:'1–7 Jul 2026',  phase:'Prep. Cabarete', goal:'Consolidar físico y técnica'},
+  {id:'M22', dates:'8–14 Jul 2026', phase:'Prep. Cabarete', goal:'Control de forma + ajuste de carga'},
+  {id:'M23', dates:'15–21 Jul 2026',phase:'Prep. Cabarete', goal:'Control técnico: detalles finos'},
+  {id:'M24', dates:'22–28 Jul 2026',phase:'Pre-Comp Cabarete', goal:'Afinar detalles técnicos'},
+  {id:'M25', dates:'29 Jul–4 Ago',  phase:'Pre-Comp Cabarete', goal:'Cuerpo de guerrero · Mente de campeón'},
+  {id:'M26', dates:'5–11 Ago 2026', phase:'Pre-Comp Cabarete', goal:'Descarga + Mental pre-competencia'},
+  {id:'M27', dates:'12–18 Ago 2026',phase:'Pre-Comp Cabarete', goal:'Afinación final'},
+  {id:'M28', dates:'19–23 Ago 2026',phase:'Pre-Comp Cabarete', goal:'Llegada a Cabarete · Reconocimiento venue'},
+  {id:'M29', dates:'24–30 Ago 2026',phase:'🏆 Competencia', goal:'CENTROAMERICANO — Cabarete, Rep. Dom.'},
+  {id:'M30', dates:'31 Ago–3 Sep',  phase:'🏆 Competencia', goal:'CENTROAMERICANO — Cierre de temporada'},
+];
+
+const DAY_NAMES = ['Lun','Mar','Mié','Jue','Vie ⭐','Sáb','Dom'];
+const ATHLETES  = ['bryan','daniel','amado','cindy','tirara'];
+const ATH_NAMES = {bryan:'Bryan Perez',daniel:'Daniel Monterrosa',amado:'Amado De Jesús',cindy:'Cindy Portillo',tirara:'Tirara Ramos'};
+
+// Default task templates per day-of-week
+const DEFAULT_TASKS = {
+  AUTÓNOMO: [
+    {id:'ritual',  icon:'🌅', label:'Ritual mañana',   title:'Bhastrika 5 min + Mobilidad 11 min', desc:'Respiración Bhastrika 5 minutos en silencio.\nMovilidad 11 minutos antes de salir.', yt:''},
+    {id:'physical',icon:'💪', label:'Entrenamiento físico', title:'',                              desc:'',                                        yt:''},
+    {id:'water',   icon:'🌊', label:'Sesión en agua',   title:'',                                  desc:'',                                        yt:''},
+    {id:'recovery',icon:'🔄', label:'Recovery',         title:'Yoga Flow + Hidratación',            desc:'Yoga Flow 15 minutos.\nHidratación abundante.', yt:''},
+  ],
+  PRESENCIAL: [
+    {id:'ritual',  icon:'🌅', label:'Ritual mañana',   title:'Bhastrika 5 min + Mobilidad 11 min', desc:'Bhastrika 5 minutos. Movilidad 11 minutos.', yt:''},
+    {id:'physical',icon:'💪', label:'Activación pre-surf', title:'',                              desc:'',                                          yt:''},
+    {id:'drill',   icon:'⭐', label:'Drill TSS con Coach', title:'',                              desc:'',                                          drillCode:'', drillPilar:'', constraint:'', yt:''},
+    {id:'recovery',icon:'🔄', label:'Recovery',         title:'Yoga Flow',                         desc:'Yoga Flow 15 minutos.',                     yt:''},
+  ],
+  DESCANSO: [],
+};
+
+// ══════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ══════════════════════════════════════════════════════
+const SB_URL = "https://ypmqfrmovybqmtdqbick.supabase.co";
+const SB_KEY = "sb_publishable_nnSkmlYceBlEdu9nMXw7_w_Bj5P7WzQ";
+
+async function sbFetch(path, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : ''
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(SB_URL + '/rest/v1/' + path, opts);
+  if (method === 'GET') return r.json();
+  return r.ok;
+}
+
+// ── LOCAL CACHE (for fast UI, synced to Supabase) ──
+let PLAN_CACHE     = {};
+let PROGRESS_CACHE = {};
+let DB_READY = false;
+
+async function initDB() {
+  try {
+    // Load all plan entries
+    const plans = await sbFetch('tss_plan?select=week_index,day_index,data');
+    PLAN_CACHE = {};
+    (plans||[]).forEach(p => {
+      if (!PLAN_CACHE[p.week_index]) PLAN_CACHE[p.week_index] = {};
+      PLAN_CACHE[p.week_index][p.day_index] = p.data;
+    });
+    // Load all progress entries
+    const progs = await sbFetch('tss_progress?select=athlete,week_index,day_index,task_id,done');
+    PROGRESS_CACHE = {};
+    (progs||[]).forEach(p => {
+      if (!PROGRESS_CACHE[p.athlete]) PROGRESS_CACHE[p.athlete] = {};
+      if (!PROGRESS_CACHE[p.athlete][p.week_index]) PROGRESS_CACHE[p.athlete][p.week_index] = {};
+      if (!PROGRESS_CACHE[p.athlete][p.week_index][p.day_index]) PROGRESS_CACHE[p.athlete][p.week_index][p.day_index] = {};
+      PROGRESS_CACHE[p.athlete][p.week_index][p.day_index][p.task_id] = p.done;
+    });
+    DB_READY = true;
+  } catch(e) {
+    console.error('DB init error:', e);
+    DB_READY = false;
+  }
+}
+
+function getPlanDay(ath, wk, day) {
+  return PLAN_CACHE?.[wk]?.[day] || null;
+}
+
+async function setPlanDay(ath, wk, day, data) {
+  // update cache instantly
+  if (!PLAN_CACHE[wk]) PLAN_CACHE[wk] = {};
+  PLAN_CACHE[wk][day] = data;
+  // sync to Supabase (plan is shared — not per-athlete)
+  await sbFetch('tss_plan', 'POST', { week_index: wk, day_index: day, data, updated_at: new Date().toISOString() });
+}
+
+function getProgress(ath, wk, day, taskId) {
+  return !!PROGRESS_CACHE?.[ath]?.[wk]?.[day]?.[taskId];
+}
+
+async function setProgress(ath, wk, day, taskId, val) {
+  // update cache instantly
+  if (!PROGRESS_CACHE[ath]) PROGRESS_CACHE[ath] = {};
+  if (!PROGRESS_CACHE[ath][wk]) PROGRESS_CACHE[ath][wk] = {};
+  if (!PROGRESS_CACHE[ath][wk][day]) PROGRESS_CACHE[ath][wk][day] = {};
+  PROGRESS_CACHE[ath][wk][day][taskId] = val;
+  // sync to Supabase
+  if (val) {
+    await sbFetch('tss_progress', 'POST', {
+      athlete: ath, week_index: wk, day_index: day, task_id: taskId,
+      done: true, updated_at: new Date().toISOString()
+    });
+  } else {
+    await sbFetch(`tss_progress?athlete=eq.${ath}&week_index=eq.${wk}&day_index=eq.${day}&task_id=eq.${taskId}`, 'DELETE');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+let MODE = 'landing';
+let CURRENT_ATHLETE = 'bryan';
+let CURRENT_WEEK = 0;
+let CURRENT_DAY  = 0;
+let OPEN_STEPS   = {};
+
+function goHome() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('landingScreen').classList.add('active');
+  document.getElementById('athletePickWrap').style.display = 'none';
+  MODE = 'landing';
+}
+
+function showAthleteSelect() {
+  document.getElementById('athletePickWrap').style.display = 'block';
+}
+
+async function enterAthlete(ath) {
+  CURRENT_ATHLETE = ath;
+  MODE = 'athlete';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('athleteScreen').classList.add('active');
+  document.getElementById('athModeBadge').textContent = ATH_NAMES[ath].split(' ')[0];
+  // find current week by date
+  const today = new Date();
+  const starts = ['2026-02-11','2026-02-18','2026-02-25','2026-03-04','2026-03-11','2026-03-18','2026-03-25','2026-04-01','2026-04-08','2026-04-15','2026-04-22','2026-04-29','2026-05-06','2026-05-13','2026-05-20','2026-05-27','2026-06-03','2026-06-10','2026-06-17','2026-06-24','2026-07-01','2026-07-08','2026-07-15','2026-07-22','2026-07-29','2026-08-05','2026-08-12','2026-08-19','2026-08-24','2026-08-31'].map(d=>new Date(d));
+  for (let i = starts.length-1; i >= 0; i--) { if (today >= starts[i]) { CURRENT_WEEK = i; break; } }
+  const dm = [6,0,1,2,3,4,5];
+  CURRENT_DAY = Math.min(dm[today.getDay()], 6);
+  // show loading then fetch data
+  document.getElementById('dayContent').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px;">⏳ Cargando plan...</div>';
+  document.getElementById('dayTabs').innerHTML = '';
+  await initDB();
+  renderAthlete();
+}
+
+async function enterCoach() {
+  MODE = 'coach';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('coachScreen').classList.add('active');
+  populateCoachSelects();
+  await initDB();
+  loadCoachDay();
+  goCoachTab('editor');
+}
+
+function goCoachTab(tab) {
+  document.getElementById('coachEditor').style.display   = tab === 'editor'   ? 'block' : 'none';
+  document.getElementById('coachOverview').style.display = tab === 'overview' ? 'block' : 'none';
+  if (tab === 'overview') renderOverview();
+}
+
+// ══════════════════════════════════════════════════════
+// ATHLETE VIEW
+// ══════════════════════════════════════════════════════
+function changeWeek(dir) {
+  const nw = CURRENT_WEEK + dir;
+  if (nw < 0 || nw >= WEEK_META.length) return;
+  CURRENT_WEEK = nw; CURRENT_DAY = 0;
+  renderAthlete();
+}
+
+function renderAthlete() {
+  const ath = CURRENT_ATHLETE;
+  const wk  = WEEK_META[CURRENT_WEEK];
+
+  document.getElementById('wkInd').textContent   = `Sem ${CURRENT_WEEK+1} / ${WEEK_META.length}`;
+  document.getElementById('prevWk').disabled     = CURRENT_WEEK === 0;
+  document.getElementById('nextWk').disabled     = CURRENT_WEEK === WEEK_META.length - 1;
+  document.getElementById('wkId').textContent    = wk.id;
+  document.getElementById('wkDates').textContent = wk.dates;
+  document.getElementById('wkPhase').textContent = wk.phase;
+  document.getElementById('wkGoal').textContent  = '🎯 ' + wk.goal;
+
+  // progress
+  let activeDays = 0, doneDays = 0;
+  for (let d = 0; d < 7; d++) {
+    const plan = getPlanDay(ath, CURRENT_WEEK, d);
+    if (!plan || plan.type === 'DESCANSO' || !plan.tasks?.length) continue;
+    activeDays++;
+    if (isDayComplete(ath, CURRENT_WEEK, d)) doneDays++;
+  }
+  const pct = activeDays ? Math.round(doneDays / activeDays * 100) : 0;
+  document.getElementById('wkProgLbl').textContent = `${doneDays} / ${activeDays} días`;
+  document.getElementById('wkProgFill').style.width = pct + '%';
+
+  // streak & total
+  let streak = 0, totalDone = 0;
+  for (let w = 0; w < WEEK_META.length; w++) {
+    for (let d = 0; d < 7; d++) {
+      const plan = getPlanDay(ath, w, d);
+      if (plan && plan.type !== 'DESCANSO' && plan.tasks?.length && isDayComplete(ath, w, d)) totalDone++;
+    }
+  }
+  // streak (days done consecutively up to today)
+  outer: for (let w = CURRENT_WEEK; w >= 0; w--) {
+    for (let d = 6; d >= 0; d--) {
+      const plan = getPlanDay(ath, w, d);
+      if (!plan || plan.type === 'DESCANSO' || !plan.tasks?.length) continue;
+      if (isDayComplete(ath, w, d)) streak++;
+      else break outer;
+    }
+  }
+  document.getElementById('athStatDone').textContent  = totalDone;
+  document.getElementById('athStatStreak').textContent= streak;
+  document.getElementById('athStatPct').textContent   = pct + '%';
+
+  // tabs
+  const tabs = document.getElementById('dayTabs');
+  tabs.innerHTML = '';
+  for (let d = 0; d < 7; d++) {
+    const plan = getPlanDay(ath, CURRENT_WEEK, d);
+    const btn  = document.createElement('button');
+    btn.className = 'day-tab';
+    if (!plan || plan.type === 'DESCANSO') btn.classList.add('rest');
+    else if (plan.type === 'PRESENCIAL') btn.classList.add('presencial');
+    if (isDayComplete(ath, CURRENT_WEEK, d)) btn.classList.add('done');
+    if (d === CURRENT_DAY) btn.classList.add('active');
+    btn.textContent = DAY_NAMES[d];
+    btn.dataset.d   = d;
+    btn.onclick     = () => { CURRENT_DAY = d; renderAthlete(); };
+    tabs.appendChild(btn);
+  }
+
+  renderDayView();
+}
+
+function isDayComplete(ath, wk, day) {
+  const plan = getPlanDay(ath, wk, day);
+  if (!plan || plan.type === 'DESCANSO' || !plan.tasks?.length) return false;
+  return plan.tasks.every(t => getProgress(ath, wk, day, t.id));
+}
+
+function renderDayView() {
+  const ath  = CURRENT_ATHLETE;
+  const plan = getPlanDay(ath, CURRENT_WEEK, CURRENT_DAY);
+  const cont = document.getElementById('dayContent');
+
+  if (!plan) {
+    cont.innerHTML = `<div class="day-card"><div class="rest-wrap"><div class="rest-icon">📋</div><div class="rest-title">SIN PLAN</div><div class="rest-txt">El coach aún no ha cargado el plan para este día.</div></div></div>`;
+    return;
+  }
+  if (plan.type === 'DESCANSO') {
+    cont.innerHTML = `<div class="day-card"><div class="rest-wrap"><div class="rest-icon">🌊</div><div class="rest-title">DÍA DE DESCANSO</div><div class="rest-txt">Descanso activo o total según cómo se siente el cuerpo.<br>Buena alimentación, hidratación y sueño = rendimiento.</div></div></div>`;
+    return;
+  }
+
+  const tasks     = plan.tasks || [];
+  const allDone   = tasks.length > 0 && tasks.every(t => getProgress(ath, CURRENT_WEEK, CURRENT_DAY, t.id));
+  const doneCount = tasks.filter(t => getProgress(ath, CURRENT_WEEK, CURRENT_DAY, t.id)).length;
+
+  let tbClass = 'tb-autonomo', tbLabel = 'AUTÓNOMO';
+  if (plan.type === 'PRESENCIAL') { tbClass = 'tb-presencial'; tbLabel = '⭐ PRESENCIAL — CON COACH'; }
+
+  let stepsHTML = '';
+  tasks.forEach(task => {
+    const done   = getProgress(ath, CURRENT_WEEK, CURRENT_DAY, task.id);
+    const sk     = `${ath}_${CURRENT_WEEK}_${CURRENT_DAY}_${task.id}`;
+    const isOpen = !!OPEN_STEPS[sk];
+
+    let bodyHTML = '';
+    if (task.id === 'drill' && task.drillCode) {
+      bodyHTML += `<div class="drill-box">
+        <div class="drill-code">${esc(task.drillCode)}${task.drillPilar ? ' · ' + esc(task.drillPilar) : ''}</div>
+        <div class="drill-name-h">${esc(task.title)}</div>
+        <div class="step-desc" style="margin-bottom:8px">${esc(task.desc)}</div>
+        ${task.constraint ? `<div class="drill-rule"><strong>🚫 Regla:</strong> ${esc(task.constraint)}</div>` : ''}
+      </div>`;
+    } else {
+      if (task.desc) bodyHTML += `<div class="step-desc">${esc(task.desc)}</div>`;
+    }
+
+    if (task.yt) {
+      bodyHTML += `<div class="yt-row"><a class="yt-open" href="${esc(task.yt)}" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+        Ver video
+      </a></div>`;
+    }
+
+    if (!done) bodyHTML += `<button class="complete-btn" onclick="toggleTaskDone('${task.id}')">✓ Completado</button>`;
+
+    stepsHTML += `<div class="step-block ${done ? 's-done' : ''}" id="sb_${sk}">
+      <div class="step-hdr" onclick="toggleOpen('${sk}')">
+        <div class="step-chk ${done ? 'on' : ''}" id="chk_${sk}" onclick="event.stopPropagation();toggleTaskDone('${task.id}')">${done ? '✓' : ''}</div>
+        <div class="step-info">
+          <div class="step-lbl">${task.icon} ${task.label}</div>
+          <div class="step-title ${done ? 'crossed' : ''}">${esc(task.title || '—')}</div>
+        </div>
+        <div class="step-arrow ${isOpen ? 'open' : ''}">▶</div>
+      </div>
+      <div class="step-body ${isOpen ? 'open' : ''}" id="bd_${sk}">${bodyHTML}</div>
+    </div>`;
+  });
+
+  cont.innerHTML = `<div class="day-card">
+    <div class="day-hdr">
+      <div><span class="type-badge ${tbClass}">${tbLabel}</span><div class="day-name">${DAY_NAMES[CURRENT_DAY]}</div></div>
+      <div class="day-pill ${allDone ? 'full' : ''}">${doneCount} / ${tasks.length} ${allDone ? '✓' : ''}</div>
+    </div>
+    ${allDone && tasks.length ? `<div class="done-banner" style="display:block">🏄 ¡Día completado! Excelente trabajo.</div>` : ''}
+    ${stepsHTML}
+    ${!tasks.length ? `<div style="padding:30px 20px;text-align:center;color:var(--muted);font-size:13px;">Sin tareas programadas para este día.</div>` : ''}
+  </div>`;
+}
+
+function toggleOpen(sk) {
+  OPEN_STEPS[sk] = !OPEN_STEPS[sk];
+  const bd  = document.getElementById('bd_' + sk);
+  const arr = document.querySelector(`#sb_${sk} .step-arrow`);
+  if (bd)  bd.classList.toggle('open', OPEN_STEPS[sk]);
+  if (arr) arr.classList.toggle('open', OPEN_STEPS[sk]);
+}
+
+async function toggleTaskDone(taskId) {
+  const ath  = CURRENT_ATHLETE;
+  const plan = getPlanDay(ath, CURRENT_WEEK, CURRENT_DAY);
+  if (!plan) return;
+  const cur  = getProgress(ath, CURRENT_WEEK, CURRENT_DAY, taskId);
+  await setProgress(ath, CURRENT_WEEK, CURRENT_DAY, taskId, !cur);
+
+  // check all done
+  const allNowDone = (plan.tasks || []).every(t => getProgress(ath, CURRENT_WEEK, CURRENT_DAY, t.id));
+  if (!cur && allNowDone) confetti();
+  renderAthlete();
+}
+
+// ══════════════════════════════════════════════════════
+// COACH EDITOR
+// ══════════════════════════════════════════════════════
+let coachCurrentType = 'AUTÓNOMO';
+let coachTasks = [];
+
+function populateCoachSelects() {
+  const wkSel  = document.getElementById('coachWeek');
+  const ovSel  = document.getElementById('ovWeekSel');
+  wkSel.innerHTML  = '';
+  ovSel.innerHTML  = '';
+  WEEK_META.forEach((wk, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = `${wk.id} — ${wk.dates}`;
+    wkSel.appendChild(opt.cloneNode(true));
+    ovSel.appendChild(opt);
+  });
+  // default to closest current week
+  const today = new Date();
+  const starts = ['2026-02-11','2026-02-18','2026-02-25','2026-03-04','2026-03-11','2026-03-18','2026-03-25','2026-04-01','2026-04-08','2026-04-15'].map(d=>new Date(d));
+  let wi = 0;
+  for (let i = starts.length-1; i >= 0; i--) { if (today >= starts[i]) { wi = i; break; } }
+  wkSel.value = wi;
+  ovSel.value = wi;
+  const dm = [6,0,1,2,3,4,5];
+  document.getElementById('coachDay').value = Math.min(dm[today.getDay()], 6);
+}
+
+function loadCoachDay() {
+  const wi  = parseInt(document.getElementById('coachWeek').value);
+  const di  = parseInt(document.getElementById('coachDay').value);
+  // Load existing plan from first checked athlete, or first athlete as reference
+  const checked = [...document.querySelectorAll('.assign-chk:checked')].map(c=>c.value);
+  const refAth  = checked[0] || ATHLETES[0];
+  const plan    = getPlanDay(refAth, wi, di);
+
+  coachCurrentType = (plan && plan.type) || (di === 3 || di === 6 ? 'DESCANSO' : di === 4 ? 'PRESENCIAL' : 'AUTÓNOMO');
+  coachTasks = plan ? JSON.parse(JSON.stringify(plan.tasks || [])) : JSON.parse(JSON.stringify(DEFAULT_TASKS[coachCurrentType] || []));
+
+  updateDayTypeBtns();
+  renderCoachTasks();
+  document.getElementById('saveOk').style.display = 'none';
+}
+
+function setDayType(btn) {
+  coachCurrentType = btn.dataset.type;
+  updateDayTypeBtns();
+  // reset to default template for that type
+  coachTasks = JSON.parse(JSON.stringify(DEFAULT_TASKS[coachCurrentType] || []));
+  renderCoachTasks();
+}
+
+function updateDayTypeBtns() {
+  document.querySelectorAll('.day-type-opt').forEach(b => {
+    b.style.borderColor = b.dataset.type === coachCurrentType ? 'var(--gold)' : '';
+    b.style.color       = b.dataset.type === coachCurrentType ? 'var(--gold)' : '';
+  });
+  document.getElementById('coachTasksWrap').style.display = coachCurrentType === 'DESCANSO' ? 'none' : 'block';
+}
+
+function renderCoachTasks() {
+  if (coachCurrentType === 'DESCANSO') return;
+  const wrap = document.getElementById('taskCards');
+  wrap.innerHTML = '';
+  coachTasks.forEach((task, i) => {
+    const card = document.createElement('div');
+    card.className = 'task-card';
+    const isDrill = task.id === 'drill';
+
+    card.innerHTML = `
+      <div class="task-card-hdr">
+        <span class="task-card-label">${task.icon} ${task.label}</span>
+        <span class="tc-icon">${task.icon}</span>
+      </div>
+      <div class="task-fields">
+        <div class="cp-label">Título del bloque</div>
+        <input class="cp-input" placeholder="Ej: Circuito base 10-10-10" value="${esc(task.title||'')}"
+          oninput="coachTasks[${i}].title=this.value" />
+        <div class="cp-label">Descripción / instrucción para el atleta</div>
+        <textarea class="cp-textarea" placeholder="Escribe aquí qué tiene que hacer el atleta..."
+          oninput="coachTasks[${i}].desc=this.value">${esc(task.desc||'')}</textarea>
+        ${isDrill ? `
+          <div class="cp-label">Código del Drill (ej: DRL-BTF-01)</div>
+          <input class="cp-input" placeholder="DRL-XXX-00" value="${esc(task.drillCode||'')}"
+            oninput="coachTasks[${i}].drillCode=this.value" />
+          <div class="cp-label">Pilar / Categoría</div>
+          <input class="cp-input" placeholder="Technical / Bottom Turn FS" value="${esc(task.drillPilar||'')}"
+            oninput="coachTasks[${i}].drillPilar=this.value" />
+          <div class="cp-label">🚫 Regla / Constraint</div>
+          <input class="cp-input" placeholder="Si no hay velocidad → la maniobra no cuenta" value="${esc(task.constraint||'')}"
+            oninput="coachTasks[${i}].constraint=this.value" />
+        ` : ''}
+        <div class="cp-label">Link de YouTube (video guía)</div>
+        <div class="yt-input-wrap">
+          <input class="cp-input" style="margin:0;flex:1" type="url" placeholder="https://youtube.com/watch?v=..."
+            value="${esc(task.yt||'')}" oninput="coachTasks[${i}].yt=this.value" id="ytf_${i}" />
+          ${task.yt ? `<a class="yt-test-btn" href="${esc(task.yt)}" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+            Probar
+          </a>` : ''}
+        </div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+}
+
+async function saveCoachDay() {
+  const wi  = parseInt(document.getElementById('coachWeek').value);
+  const di  = parseInt(document.getElementById('coachDay').value);
+
+  // re-read all inputs from rendered fields
+  document.querySelectorAll('#taskCards .task-card').forEach((card, i) => {
+    const inputs = card.querySelectorAll('.cp-input, .cp-textarea');
+    let fi = 0;
+    if (coachTasks[i]) {
+      coachTasks[i].title = inputs[fi++]?.value || '';
+      coachTasks[i].desc  = inputs[fi++]?.value || '';
+      if (coachTasks[i].id === 'drill') {
+        coachTasks[i].drillCode  = inputs[fi++]?.value || '';
+        coachTasks[i].drillPilar = inputs[fi++]?.value || '';
+        coachTasks[i].constraint = inputs[fi++]?.value || '';
+      }
+      coachTasks[i].yt = inputs[fi++]?.value || '';
+    }
+  });
+
+  const planData = { type: coachCurrentType, tasks: coachTasks };
+  const checked  = [...document.querySelectorAll('.assign-chk:checked')].map(c => c.value);
+  if (!checked.length) { alert('Seleccioná al menos un atleta.'); return; }
+
+  // save plan once (shared) — progress tracked per athlete separately
+  const ok = document.getElementById('saveOk');
+  ok.textContent = '⏳ Guardando...';
+  ok.style.display = 'block';
+  await setPlanDay(null, wi, di, planData);
+
+  const names = checked.map(a => ATH_NAMES[a].split(' ')[0]).join(', ');
+  ok.textContent = '✅ Guardado para: ' + names;
+  setTimeout(() => ok.style.display = 'none', 4000);
+}
+
+// ══════════════════════════════════════════════════════
+// COACH OVERVIEW
+// ══════════════════════════════════════════════════════
+function renderOverview() {
+  const wi   = parseInt(document.getElementById('ovWeekSel').value);
+  const grid = document.getElementById('overviewGrid');
+  grid.innerHTML = '';
+  ATHLETES.forEach(ath => {
+    const row = document.createElement('div');
+    row.className = 'ov-row';
+    let dotsHTML = '';
+    for (let d = 0; d < 7; d++) {
+      const plan   = getPlanDay(ath, wi, d);
+      const hasTasks = plan && plan.type !== 'DESCANSO' && plan.tasks?.length > 0;
+      const doneCount = hasTasks ? (plan.tasks.filter(t => getProgress(ath, wi, d, t.id)).length) : 0;
+      const total    = hasTasks ? plan.tasks.length : 0;
+      let cls = '', symbol = DAY_NAMES[d].slice(0,1);
+      if (hasTasks) {
+        if (doneCount === total) { cls = 'full-done'; symbol = '✓'; }
+        else if (doneCount > 0) { cls = 'partial';   symbol = `${doneCount}/${total}`; }
+        else                    { cls = 'has-tasks';  symbol = '—'; }
+      }
+      dotsHTML += `<div class="ov-day-dot ${cls}" title="${DAY_NAMES[d]}: ${doneCount}/${total}">${symbol}</div>`;
+    }
+    row.innerHTML = `<div class="ov-athlete">${ATH_NAMES[ath]}</div><div class="ov-bars">${dotsHTML}</div>`;
+    grid.appendChild(row);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function toggleAllAthletes(btn) {
+  const chks = document.querySelectorAll('.assign-chk');
+  const allChecked = [...chks].every(c => c.checked);
+  chks.forEach(c => c.checked = !allChecked);
+  btn.textContent = allChecked ? '○ Todos' : '✓ Todos';
+}
+
+function confetti() {
+  const wrap = document.getElementById('confetti');
+  wrap.style.display = 'block'; wrap.innerHTML = '';
+  const colors = ['#F5C842','#22C55E','#3B82F6','#EF4444','#A855F7','#F97316'];
+  for (let i = 0; i < 65; i++) {
+    const el = document.createElement('div'); el.className = 'cp';
+    el.style.cssText = `left:${Math.random()*100}vw;top:${-5+Math.random()*-20}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      width:${5+Math.random()*8}px;height:${5+Math.random()*8}px;
+      border-radius:${Math.random()>.5?'50%':'2px'};
+      animation-delay:${Math.random()*.5}s;animation-duration:${.9+Math.random()*.6}s;`;
+    wrap.appendChild(el);
+  }
+  setTimeout(() => { wrap.style.display='none'; wrap.innerHTML=''; }, 2200);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
