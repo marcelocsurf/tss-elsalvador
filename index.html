@@ -550,6 +550,8 @@ const ATHLETES=[
   {id:"cindy",name:"Cindy Portillo",pos:"Longboard"},
   {id:"tiara",name:"Tiara Sofia Ramos",pos:"Shortboard"},
 ];
+// Default PINs — atleta puede cambiarlos desde su perfil
+const DEFAULT_PINS={"bryan":"1111","daniel":"2222","amado":"3333","cindy":"4444","tiara":"5555"};
 const ATH=Object.fromEntries(ATHLETES.map(a=>[a.id,a]));
 const COACHES=[{id:"marcelo",name:"Marcelo Castellanos",pos:"Head Coach"},{id:"asistente",name:"FESASURF COACH",pos:"Coach"}];
 const COACH=Object.fromEntries(COACHES.map(c=>[c.id,c]));
@@ -762,10 +764,18 @@ async function checkAthPin(){
   const pin=document.getElementById("athPinInput").value.trim();
   if(pin.length!==4){document.getElementById("athPinErr").style.display="block";return;}
   await loadProfiles();
-  const prof=Object.values(PROFILES).find(p=>p.pin===pin);
-  if(!prof){document.getElementById("athPinErr").style.display="block";return;}
-  const allAths=getAllAthletes();
-  const ath=allAths.find(a=>a.id===prof.user_id);
+  // Check Supabase profiles first
+  let prof=Object.values(PROFILES).find(p=>p.pin===pin);
+  let ath=null;
+  if(prof){
+    const allAths=getAllAthletes();
+    ath=allAths.find(a=>a.id===prof.user_id);
+  }
+  // Fallback to DEFAULT_PINS for base athletes
+  if(!ath){
+    const athId=Object.keys(DEFAULT_PINS).find(id=>DEFAULT_PINS[id]===pin);
+    if(athId)ath=ATHLETES.find(a=>a.id===athId);
+  }
   if(!ath){document.getElementById("athPinErr").style.display="block";return;}
   document.getElementById("athPinErr").style.display="none";
   enterAthlete(ath.id,ath.name,ath.pos);
