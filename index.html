@@ -1034,6 +1034,21 @@ function goCoachTab(tab){
   if(tab==="perfil")renderCoachPerfil();
 }
 
+async function copyPrevWeek(){
+  if(CW===0){alert("No hay semana anterior.");return;}
+  const ok=document.getElementById("copyOk");
+  ok.textContent="⏳ Copiando...";ok.style.display="block";
+  let copied=0;
+  for(let d=0;d<7;d++){
+    const plan=getPlan(CW-1,d);
+    if(plan){
+      await setPlan(CW,d,JSON.parse(JSON.stringify(plan)));
+      copied++;
+    }
+  }
+  ok.textContent=`✅ ${copied} días copiados de ${WEEKS[CW-1].id} → ${WEEKS[CW].id}`;
+  setTimeout(()=>{ok.style.display="none";renderCoachPlan();},2500);
+}
 function renderCoachPlan(){
   const plan=getPlan(CW,CD);
   coachType=(plan?.type)||"AUTÓNOMO";
@@ -1045,6 +1060,8 @@ function renderCoachPlan(){
     <select class="sel" id="cwSel" onchange="CW=parseInt(this.value);renderCoachPlan()">${wkOpts}</select>
     <select class="sel" id="cdSel" onchange="CD=parseInt(this.value);renderCoachPlan()">${dayOpts}</select>
   </div>
+  <button class="btn btn-ghost btn-sm" style="margin-bottom:14px;width:100%" onclick="copyPrevWeek()">📋 Copiar semana anterior → Semana actual</button>
+  <div class="save-ok" id="copyOk" style="margin-bottom:8px"></div>
   <div class="sec-title">Asignar a</div>
   <div class="assign-wrap" style="margin-bottom:14px">
     <button class="btn btn-xs btn-ghost" onclick="togAll(this)">✓ Todos</button>
