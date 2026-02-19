@@ -756,7 +756,7 @@ function getCD(){return Math.min([6,0,1,2,3,4,5][new Date().getDay()],6);}
 // ==========================================
 // NAVIGATION
 // ==========================================
-function goHome(){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById("landingScreen").classList.add("active");document.getElementById("athPickWrap").style.display="none";ROLE="";}
+function goHome(){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById("landingScreen").classList.add("active");document.getElementById("athPickWrap").style.display="none";ROLE="";document.querySelectorAll(".ath-overlay").forEach(o=>o.remove());}
 async function showAthleteSelect(){
   const w=document.getElementById("athPickWrap");w.style.display="block";
 }
@@ -1591,9 +1591,9 @@ function showAthData(athId){
   const avatar=prof.photo_url
     ?`<img src="${prof.photo_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,201,232,.3);">`
     :`<div style="width:64px;height:64px;border-radius:50%;background:rgba(0,201,232,.12);border:2px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:var(--cyan)">${name.charAt(0)}</div>`;
-  let h=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;overflow-y:auto;padding:20px">
+  let h=`<div class="ath-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;overflow-y:auto;padding:20px">
     <div style="max-width:480px;margin:0 auto">
-      <button onclick="this.closest('div[style]').remove()" style="background:transparent;border:1px solid rgba(255,255,255,.15);color:var(--grey);border-radius:8px;padding:8px 16px;cursor:pointer;margin-bottom:16px;font-size:12px">← Volver</button>
+      <button onclick="document.querySelectorAll('.ath-overlay').forEach(o=>o.remove())" style="background:transparent;border:1px solid rgba(255,255,255,.15);color:var(--grey);border-radius:8px;padding:8px 16px;cursor:pointer;margin-bottom:16px;font-size:12px">← Volver</button>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
         ${avatar}
         <div>
