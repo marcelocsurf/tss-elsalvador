@@ -811,7 +811,20 @@ function goAthTab(tab){
 
 function renderHoy(){
   const a=CU,streak=calcStreak(a);
-  let h="";
+  const ai=ATH[a]||{name:a,pos:""};
+  const prof=PROFILES[a]||{};
+  const displayName=prof.full_name||ai.name;
+  const displayPos=prof.position||ai.pos;
+  let h=`<div style="display:flex;align-items:center;gap:14px;padding:14px 0 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:16px">
+    <div style="flex-shrink:0">${prof.photo_url
+      ?`<img src="${prof.photo_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,201,232,.3);">`
+      :`<div style="width:56px;height:56px;border-radius:50%;background:rgba(0,201,232,.12);border:2px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--cyan)">${displayName.charAt(0)}</div>`
+    }</div>
+    <div>
+      <div style="font-size:22px;font-weight:800;color:var(--white);letter-spacing:-.5px;line-height:1">${displayName}</div>
+      <div style="font-size:11px;color:var(--cyan);margin-top:3px;letter-spacing:.5px">${displayPos}</div>
+    </div>
+  </div>`;
   if(streak>=2)h+=`<div class="streak-box"><div class="streak-fire">🔥</div><div><div class="streak-n">${streak} días</div><div class="streak-sub">Racha activa · ¡Seguí así!</div></div></div>`;
   // Stats
   let td=0,ta=0;
@@ -1275,7 +1288,7 @@ function buildDayView(a,w,d){
     let body="";
     if(t.id==="drill"&&t.drillCode)body+=`<div class="drill-box"><div class="drill-code">${x(t.drillCode)}${t.drillPilar?" · "+x(t.drillPilar):""}</div><div class="drill-h">${x(t.title||"—")}</div><div class="step-desc">${x(t.desc||"")}</div>${t.constraint?`<div class="constraint-box" style="margin-top:6px">🚫 ${x(t.constraint)}</div>`:""}</div>`;
     else if(t.desc)body+=`<div class="step-desc">${x(t.desc)}</div>`;
-    if(t.yt)body+=`<a class="yt-btn" href="${x(t.yt)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>Ver video</a>`;
+    if(t.yt&&t.yt.trim()!=="")body+=`<a class="yt-btn" href="${x(t.yt)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>▶ Ver en YouTube</a>`;
     if(!done)body+=`<button class="mark-btn" onclick="toggleDone('${a}',${w},${d},'${t.id}')">✓ Marcar como completado</button>`;
     h+=`<div class="step ${done?"step-done":""}" id="sb_${sk}">
       <div class="step-row" onclick="togOpen('${sk}')">
