@@ -790,9 +790,8 @@ async function enterCoach(cid,role){
   const chip=document.getElementById("coachChip");
   chip.textContent=role==="headcoach"?"Head Coach":"Coach";
   chip.className="role-chip "+(role==="headcoach"?"rc-head":"rc-coach");
-  document.getElementById("cTabPlanBtn").style.display=role==="headcoach"?"":"none";
   await initDB();
-  goCoachTab(role==="headcoach"?"plan":"ctrl");
+  goCoachTab("ctrl");
 }
 
 // ==========================================
@@ -1065,8 +1064,19 @@ function renderCoachCtrl(){
     const prof=PROFILES[a.id]||{};
     let dots="";for(let d=0;d<7;d++){const plan=getPlan(CW,d);const has=plan&&plan.type!=="DESCANSO"&&plan.tasks?.length>0;const dk=has?plan.tasks.filter(t=>getDone(a.id,CW,d,t.id)).length:0;const tot=has?plan.tasks.length:0;let cls="ov-dot",sym=DAYS_S[d];if(has){if(dk===tot){cls+=" done";sym="✓";}else if(dk>0){cls+=" partial";sym=dk+"/"+tot;}else{cls+=" planned";sym="·";}}dots+=`<div class="${cls}">${sym}</div>`;}
     const avgOv=getAvgScore(a.id);
-    const avatarOv=prof.photo_url?`<img src="${prof.photo_url}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;">`:`<div style="width:26px;height:26px;border-radius:50%;background:rgba(0,201,232,.12);border:1px solid rgba(0,201,232,.2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--cyan)">${(prof.full_name||a.name).charAt(0)}</div>`;
-    h+=`<div class="ov-row"><div class="ov-name">${avatarOv} ${prof.full_name?.split(" ")[0]||a.name.split(" ")[0]}</div><div style="display:flex;align-items:center;gap:8px"><div class="ov-dots">${dots}</div>${avgOv?`<span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--cyan);font-weight:700">${avgOv}</span>`:""}</div></div>`;
+    const avatarOv=prof.photo_url?`<img src="${prof.photo_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(0,201,232,.2);">`:`<div style="width:32px;height:32px;border-radius:50%;background:rgba(0,201,232,.12);border:1.5px solid rgba(0,201,232,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--cyan)">${(prof.full_name||a.name).charAt(0)}</div>`;
+    // Attendance
+    let totalDays=0,doneDays=0;
+    for(let w2=0;w2<=CW;w2++){for(let d2=0;d2<7;d2++){const p2=getPlan(w2,d2);if(p2&&p2.type!=="DESCANSO"&&(p2.tasks||[]).filter(t=>t.title?.trim()).length){totalDays++;if(isDayDone(a.id,w2,d2))doneDays++;}}}
+    const attPct=totalDays>0?Math.round(doneDays/totalDays*100):0;
+    h+=`<div class="ov-row" onclick="showAthData('${a.id}')" style="cursor:pointer">
+      <div class="ov-name">${avatarOv} <div><div style="font-size:13px;font-weight:600;color:var(--white)">${prof.full_name?.split(" ")[0]||a.name.split(" ")[0]}</div><div style="font-size:10px;color:var(--grey)">${attPct}% asistencia</div></div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="ov-dots">${dots}</div>
+        ${avgOv?`<span style="font-family:'Space Mono',monospace;font-size:13px;color:var(--cyan);font-weight:700">${avgOv}</span>`:`<span style="font-size:11px;color:var(--grey)">—</span>`}
+        <span style="color:var(--grey);font-size:12px">›</span>
+      </div>
+    </div>`;
   });
   document.getElementById("cTabCtrl").innerHTML=h;
 }
@@ -1463,6 +1473,76 @@ async function saveSelfEval(a,w,d){
   await sb("tss_notes","POST",{athlete:a,week_index:w,day_index:d,note:existing.note||"",feeling:existing.feeling||0,self_eval:seData,updated_at:new Date().toISOString()});
   const ok=document.getElementById("seok_"+key);
   if(ok){ok.style.display="block";ok.textContent="✅ Autoevaluación guardada";setTimeout(()=>ok.style.display="none",2500);}
+}
+
+function showAthData(athId){
+  const a=ATH[athId]||{name:athId,pos:""};
+  const prof=PROFILES[athId]||{};
+  const name=prof.full_name||a.name;
+  const avg=getAvgScore(athId);
+  // Attendance
+  let totalDays=0,doneDays=0,totalHours=0;
+  for(let w=0;w<=CW;w++){for(let d=0;d<7;d++){
+    const p=getPlan(w,d);
+    if(p&&p.type!=="DESCANSO"&&(p.tasks||[]).filter(t=>t.title?.trim()).length){
+      totalDays++;
+      if(isDayDone(athId,w,d))doneDays++;
+    }
+    const nd=NOTES[athId+"_"+w+"_"+d];
+    if(nd?.extra){try{const ex=JSON.parse(nd.extra);if(ex.hours)totalHours+=parseFloat(ex.hours)||0;}catch(e){}}
+  }}
+  const attPct=totalDays>0?Math.round(doneDays/totalDays*100):0;
+  // Formal evals
+  const evals=FORMAL[athId]||[];
+  const avatar=prof.photo_url
+    ?`<img src="${prof.photo_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,201,232,.3);">`
+    :`<div style="width:64px;height:64px;border-radius:50%;background:rgba(0,201,232,.12);border:2px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:var(--cyan)">${name.charAt(0)}</div>`;
+  let h=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;overflow-y:auto;padding:20px">
+    <div style="max-width:480px;margin:0 auto">
+      <button onclick="this.closest('div[style]').remove()" style="background:transparent;border:1px solid rgba(255,255,255,.15);color:var(--grey);border-radius:8px;padding:8px 16px;cursor:pointer;margin-bottom:16px;font-size:12px">← Volver</button>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        ${avatar}
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--white)">${name}</div>
+          <div style="font-size:12px;color:var(--cyan);margin-top:2px">${prof.position||a.pos}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+        <div class="card" style="text-align:center;padding:14px">
+          <div style="font-size:28px;font-weight:800;color:var(--cyan)">${attPct}%</div>
+          <div style="font-size:10px;color:var(--grey);margin-top:3px;letter-spacing:.5px">ASISTENCIA</div>
+        </div>
+        <div class="card" style="text-align:center;padding:14px">
+          <div style="font-size:28px;font-weight:800;color:${avg?'var(--cyan)':'var(--grey)'}">${avg||"—"}</div>
+          <div style="font-size:10px;color:var(--grey);margin-top:3px;letter-spacing:.5px">PROMEDIO</div>
+        </div>
+        <div class="card" style="text-align:center;padding:14px">
+          <div style="font-size:28px;font-weight:800;color:var(--green)">${totalHours%1===0?totalHours:totalHours.toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--grey);margin-top:3px;letter-spacing:.5px">HRS AGUA</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--grey);margin-bottom:6px">${doneDays}/${totalDays} días completados</div>
+      <div style="height:6px;background:rgba(255,255,255,.05);border-radius:6px;overflow:hidden;margin-bottom:16px">
+        <div style="height:100%;width:${attPct}%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:6px"></div>
+      </div>`;
+  // Formal evals history
+  if(evals.length){
+    h+=`<div class="sec-title">Evaluaciones formales</div>`;
+    evals.slice().reverse().forEach(ev=>{
+      h+=`<div class="card" style="margin-bottom:8px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;color:var(--grey)">${ev.eval_date||""} · ${ev.phase||""}</div>
+          <div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${ev.total_score||"—"}/5</div>
+        </div>
+        ${ev.strength?`<div style="font-size:12px;color:var(--green);margin-top:6px">💪 ${ev.strength}</div>`:""}
+        ${ev.limiting?`<div style="font-size:12px;color:var(--red);margin-top:4px">⚠️ ${ev.limiting}</div>`:""}
+      </div>`;
+    });
+  } else {
+    h+=`<div style="text-align:center;padding:20px;color:var(--grey);font-size:13px">Sin evaluaciones formales aún</div>`;
+  }
+  h+=`</div></div>`;
+  document.body.insertAdjacentHTML("beforeend",h);
 }
 
 function confetti(){
