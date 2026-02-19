@@ -663,7 +663,7 @@ async function setDone(a,w,d,t,v){
   else await sb("tss_progress?athlete=eq."+a+"&week_index=eq."+w+"&day_index=eq."+d+"&task_id=eq."+t,"DELETE");
 }
 async function setPlan(w,d,data){if(!PLANS[w])PLANS[w]={};PLANS[w][d]=data;await sb("tss_plan","POST",{week_index:w,day_index:d,data,updated_at:new Date().toISOString()});}
-function isDayDone(a,w,d){const p=getPlan(w,d);if(!p||p.type==="DESCANSO"||!p.tasks?.length)return false;return p.tasks.every(t=>getDone(a,w,d,t.id));}
+function isDayDone(a,w,d){const p=getPlan(w,d);if(!p||p.type==="DESCANSO"||!p.tasks?.length)return false;const vt=p.tasks.filter(t=>t.title&&t.title.trim()!=="");return vt.length>0&&vt.every(t=>getDone(a,w,d,t.id));}
 function calcStreak(a){let s=0;for(let w=CW;w>=0;w--){for(let d=(w===CW?CD:6);d>=0;d--){const p=getPlan(w,d);if(!p||p.type==="DESCANSO"||!p.tasks?.length)continue;if(isDayDone(a,w,d))s++;else if(s>0)return s;}}return s;}
 function latestPhys(a){const r=PHYSICAL[a]||[];return r.length?r[r.length-1]:null;}
 function prevPhys(a){const r=PHYSICAL[a]||[];return r.length>1?r[r.length-2]:null;}
@@ -1219,7 +1219,7 @@ function buildDayView(a,w,d){
   const plan=getPlan(w,d);
   if(!plan)return`<div class="card"><div class="rest-wrap"><div class="rest-icon">📋</div><div class="rest-title" style="color:var(--grey)">SIN PLAN</div><div class="rest-txt">El coach aún no cargó este día.</div></div></div>`;
   if(plan.type==="DESCANSO")return`<div class="card"><div class="rest-wrap"><div class="rest-icon">🌊</div><div class="rest-title">DÍA DE DESCANSO</div><div class="rest-txt">Recuperate. Buena alimentación, hidratación y sueño profundo.</div></div></div>`;
-  const tasks=plan.tasks||[],dk=tasks.filter(t=>getDone(a,w,d,t.id)).length,allDone=tasks.length>0&&dk===tasks.length;
+  const tasks=(plan.tasks||[]).filter(t=>t.title&&t.title.trim()!==""),dk=tasks.filter(t=>getDone(a,w,d,t.id)).length,allDone=tasks.length>0&&dk===tasks.length;
   const typeBadge=plan.type==="PRESENCIAL"?`<span class="chip chip-cyan">⭐ PRESENCIAL</span>`:`<span class="chip chip-grey">AUTÓNOMO</span>`;
   let h=`<div class="day-card"><div class="day-hdr"><div>${typeBadge}<div class="day-name" style="margin-top:5px">${DAYS[d]}</div></div><div class="day-pill ${allDone?"done":""}">${dk}/${tasks.length}${allDone?" ✓":""}</div></div>`;
   if(allDone&&tasks.length)h+=`<div class="done-banner">🏄 ¡Día completado!</div>`;
