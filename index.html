@@ -975,7 +975,7 @@ function renderAthPerfil(){
     const ev=Object.values(EVALS).find(e=>e.athlete===a&&e.week_index===w&&e.day_index===d);
     h+=`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--grey);font-family:'Space Mono',monospace">${DAYS[d]} · ${wk.id}</span><span class="chip chip-green">✅ Completo</span></div>
     <div style="font-size:13px;font-weight:600;margin-bottom:4px">${p?.type||"Autónomo"} · ${p?.tasks?.length||0} tareas</div>
-    ${ev?`<div style="color:var(--cyan);font-size:14px">${"★".repeat(ev.execution||0)+"☆".repeat(5-(ev.execution||0))}</div>`:""}</div>`;
+    ${ev?`<div style="color:var(--cyan);font-size:14px">${"★".repeat(ev.execution||0)+"☆".repeat(10-(ev.execution||0))}</div>`:""}</div>`;
   }if(w<CW-2&&any)break;}
   if(!any)h+=`<div class="card" style="text-align:center;padding:20px;color:var(--grey)">Sin sesiones completadas aún.</div>`;
   document.getElementById("athTabPerfil").innerHTML=h;
