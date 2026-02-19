@@ -763,22 +763,23 @@ async function showAthleteSelect(){
 async function checkAthPin(){
   const pin=document.getElementById("athPinInput").value.trim();
   if(pin.length!==4){document.getElementById("athPinErr").style.display="block";return;}
-  await loadProfiles();
-  // Check Supabase profiles first
-  let prof=Object.values(PROFILES).find(p=>p.pin===pin);
-  let ath=null;
-  if(prof){
-    const allAths=getAllAthletes();
-    ath=allAths.find(a=>a.id===prof.user_id);
+  // Check DEFAULT_PINS first (instant, no DB)
+  const athId=Object.keys(DEFAULT_PINS).find(id=>DEFAULT_PINS[id]===pin);
+  if(athId){
+    const ath=ATHLETES.find(a=>a.id===athId);
+    if(ath){document.getElementById("athPinErr").style.display="none";enterAthlete(ath.id,ath.name,ath.pos);return;}
   }
-  // Fallback to DEFAULT_PINS for base athletes
-  if(!ath){
-    const athId=Object.keys(DEFAULT_PINS).find(id=>DEFAULT_PINS[id]===pin);
-    if(athId)ath=ATHLETES.find(a=>a.id===athId);
-  }
-  if(!ath){document.getElementById("athPinErr").style.display="block";return;}
-  document.getElementById("athPinErr").style.display="none";
-  enterAthlete(ath.id,ath.name,ath.pos);
+  // Check Supabase for custom PINs
+  try{
+    const profiles=await sb("tss_profiles?select=*");
+    (profiles||[]).forEach(p=>{PROFILES[p.user_id]=p;});
+    const prof=Object.values(PROFILES).find(p=>p.pin===pin);
+    if(prof){
+      const ath=getAllAthletes().find(a=>a.id===prof.user_id);
+      if(ath){document.getElementById("athPinErr").style.display="none";enterAthlete(ath.id,ath.name,ath.pos);return;}
+    }
+  }catch(e){console.error(e);}
+  document.getElementById("athPinErr").style.display="block";
 }
 function renderAthList(){
   const b=document.getElementById("athBtns");b.innerHTML="";
