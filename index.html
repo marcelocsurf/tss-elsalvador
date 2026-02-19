@@ -1118,10 +1118,14 @@ async function saveDay(){
   setTimeout(()=>ok.style.display="none",4000);
 }
 
+function getAllAthletes(){
+  const extra=Object.values(PROFILES).filter(p=>p.user_type==="athlete_extra").map(p=>({id:p.user_id,name:p.full_name||"Atleta",pos:p.position||""}));
+  return [...ATHLETES,...extra];
+}
 function renderCoachCtrl(){
   let wkOpts=WEEKS.map((w,i)=>`<option value="${i}" ${i===CW?"selected":""}>${w.id} — ${w.dates}</option>`).join("");
   let h=`<div class="sec-title">Semana</div><select class="sel" style="max-width:280px;margin-bottom:16px" id="ovWk" onchange="CW=parseInt(this.value);renderCoachCtrl()">${wkOpts}</select>`;
-  ATHLETES.forEach(a=>{
+  getAllAthletes().forEach(a=>{
     const prof=PROFILES[a.id]||{};
     let dots="";for(let d=0;d<7;d++){const plan=getPlan(CW,d);const has=plan&&plan.type!=="DESCANSO"&&plan.tasks?.length>0;const dk=has?plan.tasks.filter(t=>getDone(a.id,CW,d,t.id)).length:0;const tot=has?plan.tasks.length:0;let cls="ov-dot",sym=DAYS_S[d];if(has){if(dk===tot){cls+=" done";sym="✓";}else if(dk>0){cls+=" partial";sym=dk+"/"+tot;}else{cls+=" planned";sym="·";}}dots+=`<div class="${cls}">${sym}</div>`;}
     const avgOv=getAvgScore(a.id);
@@ -1195,7 +1199,7 @@ function renderCoachFormal(){
   h+=`</div>`;
   h+=`<div class="sec-title">Atleta a evaluar</div>
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">`;
-  ATHLETES.forEach(a=>h+=`<button class="btn btn-ghost btn-sm" onclick="selFormalAth('${a.id}',this)">${getAthAvatar(a.id,16)} ${a.name.split(" ")[0]}</button>`);
+  getAllAthletes().forEach(a=>h+=`<button class="btn btn-ghost btn-sm" onclick="selFormalAth('${a.id}',this)">${getAthAvatar(a.id,16)} ${a.name.split(" ")[0]}</button>`);
   h+=`</div><div id="formalContent"><div style="text-align:center;padding:20px;color:var(--grey)">Seleccioná un atleta para comenzar la evaluación.</div></div>`;
   document.getElementById("cTabFormal").innerHTML=h;
 }
