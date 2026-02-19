@@ -1070,7 +1070,7 @@ function renderCoachPlan(){
   <div class="sec-title">Asignar a</div>
   <div class="assign-wrap" style="margin-bottom:14px">
     <button class="btn btn-xs btn-ghost" onclick="togAll(this)">✓ Todos</button>
-    ${ATHLETES.map(a=>`<label class="assign-label"><input type="checkbox" class="achk" value="${a.id}" checked>${a.name.split(" ")[0]}</label>`).join("")}
+    ${[...ATHLETES,...Object.values(PROFILES).filter(p=>p.user_type==="athlete_extra").map(p=>({id:p.user_id,name:p.full_name||"Atleta"}))].map(a=>`<label class="assign-label"><input type="checkbox" class="achk" value="${a.id}" checked>${a.name.split(" ")[0]}</label>`).join("")}
   </div>
   <div class="sec-title">Tipo de día</div>
   <div class="type-row" style="margin-bottom:14px">
