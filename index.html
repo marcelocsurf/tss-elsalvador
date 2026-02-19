@@ -1151,12 +1151,28 @@ function getAllAthletes(){
 function renderCoachCtrl(){
   let wkOpts=WEEKS.map((w,i)=>`<option value="${i}" ${i===CW?"selected":""}>${w.id} — ${w.dates}</option>`).join("");
   let h=`<div class="sec-title">Semana</div><select class="sel" style="max-width:280px;margin-bottom:16px" id="ovWk" onchange="CW=parseInt(this.value);renderCoachCtrl()">${wkOpts}</select>`;
+  
+  // PIN MANAGEMENT PANEL
+  h+=`<div style="background:rgba(0,201,232,.05);border:1px solid rgba(0,201,232,.15);border-radius:12px;padding:14px;margin-bottom:16px">
+    <div class="sec-title" style="margin-bottom:10px">🔑 Códigos PIN de atletas</div>`;
+  getAllAthletes().forEach(a=>{
+    const prof=PROFILES[a.id]||{};
+    const currentPin=prof.pin||DEFAULT_PINS[a.id]||"";
+    const pinLabel=DEFAULT_PINS[a.id]&&!prof.pin?`<span style="font-size:9px;color:var(--amber)">(default)</span>`:"";
+    h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:600;color:var(--white);width:100px;flex-shrink:0">${(prof.full_name||a.name).split(" ")[0]} ${pinLabel}</div>
+      <input class="inp" id="pin_ctrl_${a.id}" value="${x(currentPin)}" placeholder="1234" maxlength="4" type="number" style="width:80px;text-align:center;font-family:'Space Mono',monospace;font-size:16px;padding:6px 8px" oninput="if(this.value.length>4)this.value=this.value.slice(0,4)">
+      <button class="btn btn-cyan btn-xs" onclick="savePinCtrl('${a.id}')">Guardar</button>
+      <span id="pinok_${a.id}" style="display:none;font-size:11px;color:var(--green)">✅</span>
+    </div>`;
+  });
+  h+=`</div>`;
+
   getAllAthletes().forEach(a=>{
     const prof=PROFILES[a.id]||{};
     let dots="";for(let d=0;d<7;d++){const plan=getPlan(CW,d);const has=plan&&plan.type!=="DESCANSO"&&plan.tasks?.length>0;const dk=has?plan.tasks.filter(t=>getDone(a.id,CW,d,t.id)).length:0;const tot=has?plan.tasks.length:0;let cls="ov-dot",sym=DAYS_S[d];if(has){if(dk===tot){cls+=" done";sym="✓";}else if(dk>0){cls+=" partial";sym=dk+"/"+tot;}else{cls+=" planned";sym="·";}}dots+=`<div class="${cls}">${sym}</div>`;}
     const avgOv=getAvgScore(a.id);
     const avatarOv=prof.photo_url?`<img src="${prof.photo_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(0,201,232,.2);">`:`<div style="width:32px;height:32px;border-radius:50%;background:rgba(0,201,232,.12);border:1.5px solid rgba(0,201,232,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--cyan)">${(prof.full_name||a.name).charAt(0)}</div>`;
-    // Attendance
     let totalDays=0,doneDays=0;
     for(let w2=0;w2<=CW;w2++){for(let d2=0;d2<7;d2++){const p2=getPlan(w2,d2);if(p2&&p2.type!=="DESCANSO"&&(p2.tasks||[]).filter(t=>t.title?.trim()).length){totalDays++;if(isDayDone(a.id,w2,d2))doneDays++;}}}
     const attPct=totalDays>0?Math.round(doneDays/totalDays*100):0;
@@ -1169,7 +1185,38 @@ function renderCoachCtrl(){
       </div>
     </div>`;
   });
+
+  // ADD ATHLETE
+  h+=`<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" style="width:100%" onclick="toggleAddAthCtrl()">+ Agregar atleta</button>
+  <div id="addAthCtrl" style="display:none;margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px">
+    <div style="font-size:11px;color:var(--grey);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase">Nuevo atleta</div>
+    <input class="inp" id="newAthNameCtrl" placeholder="Nombre completo" style="margin-bottom:7px">
+    <input class="inp" id="newAthPosCtrl" placeholder="Posición (ej: Shortboard)" style="margin-bottom:7px">
+    <input class="inp" id="newAthPinCtrl" placeholder="PIN de acceso (4 dígitos)" type="number" maxlength="4" style="margin-bottom:10px" oninput="if(this.value.length>4)this.value=this.value.slice(0,4)">
+    <button class="btn btn-cyan btn-sm" style="width:100%" onclick="addAthCtrl()">Crear perfil</button>
+    <div class="save-ok" id="addAthOk">✅ Atleta agregado</div>
+  </div></div>`;
+
   document.getElementById("cTabCtrl").innerHTML=h;
+}
+function toggleAddAthCtrl(){const f=document.getElementById("addAthCtrl");f.style.display=f.style.display==="none"?"block":"none";}
+async function addAthCtrl(){
+  const name=document.getElementById("newAthNameCtrl")?.value?.trim();
+  const pos=document.getElementById("newAthPosCtrl")?.value?.trim();
+  const pin=document.getElementById("newAthPinCtrl")?.value?.trim();
+  if(!name)return;
+  const id="ath_"+Date.now();
+  const data={full_name:name,position:pos||"",user_type:"athlete_extra"};
+  if(pin&&pin.length===4)data.pin=pin;
+  await saveProfile(id,data);
+  const ok=document.getElementById("addAthOk");if(ok){ok.style.display="block";setTimeout(()=>{ok.style.display="none";renderCoachCtrl();},1500);}
+}
+async function savePinCtrl(aid){
+  const pin=document.getElementById("pin_ctrl_"+aid)?.value?.trim();
+  if(!pin||pin.length!==4)return;
+  const prof=PROFILES[aid]||{};
+  await saveProfile(aid,{...prof,pin,user_type:prof.user_type||"athlete"});
+  const ok=document.getElementById("pinok_"+aid);if(ok){ok.style.display="inline";setTimeout(()=>ok.style.display="none",2000);}
 }
 
 function renderCoachEval(){
