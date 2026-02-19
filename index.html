@@ -753,8 +753,10 @@ function getCD(){return Math.min([6,0,1,2,3,4,5][new Date().getDay()],6);}
 // NAVIGATION
 // ==========================================
 function goHome(){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById("landingScreen").classList.add("active");document.getElementById("athPickWrap").style.display="none";ROLE="";}
-function showAthleteSelect(){
+async function showAthleteSelect(){
   const w=document.getElementById("athPickWrap");w.style.display="block";
+  const b=document.getElementById("athBtns");b.innerHTML="<div style='color:#6B8A9A;font-size:13px;text-align:center;padding:10px'>Cargando...</div>";
+  await loadProfiles();
   renderAthList();
 }
 function renderAthList(){
