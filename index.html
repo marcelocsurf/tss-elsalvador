@@ -537,27 +537,25 @@ async function sb(path,method="GET",body=null){
 const ATHLETES=[
   {id:"bryan",name:"Bryan Perez",pos:"Shortboard"},
   {id:"daniel",name:"Daniel Monterrosa",pos:"Shortboard"},
-  {id:"amado",name:"Amado De Jesus",pos:"Shortboard"},
+  {id:"amado",name:"Amado De Jesus",pos:"Longboard"},
   {id:"cindy",name:"Cindy Portillo",pos:"Longboard"},
-  {id:"tiara",name:"Tiara Sofia Ramos",pos:"Longboard"},
+  {id:"tiara",name:"Tiara Sofia Ramos",pos:"Shortboard"},
 ];
 const ATH=Object.fromEntries(ATHLETES.map(a=>[a.id,a]));
-const COACHES=[{id:"marcelo",name:"Marcelo Castellanos",pos:"Head Coach"},{id:"asistente",name:"Coach Asistente",pos:"Coach"}];
+const COACHES=[{id:"marcelo",name:"Marcelo Castellanos",pos:"Head Coach"},{id:"asistente",name:"FESASURF COACH",pos:"Coach"}];
 const COACH=Object.fromEntries(COACHES.map(c=>[c.id,c]));
 
 const WEEKS=[
-  {id:"M01",dates:"11–17 Feb 2026",phase:"Prep. General",goal:"Crear rutina: remada, respiración, lectura del mar"},
-  {id:"M02",dates:"18–24 Feb 2026",phase:"Prep. General",goal:"Círculo 1: Postura · Hold · Rotación · Cambio de Riel"},
-  {id:"M03",dates:"25 Feb–3 Mar",phase:"Prep. General",goal:"Círculo 2: Posición de pies · Oblicuos · Tabla como extensión"},
-  {id:"M04",dates:"4–10 Mar 2026",phase:"Prep. General",goal:"Círculo 3: Fuerza de la ola · Velocidad · Análisis venue"},
-  {id:"M05",dates:"11–17 Mar 2026",phase:"Prep. Específica",goal:"SHOCK — Bottom Turn + Proyección"},
-  {id:"M06",dates:"18–24 Mar 2026",phase:"Prep. Específica",goal:"Cerrar Círculo Infinito — conectar maniobras inicio a fin"},
-  {id:"M07",dates:"25–31 Mar 2026",phase:"Prep. Específica",goal:"TÁCTICA — Score máximo en 1 hora"},
-  {id:"M08",dates:"1–7 Abr 2026",phase:"Pre-Comp Venao",goal:"Simulación Venao · Prueba tablas · Score máximo"},
-  {id:"M09",dates:"8–14 Abr 2026",phase:"Pre-Comp Venao",goal:"Prioridad · Posicionamiento · Escenarios competencia"},
-  {id:"M10",dates:"15–21 Abr 2026",phase:"Pre-Comp Venao",goal:"Ritual pre-comp · Cuerpo listo · Mente ganadora"},
-  {id:"M11",dates:"22–28 Abr 2026",phase:"🏆 Competencia",goal:"PANAMERICANO — Playa Venao, Panamá"},
-  {id:"M12",dates:"29 Abr–5 May",phase:"🏆 Competencia",goal:"PANAMERICANO — Fin de competencia"},
+  {id:"M01",dates:"25 Feb–3 Mar 2026",phase:"Prep. General",goal:"🎯 EVALUACIÓN GENERAL + Círculo 1: Postura · Hold · Rotación · Cambio de Riel"},
+  {id:"M02",dates:"4–10 Mar 2026",phase:"Prep. General",goal:"Círculo 2 + 3: Tabla como extensión · Fuerza de la ola · Velocidad · Análisis venue"},
+  {id:"M03",dates:"11–17 Mar 2026",phase:"Prep. Específica",goal:"SHOCK — Bottom Turn + Proyección"},
+  {id:"M04",dates:"18–24 Mar 2026",phase:"Prep. Específica",goal:"Cerrar Círculo Infinito — conectar maniobras inicio a fin"},
+  {id:"M05",dates:"25–31 Mar 2026",phase:"Prep. Específica",goal:"TÁCTICA — Score máximo en 1 hora"},
+  {id:"M06",dates:"1–7 Abr 2026",phase:"Pre-Comp Venao",goal:"Simulación Venao · Prueba tablas · Score máximo"},
+  {id:"M07",dates:"8–14 Abr 2026",phase:"Pre-Comp Venao",goal:"Prioridad · Posicionamiento · Escenarios competencia"},
+  {id:"M08",dates:"15–21 Abr 2026",phase:"Pre-Comp Venao",goal:"Ritual pre-comp · Cuerpo listo · Mente ganadora"},
+  {id:"M09",dates:"22–28 Abr 2026",phase:"🏆 Competencia",goal:"PANAMERICANO — Playa Venao, Panamá"},
+  {id:"M10",dates:"29 Abr–5 May",phase:"🏆 Competencia",goal:"PANAMERICANO — Fin de competencia"},
   {id:"M13",dates:"6–12 May 2026",phase:"Transición",goal:"Descanso activo + análisis del evento"},
   {id:"M14",dates:"13–19 May 2026",phase:"Transición",goal:"Evaluación post-evento · Plan para Cabarete"},
   {id:"M15",dates:"20–26 May 2026",phase:"Prep. Esp. II",goal:"Retomar rutina progresiva"},
@@ -739,7 +737,7 @@ let selfEvalState={},extraState={};
 
 function getCW(){
   const today=new Date();
-  const starts=["2026-02-11","2026-02-18","2026-02-25","2026-03-04","2026-03-11","2026-03-18","2026-03-25","2026-04-01","2026-04-08","2026-04-15","2026-04-22","2026-04-29","2026-05-06","2026-05-13","2026-05-20","2026-05-27","2026-06-03","2026-06-10","2026-06-17","2026-06-24","2026-07-01","2026-07-08","2026-07-15","2026-07-22","2026-07-29","2026-08-05","2026-08-12","2026-08-19","2026-08-24","2026-08-31"].map(d=>new Date(d));
+  const starts=["2026-02-25","2026-03-04","2026-03-11","2026-03-18","2026-03-25","2026-04-01","2026-04-08","2026-04-15","2026-04-22","2026-04-29","2026-05-06","2026-05-13","2026-05-20","2026-05-27","2026-06-03","2026-06-10","2026-06-17","2026-06-24","2026-07-01","2026-07-08","2026-07-15","2026-07-22","2026-07-29","2026-08-05","2026-08-12","2026-08-19","2026-08-24","2026-08-31"].map(d=>new Date(d));
   let wi=0;for(let i=starts.length-1;i>=0;i--){if(today>=starts[i]){wi=i;break;}}return wi;
 }
 function getCD(){return Math.min([6,0,1,2,3,4,5][new Date().getDay()],6);}
