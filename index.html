@@ -753,7 +753,7 @@ function showAthleteSelect(){
     const prof=PROFILES[a.id]||{};
     const avgS=getAvgScore(a.id);
     const avatar=prof.photo_url?`<img src="${prof.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`:`<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,201,232,.15);border:1px solid rgba(0,201,232,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--cyan)">${a.name.charAt(0)}</div>`;
-    b.innerHTML+=`<div class="ath-btn" onclick="enterAthlete('${a.id}')">${avatar}<div style="flex:1"><div class="ath-btn-name">${a.name}</div><div class="ath-btn-pos">${a.pos}</div></div>${avgS?`<div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${avgS}<span style="font-size:10px;color:var(--grey)">/10</span></div>`:""}</div>`;
+    b.innerHTML+=`<div class="ath-btn" onclick="enterAthlete('${a.id}')">${avatar}<div style="flex:1"><div class="ath-btn-name">${prof.full_name||a.name}</div><div class="ath-btn-pos">${prof.position||a.pos}</div></div>${avgS?`<div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${avgS}<span style="font-size:10px;color:var(--grey)">/10</span></div>`:""}</div>`;
   });
 }
 function showModal(role){
