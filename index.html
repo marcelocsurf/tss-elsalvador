@@ -761,17 +761,9 @@ function renderAthList(){
     const displayPos=prof.position||a.pos;
     const avgS=getAvgScore(a.id);
     const avatar=prof.photo_url?`<img src="${prof.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`:`<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,201,232,.15);border:1px solid rgba(0,201,232,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--cyan)">${displayName.charAt(0)}</div>`;
-    const isExtra=a.id.startsWith("ath_");
-    const delBtn=isExtra?`<button onclick="event.stopPropagation();deleteAthlete('${a.id}')" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#EF4444;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;flex-shrink:0">🗑</button>`:"";
-    b.innerHTML+=`<div class="ath-btn" onclick="enterAthlete('${a.id}')" style="position:relative">${avatar}<div style="flex:1"><div class="ath-btn-name">${displayName}</div><div class="ath-btn-pos">${displayPos}</div></div>${avgS?`<div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${avgS}<span style="font-size:10px;color:var(--grey)">/10</span></div>`:""}${delBtn}</div>`;
+    b.innerHTML+=`<div class="ath-btn" onclick="enterAthlete('${a.id}')">${avatar}<div style="flex:1"><div class="ath-btn-name">${displayName}</div><div class="ath-btn-pos">${displayPos}</div></div>${avgS?`<div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${avgS}<span style="font-size:10px;color:var(--grey)">/10</span></div>`:""}</div>`;
   });
   b.innerHTML+=`<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" style="width:100%" onclick="showAddAthForm()">+ Agregar atleta</button><div id="addAthForm" style="display:none;margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px"><div style="font-size:11px;color:var(--grey);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase">Nuevo atleta</div><input class="inp" id="newAthName" placeholder="Nombre completo" style="margin-bottom:7px"><input class="inp" id="newAthPos" placeholder="Posición (ej: Shortboard)" style="margin-bottom:10px"><button class="btn btn-cyan btn-sm" style="width:100%" onclick="addNewAthlete()">Crear perfil</button></div></div>`;
-}
-async function deleteAthlete(id){
-  if(!confirm("¿Eliminar este atleta?"))return;
-  await sb("tss_profiles?user_id=eq."+id,"DELETE");
-  delete PROFILES[id];
-  renderAthList();
 }
 function showAddAthForm(){
   const f=document.getElementById("addAthForm");
@@ -843,13 +835,7 @@ function renderHoy(){
   const prof=PROFILES[a]||{};
   const displayName=prof.full_name||ai.name;
   const displayPos=prof.position||ai.pos;
-  // Today's date banner
-  const todayDate=new Date();
-  const dayNames=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
-  const monthNames=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-  const todayStr=`${dayNames[todayDate.getDay()]} ${todayDate.getDate()} de ${monthNames[todayDate.getMonth()]} ${todayDate.getFullYear()}`;
-  let h=`<div style="background:rgba(0,201,232,.06);border:1px solid rgba(0,201,232,.15);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px"><span style="font-size:18px">📅</span><div><div style="font-size:13px;font-weight:700;color:var(--cyan)">${todayStr}</div><div style="font-size:10px;color:var(--grey);margin-top:1px">Semana ${CW+1} · ${WEEKS[CW].id}</div></div></div>`;
-  h+=`<div style="display:flex;align-items:center;gap:14px;padding:14px 0 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:16px">
+  let h=`<div style="display:flex;align-items:center;gap:14px;padding:14px 0 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:16px">
     <div style="flex-shrink:0">${prof.photo_url
       ?`<img src="${prof.photo_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,201,232,.3);">`
       :`<div style="width:56px;height:56px;border-radius:50%;background:rgba(0,201,232,.12);border:2px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--cyan)">${displayName.charAt(0)}</div>`
