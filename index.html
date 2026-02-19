@@ -356,6 +356,21 @@ main{max-width:640px;margin:0 auto;padding:16px 14px 100px;}
 /* COACH PANEL */
 .coach-panel{max-width:640px;margin:0 auto;padding:16px 14px 100px;}
 
+/* SELF EVAL */
+.self-eval-box{background:rgba(0,201,232,.04);border:1px solid rgba(0,201,232,.15);border-radius:var(--r);padding:14px;margin-top:10px;}
+.self-eval-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);font-family:'Space Mono',monospace;margin-bottom:12px;}
+.se-row{margin-bottom:12px;}
+.se-label{font-size:12px;color:var(--grey);margin-bottom:6px;}
+.se-btns{display:flex;gap:5px;}
+.se-n{width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--grey);font-size:13px;font-weight:700;cursor:pointer;transition:all .13s;font-family:'Space Mono',monospace;display:flex;align-items:center;justify-content:center;}
+.se-n:hover{border-color:var(--cyan);color:var(--cyan);}
+.se-n.on{background:var(--cyan);border-color:var(--cyan);color:#050A0F;}
+.se-obj{display:flex;gap:6px;}
+.se-o{flex:1;padding:9px 6px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:transparent;color:var(--grey);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .13s;font-family:'Inter',sans-serif;}
+.se-o.on-si{border-color:var(--green);background:rgba(34,197,94,.1);color:var(--green);}
+.se-o.on-mas{border-color:var(--cyan);background:rgba(0,201,232,.08);color:var(--cyan);}
+.se-o.on-no{border-color:var(--red);background:rgba(239,68,68,.08);color:var(--red);}
+
 /* REST DAY */
 .rest-wrap{text-align:center;padding:36px 20px;}
 .rest-icon{font-size:44px;margin-bottom:10px;}
@@ -384,12 +399,9 @@ main{max-width:640px;margin:0 auto;padding:16px 14px 100px;}
   </div>
   <div class="landing-subtitle">Equipo El Salvador · Temporada 2026</div>
   <div class="landing-btns">
-    <button class="btn btn-cyan" onclick="showModal('headcoach')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      Head Coach
-    </button>
-    <button class="btn btn-outline" onclick="showModal('coach')">📋 Coach</button>
-    <button class="btn btn-green" onclick="showAthleteSelect()">🏄 Atleta</button>
+    <button class="btn btn-cyan" onclick="showModal('headcoach')">Head Coach</button>
+    <button class="btn btn-outline" onclick="showModal('coach')">Coach</button>
+    <button class="btn btn-green" onclick="showAthleteSelect()">Atleta</button>
   </div>
   <div id="athPickWrap" style="display:none;width:100%;max-width:300px;margin-top:16px;">
     <div class="sec-title" style="text-align:center;margin-bottom:10px;">¿Quién sos?</div>
@@ -494,11 +506,18 @@ async function sb(path,method="GET",body=null){
 // DATA
 // ==========================================
 const ATHLETES=[
-  {id:"bryan",name:"Bryan Perez",emoji:"🏄",pos:"Shortboard"},
-  {id:"daniel",name:"Daniel Monterrosa",emoji:"🌊",pos:"Shortboard"},
-  {id:"amado",name:"Amado De Jesús",emoji:"⚡",pos:"Shortboard"},
-  {id:"cindy",name:"Cindy Portillo",emoji:"🌟",pos:"Longboard"},
-  {id:"kevin",name:"Kevin Mejía",emoji:"🔥",pos:"Shortboard"},
+  {id:"bryan",name:"Bryan Perez",pos:"Shortboard"},
+  {id:"daniel",name:"Daniel Monterrosa",pos:"Shortboard"},
+  {id:"amado",name:"Amado De Jesus",pos:"Shortboard"},
+  {id:"cindy",name:"Cindy Portillo",pos:"Longboard"},
+  {id:"kevin",name:"Kevin Mejia",pos:"Shortboard"},
+  {id:"sofia",name:"Sofia Martinez",pos:"Longboard"},
+  {id:"andres",name:"Andres Lopez",pos:"Shortboard"},
+  {id:"valeria",name:"Valeria Ramos",pos:"Longboard"},
+  {id:"carlos",name:"Carlos Hernandez",pos:"Shortboard"},
+  {id:"lucia",name:"Lucia Gutierrez",pos:"Shortboard"},
+  {id:"diego",name:"Diego Flores",pos:"Shortboard"},
+  {id:"maria",name:"Maria Vasquez",pos:"Longboard"},
 ];
 const ATH=Object.fromEntries(ATHLETES.map(a=>[a.id,a]));
 const COACHES=[{id:"marcelo",name:"Marcelo Castellanos",pos:"Head Coach"},{id:"asistente",name:"Coach Asistente",pos:"Coach"}];
@@ -599,12 +618,25 @@ const DEFAULT_TASKS={
 // ==========================================
 let PLANS={},PROG={},NOTES={},EVALS={},PROFILES={},FORMAL={},PHYSICAL={},INJURIES={};
 
+function getAvgScore(athId){
+  const evals=FORMAL[athId]||[];
+  if(!evals.length)return null;
+  const total=evals.reduce((s,e)=>s+(e.total_score||0),0)/evals.length;
+  return Math.round(total*10)/10;
+}
+function getAthAvatar(athId,size=32){
+  const prof=PROFILES[athId]||{};
+  const ath=ATH[athId]||{name:"?"};
+  if(prof.photo_url)return`<img src="${prof.photo_url}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
+  return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(0,201,232,.12);border:1px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.4)}px;font-weight:700;color:var(--cyan);flex-shrink:0">${ath.name?.charAt(0)||"?"}</div>`;
+}
+
 async function initDB(){
   try{
     const [plans,prog,notes,evals,profiles,formal,physical,injuries]=await Promise.all([
       sb("tss_plan?select=week_index,day_index,data"),
       sb("tss_progress?select=athlete,week_index,day_index,task_id,done"),
-      sb("tss_notes?select=athlete,week_index,day_index,note,feeling"),
+      sb("tss_notes?select=athlete,week_index,day_index,note,feeling,self_eval"),
       sb("tss_evals?select=*"),
       sb("tss_profiles?select=*"),
       sb("tss_formal_evals?select=*"),
@@ -613,7 +645,7 @@ async function initDB(){
     ]);
     PLANS={};(plans||[]).forEach(p=>{if(!PLANS[p.week_index])PLANS[p.week_index]={};PLANS[p.week_index][p.day_index]=p.data;});
     PROG={};(prog||[]).forEach(p=>{if(!PROG[p.athlete])PROG[p.athlete]={};if(!PROG[p.athlete][p.week_index])PROG[p.athlete][p.week_index]={};if(!PROG[p.athlete][p.week_index][p.day_index])PROG[p.athlete][p.week_index][p.day_index]={};PROG[p.athlete][p.week_index][p.day_index][p.task_id]=p.done;});
-    NOTES={};(notes||[]).forEach(n=>{NOTES[n.athlete+"_"+n.week_index+"_"+n.day_index]={note:n.note,feeling:n.feeling};});
+    NOTES={};(notes||[]).forEach(n=>{NOTES[n.athlete+"_"+n.week_index+"_"+n.day_index]={note:n.note,feeling:n.feeling,self_eval:n.self_eval||null};});
     EVALS={};(evals||[]).forEach(e=>{EVALS[e.coach_id+"_"+e.athlete+"_"+e.week_index+"_"+e.day_index]=e;});
     PROFILES={};(profiles||[]).forEach(p=>{PROFILES[p.user_id]=p;});
     FORMAL={};(formal||[]).forEach(e=>{if(!FORMAL[e.athlete])FORMAL[e.athlete]=[];FORMAL[e.athlete].push(e);});
@@ -667,6 +699,7 @@ async function saveInjury(athlete,data){
 let ROLE="",CU="",CW=0,CD=0,OPEN={};
 let feelingState={},evalState={},formalState={},injStatus={};
 let coachType="AUTÓNOMO",coachTasks=[];
+let selfEvalState={};
 
 function getCW(){
   const today=new Date();
@@ -682,13 +715,22 @@ function goHome(){document.querySelectorAll(".screen").forEach(s=>s.classList.re
 function showAthleteSelect(){
   const w=document.getElementById("athPickWrap");w.style.display="block";
   const b=document.getElementById("athBtns");b.innerHTML="";
-  ATHLETES.forEach(a=>{b.innerHTML+=`<div class="ath-btn" onclick="enterAthlete('${a.id}')"><div class="ath-btn-emoji">${a.emoji}</div><div><div class="ath-btn-name">${a.name}</div><div class="ath-btn-pos">${a.pos}</div></div></div>`;});
+  ATHLETES.forEach(a=>{
+    const prof=PROFILES[a.id]||{};
+    const avgS=getAvgScore(a.id);
+    const avatar=prof.photo_url?`<img src="${prof.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`:`<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,201,232,.15);border:1px solid rgba(0,201,232,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--cyan)">${a.name.charAt(0)}</div>`;
+    b.innerHTML+=`<div class="ath-btn" onclick="enterAthlete('${a.id}')">${avatar}<div style="flex:1"><div class="ath-btn-name">${a.name}</div><div class="ath-btn-pos">${a.pos}</div></div>${avgS?`<div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${avgS}<span style="font-size:10px;color:var(--grey)">/5</span></div>`:""}</div>`;
+  });
 }
 function showModal(role){
   if(role==="headcoach"){document.getElementById("pinModal").style.display="flex";setTimeout(()=>document.getElementById("pinInput").focus(),100);}
   else{
     const b=document.getElementById("coachBtnList");b.innerHTML="";
-    COACHES.forEach(c=>{b.innerHTML+=`<div class="ath-btn" onclick="enterCoach('${c.id}','coach')"><div class="ath-btn-emoji">📋</div><div><div class="ath-btn-name">${c.name}</div><div class="ath-btn-pos">${c.pos}</div></div></div>`;});
+    COACHES.forEach(cc=>{
+    const prof=PROFILES[cc.id]||{};
+    const avatar=prof.photo_url?`<img src="${prof.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`:`<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,201,232,.1);border:1px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--cyan)">${cc.name.charAt(0)}</div>`;
+    b.innerHTML+=`<div class="ath-btn" onclick="enterCoach('${cc.id}','coach')">${avatar}<div><div class="ath-btn-name">${cc.name}</div><div class="ath-btn-pos">${cc.pos}</div></div></div>`;
+  });
     document.getElementById("coachModal").style.display="flex";
   }
 }
@@ -848,12 +890,24 @@ function renderAthEval(){
 
 function renderAthPerfil(){
   const a=CU,ai=ATH[a],prof=PROFILES[a]||{};
-  let h=`<div class="card"><div class="profile-photo-area" onclick="document.getElementById('pp_${a}').click()">${prof.photo_url?`<img src="${prof.photo_url}">`:`<span>${ai.emoji}</span>`}</div>
+  let h=`<div class="card"><div class="profile-photo-area" onclick="document.getElementById('pp_${a}').click()">${prof.photo_url?`<img src="${prof.photo_url}">`:`<span>${getAthAvatar(a,32)}</span>`}</div>
   <input type="file" id="pp_${a}" accept="image/*" style="display:none" onchange="uploadPhoto('${a}',this)">
   <div class="inp-label">Nombre</div><input class="inp" id="pn_${a}" value="${x(prof.full_name||ai.name)}" placeholder="Nombre completo">
   <div class="inp-label">Posición / especialidad</div><input class="inp" id="pp2_${a}" value="${x(prof.position||ai.pos)}" placeholder="Ej: Shortboard · FCS">
   <button class="save-btn" style="margin-top:14px" onclick="saveAthPerfil('${a}')">Guardar perfil</button>
   <div class="save-ok" id="pok_${a}">✅ Guardado</div></div>`;
+  // Average score banner
+  const avgSc=getAvgScore(a);
+  if(avgSc){
+    h+=`<div class="card card-cyan" style="text-align:center;padding:20px;margin-bottom:10px">
+      <div style="font-size:10px;color:var(--grey);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;font-family:'Space Mono',monospace">Puntaje promedio TSS</div>
+      <div style="font-size:56px;font-weight:800;color:var(--cyan);line-height:1;letter-spacing:-2px">${avgSc}<span style="font-size:20px;font-weight:400;color:var(--grey)">/5</span></div>
+      <div style="height:6px;background:rgba(255,255,255,.05);border-radius:6px;overflow:hidden;margin:12px 0 6px">
+        <div style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:6px;width:${Math.round(avgSc/5*100)}%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--grey)">${FORMAL[a]?.length||0} evaluacion${(FORMAL[a]?.length||0)!==1?"es":""} formales</div>
+    </div>`;
+  }
   // Session history
   h+=`<div class="sec-title" style="margin-top:16px">📅 Sesiones recientes</div>`;
   let any=false;
@@ -950,7 +1004,9 @@ function renderCoachCtrl(){
   ATHLETES.forEach(a=>{
     const prof=PROFILES[a.id]||{};
     let dots="";for(let d=0;d<7;d++){const plan=getPlan(CW,d);const has=plan&&plan.type!=="DESCANSO"&&plan.tasks?.length>0;const dk=has?plan.tasks.filter(t=>getDone(a.id,CW,d,t.id)).length:0;const tot=has?plan.tasks.length:0;let cls="ov-dot",sym=DAYS_S[d];if(has){if(dk===tot){cls+=" done";sym="✓";}else if(dk>0){cls+=" partial";sym=dk+"/"+tot;}else{cls+=" planned";sym="·";}}dots+=`<div class="${cls}">${sym}</div>`;}
-    h+=`<div class="ov-row"><div class="ov-name">${prof.photo_url?`<img src="${prof.photo_url}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;">`:a.emoji} ${prof.full_name?.split(" ")[0]||a.name.split(" ")[0]}</div><div class="ov-dots">${dots}</div></div>`;
+    const avgOv=getAvgScore(a.id);
+    const avatarOv=prof.photo_url?`<img src="${prof.photo_url}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;">`:`<div style="width:26px;height:26px;border-radius:50%;background:rgba(0,201,232,.12);border:1px solid rgba(0,201,232,.2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--cyan)">${(prof.full_name||a.name).charAt(0)}</div>`;
+    h+=`<div class="ov-row"><div class="ov-name">${avatarOv} ${prof.full_name?.split(" ")[0]||a.name.split(" ")[0]}</div><div style="display:flex;align-items:center;gap:8px"><div class="ov-dots">${dots}</div>${avgOv?`<span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--cyan);font-weight:700">${avgOv}</span>`:""}</div></div>`;
   });
   document.getElementById("cTabCtrl").innerHTML=h;
 }
@@ -967,7 +1023,7 @@ function renderCoachEval(){
     const ev=EVALS[CU+"_"+a.id+"_"+CW+"_"+CD]||{};
     const k=a.id;
     h+=`<div class="eval-daily-card">
-      <div class="eval-ath-name">${a.emoji} ${a.name}</div>
+      <div class="eval-ath-name">${getAthAvatar(a.id,20)} ${a.name}</div>
       <div class="sec-title" style="margin-bottom:4px">Ejecución técnica</div>
       <div class="stars">${[1,2,3,4,5].map(n=>`<span class="star ${(ev.execution||0)>=n?"on":""}" onclick="setStar('${k}',${n})">★</span>`).join("")}</div>
       <div class="sec-title" style="margin-top:10px;margin-bottom:4px">Constraint aplicado</div>
@@ -1008,7 +1064,7 @@ function renderCoachFormal(){
   h+=`</div>`;
   h+=`<div class="sec-title">Atleta a evaluar</div>
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">`;
-  ATHLETES.forEach(a=>h+=`<button class="btn btn-ghost btn-sm" onclick="selFormalAth('${a.id}',this)">${a.emoji} ${a.name.split(" ")[0]}</button>`);
+  ATHLETES.forEach(a=>h+=`<button class="btn btn-ghost btn-sm" onclick="selFormalAth('${a.id}',this)">${getAthAvatar(a.id,16)} ${a.name.split(" ")[0]}</button>`);
   h+=`</div><div id="formalContent"><div style="text-align:center;padding:20px;color:var(--grey)">Seleccioná un atleta para comenzar la evaluación.</div></div>`;
   document.getElementById("cTabFormal").innerHTML=h;
 }
@@ -1023,7 +1079,7 @@ function selFormalAth(aid,btn){
 function renderFormalForm(aid){
   const ai=ATH[aid],lp=latestPhys(aid)||{},inj=INJURIES[aid]||[];
   formalState[aid]=formalState[aid]||{scores:{},summary:{}};
-  let h=`<div style="font-size:14px;font-weight:700;color:var(--cyan);margin-bottom:16px">${ai.emoji} ${ai.name} — Evaluación Formal</div>`;
+  let h=`<div style="font-size:14px;font-weight:700;color:var(--cyan);margin-bottom:16px">${getAthAvatar(a,32)} ${ai.name} — Evaluación Formal</div>`;
   
   // PHYSICAL DATA
   h+=`<div class="card card-cyan" style="margin-bottom:10px">
@@ -1192,6 +1248,34 @@ function buildDayView(a,w,d){
     <textarea class="ta" id="nta_${a}_${w}_${d}" placeholder="Condiciones del mar, sensaciones, observaciones...">${x(noteData.note||"")}</textarea>
     <div style="display:flex;justify-content:flex-end;margin-top:7px"><button class="btn btn-ghost btn-sm" onclick="saveNote('${a}',${w},${d})">Guardar nota</button></div>
   </div>`;
+  // Self-eval block (only for autonomous days)
+  if(plan.type==="AUTÓNOMO"){
+    const seKey=a+"_"+w+"_"+d;
+    const seData=noteData.self_eval?JSON.parse(noteData.self_eval):{};
+    selfEvalState[seKey]=selfEvalState[seKey]||seData;
+    const se=selfEvalState[seKey]||{};
+    h+=`<div class="self-eval-box">
+      <div class="self-eval-title">🎯 Autoevaluación del entreno</div>
+      <div class="se-row">
+        <div class="se-label">Enfoque en el objetivo</div>
+        <div class="se-btns">${[1,2,3,4,5].map(n=>`<button class="se-n ${se.enfoque===n?"on":""}" onclick="setSEScore('${seKey}','enfoque',${n},this)">${n}</button>`).join("")}</div>
+      </div>
+      <div class="se-row">
+        <div class="se-label">¿Logré el objetivo?</div>
+        <div class="se-obj">
+          <button class="se-o ${se.objetivo==='si'?'on-si':''}" onclick="setSEScore('${seKey}','objetivo','si',this)">✅ Sí</button>
+          <button class="se-o ${se.objetivo==='mas'?'on-mas':''}" onclick="setSEScore('${seKey}','objetivo','mas',this)">➡️ Más o menos</button>
+          <button class="se-o ${se.objetivo==='no'?'on-no':''}" onclick="setSEScore('${seKey}','objetivo','no',this)">❌ No</button>
+        </div>
+      </div>
+      <div class="se-row">
+        <div class="se-label">Nivel de energía</div>
+        <div class="se-btns">${[1,2,3,4,5].map(n=>`<button class="se-n ${se.energia===n?"on":""}" onclick="setSEScore('${seKey}','energia',${n},this)">${n}</button>`).join("")}</div>
+      </div>
+      <button class="save-btn" style="margin-top:4px" onclick="saveSelfEval('${a}',${w},${d})">Guardar autoevaluación</button>
+      <div class="save-ok" id="seok_${seKey}"></div>
+    </div>`;
+  }
   return h;
 }
 
@@ -1224,6 +1308,32 @@ async function saveAthPerfil(uid){
 // HELPERS
 // ==========================================
 function x(s){return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function setSEScore(key,field,val,btn){
+  selfEvalState[key]=selfEvalState[key]||{};
+  selfEvalState[key][field]=val;
+  btn.closest(".se-btns,.se-obj")?.querySelectorAll(".se-n,.se-o").forEach(b=>{
+    b.classList.remove("on","on-si","on-mas","on-no");
+  });
+  if(field==="objetivo"){
+    const cls=val==="si"?"on-si":val==="mas"?"on-mas":"on-no";
+    btn.classList.add(cls);
+  } else {
+    btn.classList.add("on");
+  }
+}
+async function saveSelfEval(a,w,d){
+  const key=a+"_"+w+"_"+d;
+  const se=selfEvalState[key]||{};
+  if(!se.enfoque&&!se.objetivo&&!se.energia)return;
+  // Store in notes with a prefix
+  const existing=NOTES[key]||{};
+  const seData=JSON.stringify({enfoque:se.enfoque||0,objetivo:se.objetivo||"",energia:se.energia||0});
+  NOTES[key]={...existing,self_eval:seData};
+  await sb("tss_notes","POST",{athlete:a,week_index:w,day_index:d,note:existing.note||"",feeling:existing.feeling||0,self_eval:seData,updated_at:new Date().toISOString()});
+  const ok=document.getElementById("seok_"+key);
+  if(ok){ok.style.display="block";ok.textContent="✅ Autoevaluación guardada";setTimeout(()=>ok.style.display="none",2500);}
+}
+
 function confetti(){
   const w=document.getElementById("confetti");w.style.display="block";w.innerHTML="";
   const cols=["#00C9E8","#22C55E","#3B82F6","#EF4444","#A855F7","#F59E0B"];
