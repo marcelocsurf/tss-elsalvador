@@ -549,9 +549,16 @@ const ATHLETES=[
   {id:"amado",name:"Amado De Jesus",pos:"Longboard"},
   {id:"cindy",name:"Cindy Portillo",pos:"Longboard"},
   {id:"tiara",name:"Tiara Sofia Ramos",pos:"Shortboard"},
+  {id:"melvin",name:"Melvin Ayala",pos:"Shortboard"},
+  {id:"erickson",name:"Erickson Ortiz",pos:"Shortboard"},
+  {id:"kal",name:"Kal Larios",pos:"Shortboard Junior"},
+  {id:"yax",name:"Yax Larios",pos:"Shortboard Junior"},
+  {id:"sacha",name:"Sacha Lee",pos:"Shortboard"},
+  {id:"julissa",name:"Julissa Castillo",pos:"Shortboard"},
+  {id:"marcelo_c",name:"Marcelo Castellanos",pos:"Shortboard"},
 ];
 // Default PINs — atleta puede cambiarlos desde su perfil
-const DEFAULT_PINS={"bryan":"1111","daniel":"2222","amado":"3333","cindy":"4444","tiara":"5555"};
+const DEFAULT_PINS={"bryan":"1111","daniel":"2222","tiara":"3333","amado":"4444","cindy":"5555","melvin":"6666","erickson":"7777","kal":"8888","yax":"9999","sacha":"1122","julissa":"2233","marcelo_c":"3344"};
 const ATH=Object.fromEntries(ATHLETES.map(a=>[a.id,a]));
 const COACHES=[{id:"marcelo",name:"Marcelo Castellanos",pos:"Head Coach"},{id:"asistente",name:"FESASURF COACH",pos:"Coach"}];
 const COACH=Object.fromEntries(COACHES.map(c=>[c.id,c]));
@@ -1213,10 +1220,12 @@ async function addAthCtrl(){
 }
 async function savePinCtrl(aid){
   const pin=document.getElementById("pin_ctrl_"+aid)?.value?.trim();
-  if(!pin||pin.length!==4)return;
+  if(!pin||pin.length!==4){return;}
   const prof=PROFILES[aid]||{};
-  await saveProfile(aid,{...prof,pin,user_type:prof.user_type||"athlete"});
-  const ok=document.getElementById("pinok_"+aid);if(ok){ok.style.display="inline";setTimeout(()=>ok.style.display="none",2000);}
+  const data={...prof,pin,user_id:aid,user_type:prof.user_type||"athlete"};
+  PROFILES[aid]=data;
+  await saveProfile(aid,data);
+  const ok=document.getElementById("pinok_"+aid);if(ok){ok.style.display="inline";ok.textContent="✅ Guardado";setTimeout(()=>{ok.style.display="none";},2500);}
 }
 
 function renderCoachEval(){
