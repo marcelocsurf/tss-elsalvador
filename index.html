@@ -936,7 +936,7 @@ function renderAthEval(){
 
 function renderAthPerfil(){
   const a=CU,ai=ATH[a],prof=PROFILES[a]||{};
-  let h=`<div class="card"><div class="profile-photo-area" onclick="document.getElementById('pp_${a}').click()">${prof.photo_url?`<img src="${prof.photo_url}">`:`<span>${getAthAvatar(aid,32)}</span>`}</div>
+  let h=`<div class="card"><div class="profile-photo-area" onclick="document.getElementById('pp_${a}').click()">${prof.photo_url?`<img src="${prof.photo_url}">`:`<span>${getAthAvatar(a,32)}</span>`}</div>
   <input type="file" id="pp_${a}" accept="image/*" style="display:none" onchange="uploadPhoto('${a}',this)">
   <div class="inp-label">Nombre</div><input class="inp" id="pn_${a}" value="${x(prof.full_name||ai.name)}" placeholder="Nombre completo">
   <div class="inp-label">Posición / especialidad</div><input class="inp" id="pp2_${a}" value="${x(prof.position||ai.pos)}" placeholder="Ej: Shortboard · FCS">
