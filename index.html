@@ -534,7 +534,11 @@ const PIN="TSS2026";
 
 async function sb(path,method="GET",body=null){
   const h={apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"application/json"};
-  if(method==="POST")h.Prefer="resolution=merge-duplicates";
+  if(method==="POST"&&path.startsWith("tss_plan")){
+  const r2=await fetch(SB_URL+"/rest/v1/"+path+"?on_conflict=week_index,day_index",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:body?JSON.stringify(body):null});
+  return r2.ok;
+}
+if(method==="POST")h.Prefer="resolution=merge-duplicates,return=minimal";
   const r=await fetch(SB_URL+"/rest/v1/"+path,{method,headers:h,body:body?JSON.stringify(body):null});
   if(method==="GET")return r.json();
   return r.ok;
