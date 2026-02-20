@@ -1704,7 +1704,7 @@ function showAthData(athId){
           <div style="font-size:12px;color:var(--grey)">${ev.eval_date||""} · ${ev.phase||""}</div>
           <div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${ev.total_score||"—"}/10</div>
         </div>
-        ${ev.strength?`<div style="font-size:12px;color:var(--green);margin-top:6px">💪 ${ev.strength}</div>`:""}
+        ${${JSON.parse(ev.summary||"{}").strength?`<div style="font-size:12px;color:var(--green);margin-top:6px">💪 ${JSON.parse(ev.summary||"{}").strength}</div>`:""} ${JSON.parse(ev.summary||"{}").limiting?`<div style="font-size:12px;color:var(--red);margin-top:4px">⚠️ ${JSON.parse(ev.summary||"{}").limiting}</div>`:""}:""}
         ${ev.limiting?`<div style="font-size:12px;color:var(--red);margin-top:4px">⚠️ ${ev.limiting}</div>`:""}
       </div>`;
     });
