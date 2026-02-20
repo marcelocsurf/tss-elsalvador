@@ -1256,7 +1256,7 @@ function renderCoachEval(){
   <div style="display:flex;gap:8px;margin-bottom:14px"><select class="sel" onchange="CW=parseInt(this.value);renderCoachEval()">${wkOpts}</select><select class="sel" onchange="CD=parseInt(this.value);renderCoachEval()">${dayOpts}</select></div>`;
   if(!plan||plan.type!=="PRESENCIAL"){h+=`<div class="card" style="text-align:center;padding:24px;color:var(--grey)">Este día no es sesión presencial.<br>Seleccioná un día con tipo Presencial.</div>`;document.getElementById("cTabEval").innerHTML=h;return;}
   if(drill&&drill.drillCode)h+=`<div class="card card-cyan" style="margin-bottom:14px"><div class="drill-code">${x(drill.drillCode)} ${drill.drillPilar?" · "+x(drill.drillPilar):""}</div><div class="drill-h">${x(drill.title||"Drill del día")}</div>${drill.constraint?`<div class="constraint-box" style="margin-top:6px">🚫 ${x(drill.constraint)}</div>`:""}</div>`;
-  ATHLETES.forEach(a=>{
+getAllAthletes()
     const ev=EVALS[CU+"_"+a.id+"_"+CW+"_"+CD]||{};
     const k=a.id;
     h+=`<div class="eval-daily-card">
