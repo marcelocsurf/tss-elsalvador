@@ -376,7 +376,7 @@ main{max-width:640px;margin:0 auto;padding:16px 14px 100px;}
 .t-opt.on-par{border-color:var(--cyan);background:rgba(0,201,232,.08);color:var(--cyan);}
 .t-opt.on-no{border-color:var(--red);background:rgba(239,68,68,.08);color:var(--red);}
 .break-opts{display:flex;gap:6px;}
-.break-opt{flex:1;padding:9px 5px;border-radius:9px;border:1px solid var(--border2);background:transparent;color:var(--grey);font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:all .13s;font-family:'Inter',sans-serif;}
+.break-opt{flex:1;padding:9px 5px;border-radius:9px;border:1px solid var(--border2);background:transparent;color:var(--grey);font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:all .13px;font-family:'Inter',sans-serif;}
 .break-opt.on{border-color:var(--cyan);background:rgba(0,201,232,.08);color:var(--cyan);}
 .hours-row{display:flex;gap:5px;flex-wrap:wrap;}
 .hr-btn{padding:7px 10px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--grey);font-size:11px;font-weight:700;cursor:pointer;transition:all .13s;font-family:'Space Mono',monospace;}
@@ -535,10 +535,10 @@ const PIN="TSS2026";
 async function sb(path,method="GET",body=null){
   const h={apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"application/json"};
   if(method==="POST"&&path.startsWith("tss_plan")){
-  const r2=await fetch(SB_URL+"/rest/v1/"+path+"?on_conflict=week_index,day_index",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:body?JSON.stringify(body):null});
-  return r2.ok;
-}
-if(method==="POST")h.Prefer="resolution=merge-duplicates,return=minimal";
+    const r2=await fetch(SB_URL+"/rest/v1/"+path+"?on_conflict=week_index,day_index",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:body?JSON.stringify(body):null});
+    return r2.ok;
+  }
+  if(method==="POST")h.Prefer="resolution=merge-duplicates,return=minimal";
   const r=await fetch(SB_URL+"/rest/v1/"+path,{method,headers:h,body:body?JSON.stringify(body):null});
   if(method==="GET")return r.json();
   return r.ok;
@@ -561,7 +561,6 @@ const ATHLETES=[
   {id:"julissa",name:"Julissa Castillo",pos:"Shortboard"},
   {id:"marcelo_c",name:"Marcelo Castellanos",pos:"Shortboard"},
 ];
-// Default PINs — atleta puede cambiarlos desde su perfil
 const DEFAULT_PINS={"bryan":"1111","daniel":"2222","tiara":"3333","amado":"4444","cindy":"5555","melvin":"6666","erickson":"7777","kal":"8888","yax":"9999","sacha":"1122","julissa":"2233","marcelo_c":"3344"};
 const ATH=Object.fromEntries(ATHLETES.map(a=>[a.id,a]));
 const COACHES=[{id:"marcelo",name:"Marcelo Castellanos",pos:"Head Coach"},{id:"asistente",name:"FESASURF COACH",pos:"Coach"}];
@@ -616,7 +615,6 @@ const WEEKS=[
 const DAYS=["Lun","Mar","Mié","Jue","Vie ⭐","Sáb","Dom"];
 const DAYS_S=["L","M","X","J","V","S","D"];
 
-// -- Condensed evaluation pillars from TSS methodology --
 const PILLARS=[
   {id:"fisico",label:"Físico",icon:"💪",color:"#22C55E",criteria:[
     {id:"aerobico",name:"Capacidad aeróbica — aguanta sesión completa"},
@@ -641,7 +639,6 @@ const PILLARS=[
   ]},
 ];
 
-// Scheduled evaluations aligned with macrocycle
 const EVAL_SCHED=[
   {week:0,phase:"M01",label:"Evaluación Inicial",type:"Physical + Técnica"},
   {week:1,phase:"M02",label:"Check Técnico — Círculo 1",type:"Técnica"},
@@ -790,13 +787,11 @@ async function showAthleteSelect(){
 async function checkAthPin(){
   const pin=document.getElementById("athPinInput").value.trim();
   if(pin.length!==4){document.getElementById("athPinErr").style.display="block";return;}
-  // Check DEFAULT_PINS first (instant, no DB)
   const athId=Object.keys(DEFAULT_PINS).find(id=>DEFAULT_PINS[id]===pin);
   if(athId){
     const ath=ATHLETES.find(a=>a.id===athId);
     if(ath){document.getElementById("athPinErr").style.display="none";enterAthlete(ath.id,ath.name,ath.pos);return;}
   }
-  // Check Supabase for custom PINs
   try{
     const profiles=await sb("tss_profiles?select=*");
     (profiles||[]).forEach(p=>{PROFILES[p.user_id]=p;});
@@ -810,7 +805,6 @@ async function checkAthPin(){
 }
 function renderAthList(){
   const b=document.getElementById("athBtns");b.innerHTML="";
-  // Base athletes + any extra from profiles
   const extraProfs=Object.values(PROFILES).filter(p=>p.user_type==="athlete_extra");
   const allAths=[...ATHLETES,...extraProfs.map(p=>({id:p.user_id,name:p.full_name||"Atleta",pos:p.position||""}))];
   allAths.forEach(a=>{
@@ -851,10 +845,10 @@ function showModal(role){
   else{
     const b=document.getElementById("coachBtnList");b.innerHTML="";
     COACHES.forEach(cc=>{
-    const prof=PROFILES[cc.id]||{};
-    const avatar=prof.photo_url?`<img src="${prof.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`:`<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,201,232,.1);border:1px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--cyan)">${cc.name.charAt(0)}</div>`;
-    b.innerHTML+=`<div class="ath-btn" onclick="enterCoach('${cc.id}','coach')">${avatar}<div><div class="ath-btn-name">${cc.name}</div><div class="ath-btn-pos">${cc.pos}</div></div></div>`;
-  });
+      const prof=PROFILES[cc.id]||{};
+      const avatar=prof.photo_url?`<img src="${prof.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`:`<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,201,232,.1);border:1px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--cyan)">${cc.name.charAt(0)}</div>`;
+      b.innerHTML+=`<div class="ath-btn" onclick="enterCoach('${cc.id}','coach')">${avatar}<div><div class="ath-btn-name">${cc.name}</div><div class="ath-btn-pos">${cc.pos}</div></div></div>`;
+    });
     document.getElementById("coachModal").style.display="flex";
   }
 }
@@ -866,7 +860,7 @@ async function enterAthlete(aid){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById("athScreen").classList.add("active");
   CW=getCW();CD=getCD();
-  document.getElementById("athChip").textContent=ATH[aid].name.split(" ")[0];
+  document.getElementById("athChip").textContent=ATH[aid]?.name.split(" ")[0]||aid;
   document.getElementById("athTabHoy").innerHTML='<div style="text-align:center;padding:40px;color:var(--grey)">⏳ Cargando...</div>';
   await initDB();
   goAthTab("hoy");
@@ -904,7 +898,6 @@ function renderHoy(){
   const prof=PROFILES[a]||{};
   const displayName=prof.full_name||ai.name;
   const displayPos=prof.position||ai.pos;
-  // Today's date banner
   const todayDate=new Date();
   const dayNames=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
   const monthNames=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -921,7 +914,6 @@ function renderHoy(){
     </div>
   </div>`;
   if(streak>=2)h+=`<div class="streak-box"><div class="streak-fire">🔥</div><div><div class="streak-n">${streak} días</div><div class="streak-sub">Racha activa · ¡Seguí así!</div></div></div>`;
-  // Stats
   let td=0,ta=0;
   for(let w=0;w<WEEKS.length;w++)for(let d=0;d<7;d++){const p=getPlan(w,d);if(p&&p.type!=="DESCANSO"&&p.tasks?.length){ta++;if(isDayDone(a,w,d))td++;}}
   const wp=WEEKS[CW];const wDone=[...Array(7)].filter((_,d)=>{const p=getPlan(CW,d);return p&&p.type!=="DESCANSO"&&p.tasks?.length&&isDayDone(a,CW,d)}).length;
@@ -930,7 +922,6 @@ function renderHoy(){
   h+=`<div class="stat-grid"><div class="stat-box"><div class="stat-n">${td}</div><div class="stat-l">Días completados</div></div><div class="stat-box"><div class="stat-n">${streak}</div><div class="stat-l">Racha 🔥</div></div><div class="stat-box"><div class="stat-n">${pct}%</div><div class="stat-l">Esta semana</div></div></div>`;
   h+=`<div class="week-nav"><button class="nav-arrow" ${CW===0?"disabled":""} onclick="chgWeek(-1)">← Ant</button><span class="week-lbl">Semana ${CW+1} / ${WEEKS.length}</span><button class="nav-arrow" ${CW===WEEKS.length-1?"disabled":""} onclick="chgWeek(1)">Sig →</button></div>`;
   h+=`<div class="week-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="week-id">${wp.id}</div><div class="week-dates">${wp.dates}</div></div><span class="phase-tag">${wp.phase}</span></div><div class="week-goal">🎯 ${wp.goal}</div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-bottom:5px;font-family:'Space Mono',monospace"><span>Progreso</span><span>${wDone}/${wAct}</span></div><div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div></div>`;
-  // Day tabs
   h+='<div class="day-tabs">';
   for(let d=0;d<7;d++){
     const dn=isDayDone(a,CW,d);
@@ -954,7 +945,6 @@ function renderSemana(){
     h+=`<div class="${cls}" onclick="selDay(${d});goAthTab('hoy')"><div class="wg-d">${DAYS_S[d]}</div><div class="wg-icon">${icon}</div><div class="wg-pct">${plan&&plan.type!=="DESCANSO"&&tasks.length?dk+"/"+tasks.length:""}</div></div>`;
   }
   h+=`</div>`;
-  // Evals presenciales de esta semana para este atleta
   const wEvals=Object.values(EVALS).filter(e=>e.athlete===a&&e.week_index===CW);
   if(wEvals.length){
     h+=`<div class="sec-title">⭐ Evaluaciones de sesión esta semana</div>`;
@@ -975,11 +965,9 @@ function renderAthEval(){
   const activeInj=(INJURIES[a]||[]).filter(i=>i.status==="activa");
   let h="";
 
-  // Next scheduled eval
   const next=EVAL_SCHED.find(e=>e.week>=CW)||EVAL_SCHED[EVAL_SCHED.length-1];
   h+=`<div class="eval-sched-banner"><div class="eval-sched-icon">📋</div><div><div class="eval-sched-title">Próxima evaluación: ${next.label}</div><div class="eval-sched-sub">${next.phase} · ${next.type}</div></div></div>`;
 
-  // Physical snapshot
   if(lp.peso||lp.grasa||lp.tabla){
     h+=`<div class="sec-title">📊 Datos físicos</div>`;
     h+='<div class="phys-grid">';
@@ -997,13 +985,11 @@ function renderAthEval(){
     if(lp.tabla)h+=`<div class="board-row"><div class="board-icon">🏄</div><div><div style="font-size:13px;font-weight:600">${lp.tabla}</div><div style="font-size:11px;color:var(--grey)">Tabla actual</div></div></div>`;
   }
 
-  // Active injuries
   if(activeInj.length){
     h+=`<div class="sec-title" style="color:var(--red)">🩹 Lesiones activas</div>`;
     activeInj.forEach(i=>h+=`<div class="injury-item"><div class="injury-meta"><span class="chip chip-red">🔴 Activa</span><span style="font-size:10px;color:var(--grey)">${i.date||""}</span></div><div style="font-size:13px">${i.description}</div></div>`);
   }
 
-  // Eval history
   if(!evals.length){
     h+=`<div class="card" style="text-align:center;padding:24px"><div style="font-size:32px;margin-bottom:8px">📋</div><div style="font-size:13px;color:var(--grey)">Aún no tenés evaluaciones formales.<br>Tu coach las cargará en las semanas programadas.</div></div>`;
   } else {
@@ -1013,17 +999,17 @@ function renderAthEval(){
       const pct=Math.round((ev.total_score||0)/10*100);
       h+=`<div class="tl-item"><div class="tl-dot"></div><div class="tl-date">${ev.eval_date} · ${ev.phase}</div>
       <div class="tl-card">
-        <div class="tl-score-total">${ev.total_score||"—"}<span style="font-size:11px;font-weight:400;color:var(--grey)">/10</span><span style="font-size:16px;font-weight:400;color:var(--grey)">/5</span></div>
+        <div class="tl-score-total">${ev.total_score||"—"}<span style="font-size:11px;font-weight:400;color:var(--grey)">/10</span></div>
         <div class="rr-bar"><div class="rr-fill" style="width:${pct}%"></div></div>
         ${su.readiness?`<div style="font-size:11px;color:var(--grey);margin-bottom:8px">${su.readiness}</div>`:""}
         <div class="tl-chips">${PILLARS.map(p=>{const avg=p.criteria.reduce((s,c)=>s+(sc[c.id]||0),0)/p.criteria.length;return`<span class="tl-chip">${p.icon} ${p.label} ${avg.toFixed(1)}</span>`;}).join("")}</div>
-        ${su.strength||su.limiting||su.focus?`
         <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px;">
           ${su.strength?`<div style="font-size:12px"><span style="color:var(--green)">💪 </span><span style="color:var(--grey)">Fortaleza: </span>${su.strength}</div>`:""}
           ${su.limiting?`<div style="font-size:12px"><span style="color:var(--red)">⚠️ </span><span style="color:var(--grey)">Limitante: </span>${su.limiting}</div>`:""}
           ${su.focus?`<div style="font-size:12px"><span style="color:var(--cyan)">🎯 </span><span style="color:var(--grey)">Foco: </span>${su.focus}</div>`:""}
           ${su.notes?`<div style="font-size:11px;color:var(--grey);margin-top:3px;font-style:italic">"${su.notes}"</div>`:""}
-        </div>`:""}</div></div>`;
+        </div>
+      </div></div>`;
     });
     h+=`</div>`;
   }
@@ -1031,7 +1017,7 @@ function renderAthEval(){
 }
 
 function renderAthPerfil(){
-  const a=CU,ai=ATH[a],prof=PROFILES[a]||{};
+  const a=CU,ai=ATH[a]||{name:a,pos:""},prof=PROFILES[a]||{};
   let h=`<div class="card"><div class="profile-photo-area" onclick="document.getElementById('pp_${a}').click()">${prof.photo_url?`<img src="${prof.photo_url}">`:`<span>${getAthAvatar(a,32)}</span>`}</div>
   <input type="file" id="pp_${a}" accept="image/*" style="display:none" onchange="uploadPhoto('${a}',this)">
   <div class="inp-label">Nombre</div><input class="inp" id="pn_${a}" value="${x(prof.full_name||ai.name)}" placeholder="Nombre completo">
@@ -1039,7 +1025,6 @@ function renderAthPerfil(){
   <div class="inp-label">Código de acceso (4 dígitos)</div><input class="inp" id="ppin_${a}" value="${x(prof.pin||'')}" placeholder="Ej: 1234" maxlength="4" type="number">
   <button class="save-btn" style="margin-top:14px" onclick="saveAthPerfil('${a}')">Guardar perfil</button>
   <div class="save-ok" id="pok_${a}">✅ Guardado</div></div>`;
-  // Average score banner
   const avgSc=getAvgScore(a);
   if(avgSc){
     h+=`<div class="card card-cyan" style="text-align:center;padding:20px;margin-bottom:10px">
@@ -1051,8 +1036,6 @@ function renderAthPerfil(){
       <div style="font-size:11px;color:var(--grey)">${FORMAL[a]?.length||0} evaluacion${(FORMAL[a]?.length||0)!==1?"es":""} formales</div>
     </div>`;
   }
-  // Session history
-  // Calculate total surf hours
   let totalHours=0;
   for(let w2=0;w2<=CW;w2++){for(let d2=0;d2<7;d2++){
     const nd=NOTES[a+"_"+w2+"_"+d2];
@@ -1175,11 +1158,11 @@ function getAllAthletes(){
   const extra=Object.values(PROFILES).filter(p=>p.user_type==="athlete_extra").map(p=>({id:p.user_id,name:p.full_name||"Atleta",pos:p.position||""}));
   return [...ATHLETES,...extra];
 }
+
 function renderCoachCtrl(){
   let wkOpts=WEEKS.map((w,i)=>`<option value="${i}" ${i===CW?"selected":""}>${w.id} — ${w.dates}</option>`).join("");
   let h=`<div class="sec-title">Semana</div><select class="sel" style="max-width:280px;margin-bottom:16px" id="ovWk" onchange="CW=parseInt(this.value);renderCoachCtrl()">${wkOpts}</select>`;
   
-  // PIN MANAGEMENT PANEL
   h+=`<div style="background:rgba(0,201,232,.05);border:1px solid rgba(0,201,232,.15);border-radius:12px;padding:14px;margin-bottom:16px">
     <div class="sec-title" style="margin-bottom:10px">🔑 Códigos PIN de atletas</div>`;
   getAllAthletes().forEach(a=>{
@@ -1213,7 +1196,6 @@ function renderCoachCtrl(){
     </div>`;
   });
 
-  // ADD ATHLETE
   h+=`<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" style="width:100%" onclick="toggleAddAthCtrl()">+ Agregar atleta</button>
   <div id="addAthCtrl" style="display:none;margin-top:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px">
     <div style="font-size:11px;color:var(--grey);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase">Nuevo atleta</div>
@@ -1248,6 +1230,9 @@ async function savePinCtrl(aid){
   const ok=document.getElementById("pinok_"+aid);if(ok){ok.style.display="inline";ok.textContent="✅ Guardado";setTimeout(()=>{ok.style.display="none";},2500);}
 }
 
+// ==========================================
+// FIX 1: renderCoachEval — forEach corregido
+// ==========================================
 function renderCoachEval(){
   let wkOpts=WEEKS.map((w,i)=>`<option value="${i}" ${i===CW?"selected":""}>${w.id}</option>`).join("");
   let dayOpts=["Lun","Mar","Mié","Jue","Vie ⭐","Sáb","Dom"].map((d,i)=>`<option value="${i}" ${i===CD?"selected":""}>${d}</option>`).join("");
@@ -1256,7 +1241,8 @@ function renderCoachEval(){
   <div style="display:flex;gap:8px;margin-bottom:14px"><select class="sel" onchange="CW=parseInt(this.value);renderCoachEval()">${wkOpts}</select><select class="sel" onchange="CD=parseInt(this.value);renderCoachEval()">${dayOpts}</select></div>`;
   if(!plan||plan.type!=="PRESENCIAL"){h+=`<div class="card" style="text-align:center;padding:24px;color:var(--grey)">Este día no es sesión presencial.<br>Seleccioná un día con tipo Presencial.</div>`;document.getElementById("cTabEval").innerHTML=h;return;}
   if(drill&&drill.drillCode)h+=`<div class="card card-cyan" style="margin-bottom:14px"><div class="drill-code">${x(drill.drillCode)} ${drill.drillPilar?" · "+x(drill.drillPilar):""}</div><div class="drill-h">${x(drill.title||"Drill del día")}</div>${drill.constraint?`<div class="constraint-box" style="margin-top:6px">🚫 ${x(drill.constraint)}</div>`:""}</div>`;
-getAllAthletes()
+  // FIX: getAllAthletes().forEach(a=>{ was missing
+  getAllAthletes().forEach(a=>{
     const ev=EVALS[CU+"_"+a.id+"_"+CW+"_"+CD]||{};
     const k=a.id;
     h+=`<div class="eval-daily-card">
@@ -1314,11 +1300,10 @@ function selFormalAth(aid,btn){
 }
 
 function renderFormalForm(aid){
-  const ai=ATH[aid],lp=latestPhys(aid)||{},inj=INJURIES[aid]||[];
+  const ai=ATH[aid]||{name:aid,pos:""},lp=latestPhys(aid)||{},inj=INJURIES[aid]||[];
   formalState[aid]=formalState[aid]||{scores:{},summary:{}};
   let h=`<div style="font-size:14px;font-weight:700;color:var(--cyan);margin-bottom:16px">${getAthAvatar(aid,32)} ${ai.name} — Evaluación Formal</div>`;
   
-  // PHYSICAL DATA
   h+=`<div class="card card-cyan" style="margin-bottom:10px">
     <div class="sec-title">📊 Actualizar datos físicos</div>
     <div class="phys-grid">
@@ -1330,7 +1315,6 @@ function renderFormalForm(aid){
     <div class="save-ok" id="phok_${aid}">✅ Guardado</div>
   </div>`;
   
-  // INJURIES
   h+=`<div class="card" style="margin-bottom:10px">
     <div class="sec-title">🩹 Lesiones</div>`;
   const actInj=inj.filter(i=>i.status==="activa");
@@ -1344,7 +1328,6 @@ function renderFormalForm(aid){
     <button class="btn btn-outline btn-xs" style="margin-top:8px" onclick="addInj('${aid}')">+ Agregar</button>
   </div>`;
   
-  // PILLARS
   PILLARS.forEach(pillar=>{
     const avg=pillar.criteria.reduce((s,c)=>s+(formalState[aid]?.scores?.[c.id]||0),0)/pillar.criteria.length;
     const pct=avg/10*100;
@@ -1361,7 +1344,6 @@ function renderFormalForm(aid){
     </div>`;
   });
 
-  // SUMMARY
   const su=formalState[aid]?.summary||{};
   h+=`<div class="card card-cyan">
     <div class="sec-title">📝 Resumen del Coach</div>
@@ -1386,12 +1368,11 @@ function setScore(aid,cid,n,btn){
   formalState[aid]=formalState[aid]||{scores:{}};
   formalState[aid].scores[cid]=n;
   btn.closest(".score-row")?.querySelectorAll(".sc").forEach((b,i)=>b.classList.toggle("on",i+1===n));
-  // update pillar avg display
   const pillar=PILLARS.find(p=>p.criteria.some(c=>c.id===cid));
   if(pillar){
     const avg=pillar.criteria.reduce((s,c)=>s+(formalState[aid].scores[c.id]||0),0)/pillar.criteria.length;
     const pc=btn.closest(".pillar-card");if(pc){const pa=pc.querySelector(".pillar-avg");if(pa)pa.textContent=avg>0?avg.toFixed(1):"—";}
-    const pc2=btn.closest(".pillar-card");const bar=pc2?pc2.querySelector(".prog-fill"):null;
+    const bar=pc?pc.querySelector(".prog-fill"):null;
     if(bar)bar.style.width=(avg/10*100)+"%";
   }
 }
@@ -1519,7 +1500,7 @@ function buildDayView(a,w,d){
     <div class="notes-divider"></div>
     
     <div class="inp-label-sm">⏱️ Horas surfeadas hoy</div>
-    <div class="hours-row">${["0.5","1","1.5","2","2.5","3","3+"].map((h2,i)=>`<button class="hr-btn ${curHours===h2?"on":""}" onclick="setExtraStr('${fk}','hours','${h2}',this,'hr-btn')">${h2}h</button>`).join("")}</div>
+    <div class="hours-row">${["0.5","1","1.5","2","2.5","3","3+"].map((hv,i)=>`<button class="hr-btn ${curHours===hv?"on":""}" onclick="setExtraStr('${fk}','hours','${hv}',this,'hr-btn')">${hv}h</button>`).join("")}</div>
     
     <div class="notes-divider"></div>
     
@@ -1534,7 +1515,6 @@ function buildDayView(a,w,d){
     </div>
     <div class="save-ok" id="nok_${a}_${w}_${d}">✅ Guardado</div>
   </div>`;
-  // Self-eval block (only for autonomous days)
   if(plan.type==="AUTÓNOMO"){
     const seKey=a+"_"+w+"_"+d;
     const seData=noteData.self_eval?JSON.parse(noteData.self_eval):{};
@@ -1582,7 +1562,7 @@ function setFeeling(v,fk){
 function setExtra(fk,field,val,btn,cls){
   if(!extraState[fk])extraState[fk]={};
   extraState[fk][field]=val;
-  btn.closest("."+cls.split("-")[0]+"-row,.water-row")?.querySelectorAll("."+cls).forEach(b=>b.classList.remove("on"));
+  btn.closest(".water-row")?.querySelectorAll("."+cls).forEach(b=>b.classList.remove("on"));
   btn.classList.add("on");
 }
 function setExtraStr(fk,field,val,btn,cls){
@@ -1636,7 +1616,6 @@ async function saveSelfEval(a,w,d){
   const key=a+"_"+w+"_"+d;
   const se=selfEvalState[key]||{};
   if(!se.enfoque&&!se.objetivo&&!se.energia)return;
-  // Store in notes with a prefix
   const existing=NOTES[key]||{};
   const seData=JSON.stringify({enfoque:se.enfoque||0,objetivo:se.objetivo||"",energia:se.energia||0});
   NOTES[key]={...existing,self_eval:seData};
@@ -1645,12 +1624,14 @@ async function saveSelfEval(a,w,d){
   if(ok){ok.style.display="block";ok.textContent="✅ Autoevaluación guardada";setTimeout(()=>ok.style.display="none",2500);}
 }
 
+// ==========================================
+// FIX 2: showAthData — template literal corregido
+// ==========================================
 function showAthData(athId){
   const a=ATH[athId]||{name:athId,pos:""};
   const prof=PROFILES[athId]||{};
   const name=prof.full_name||a.name;
   const avg=getAvgScore(athId);
-  // Attendance
   let totalDays=0,doneDays=0,totalHours=0;
   for(let w=0;w<=CW;w++){for(let d=0;d<7;d++){
     const p=getPlan(w,d);
@@ -1662,7 +1643,6 @@ function showAthData(athId){
     if(nd?.extra){try{const ex=JSON.parse(nd.extra);if(ex.hours)totalHours+=parseFloat(ex.hours)||0;}catch(e){}}
   }}
   const attPct=totalDays>0?Math.round(doneDays/totalDays*100):0;
-  // Formal evals
   const evals=FORMAL[athId]||[];
   const avatar=prof.photo_url
     ?`<img src="${prof.photo_url}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,201,232,.3);">`
@@ -1695,17 +1675,19 @@ function showAthData(athId){
       <div style="height:6px;background:rgba(255,255,255,.05);border-radius:6px;overflow:hidden;margin-bottom:16px">
         <div style="height:100%;width:${attPct}%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:6px"></div>
       </div>`;
-  // Formal evals history
   if(evals.length){
     h+=`<div class="sec-title">Evaluaciones formales</div>`;
     evals.slice().reverse().forEach(ev=>{
+      // FIX: parse summary properly, no nested template literal
+      let suObj={};try{suObj=JSON.parse(ev.summary||"{}");}catch(e){}
+      const strengthHtml=suObj.strength?`<div style="font-size:12px;color:var(--green);margin-top:6px">💪 ${suObj.strength}</div>`:"";
+      const limitingHtml=suObj.limiting?`<div style="font-size:12px;color:var(--red);margin-top:4px">⚠️ ${suObj.limiting}</div>`:"";
       h+=`<div class="card" style="margin-bottom:8px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div style="font-size:12px;color:var(--grey)">${ev.eval_date||""} · ${ev.phase||""}</div>
           <div style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--cyan)">${ev.total_score||"—"}/10</div>
         </div>
-        ${${JSON.parse(ev.summary||"{}").strength?`<div style="font-size:12px;color:var(--green);margin-top:6px">💪 ${JSON.parse(ev.summary||"{}").strength}</div>`:""} ${JSON.parse(ev.summary||"{}").limiting?`<div style="font-size:12px;color:var(--red);margin-top:4px">⚠️ ${JSON.parse(ev.summary||"{}").limiting}</div>`:""}:""}
-        ${ev.limiting?`<div style="font-size:12px;color:var(--red);margin-top:4px">⚠️ ${ev.limiting}</div>`:""}
+        ${strengthHtml}${limitingHtml}
       </div>`;
     });
   } else {
