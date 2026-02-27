@@ -2650,7 +2650,10 @@ async function vPerfil(athleteId=null,athleteName=null){
       <div class="ath-avatar" style="width:52px;height:52px;font-size:22px;">${name.charAt(0)}</div>
       <div><div class="page-title" style="margin-bottom:0;">${name}</div><div class="page-sub" style="margin-bottom:0;">Perfil · TSS 2026</div></div>
     </div>
-    ${isCoach?`<button class="btn btn-purple btn-sm" onclick="genPDF('${id}','${name}')">📄 PDF</button>`:''}
+    ${isCoach?`<div style="display:flex;gap:6px;">
+      <button class="btn btn-cyan btn-sm" onclick="openWeeklyReport('${id}','${name}')">📊 Reporte</button>
+      <button class="btn btn-purple btn-sm" onclick="genPDF('${id}','${name}')">📄 PDF</button>
+    </div>`:''}
   </div>
   <div id="perfilContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
   try {
@@ -2941,6 +2944,224 @@ function openAthProfile(id,name){
 }
 
 function closeModal(id){ const m=document.getElementById(id||'weekModal'); if(m) m.remove(); }
+
+/* ============================================================
+   REPORTE SEMANAL
+============================================================ */
+function getWeekDays(offset=0){
+  const now=new Date();
+  const day=now.getDay()||7;
+  const mon=new Date(now); mon.setDate(now.getDate()-day+1+(offset*7));
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d.toISOString().split('T')[0]; });
+}
+
+async function openWeeklyReport(athleteId, athleteName, weekOffset=0){
+  const days = getWeekDays(weekOffset);
+  const mon = days[0]; const sun = days[6];
+
+  // Show modal with loading
+  let m = document.getElementById('weeklyReportModal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.className = 'modal-overlay'; m.id = 'weeklyReportModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:90vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">📊 Reporte Semanal</div>
+        <div style="font-size:12px;color:var(--grey);">${athleteName}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('weeklyReportModal')">✕</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <button class="btn btn-xs btn-outline" onclick="openWeeklyReport('${athleteId}','${athleteName}',${weekOffset-1})">← Anterior</button>
+      <span style="font-size:12px;color:var(--cyan);font-weight:700;">${fmtDateShort(mon)} — ${fmtDateShort(sun)}</span>
+      ${weekOffset<0?`<button class="btn btn-xs btn-outline" onclick="openWeeklyReport('${athleteId}','${athleteName}',${weekOffset+1})">Siguiente →</button>`:`<div style="width:80px;"></div>`}
+    </div>
+    <div id="weeklyReportContent" style="text-align:center;padding:20px;color:var(--grey);font-size:12px;">Cargando...</div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('weeklyReportModal'); };
+
+  try {
+    const[{data:checkins},{data:plans},{data:evals},{data:presSessions}] = await Promise.all([
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',mon).lte('date',sun),
+      db.from('tss_daily_plans').select('id,date,work_type').gte('date',mon).lte('date',sun),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',mon).lte('date',sun),
+      db.from('tss_presencial_sessions').select('id,date,title,athlete_ids,status').gte('date',mon).lte('date',sun),
+    ]);
+
+    const ciMap = {}; (checkins||[]).forEach(c=>ciMap[c.date]=c);
+    
+    // Filter presencial sessions for this athlete
+    const myPres = (presSessions||[]).filter(s=>{
+      try{ const ids=s.athlete_ids?JSON.parse(s.athlete_ids):[];return ids.includes(athleteId);}catch(e){return false;}
+    });
+    const presMap = {};
+    myPres.forEach(s=>{ if(!presMap[s.date]) presMap[s.date]=[]; presMap[s.date].push(s); });
+
+    // Stats
+    const totalDays = 7;
+    const checkinDays = (checkins||[]).length;
+    const avgWater = checkinDays ? (checkins.reduce((s,c)=>s+(c.water_glasses||0),0)/checkinDays).toFixed(1) : '—';
+    const avgEnergy = checkinDays ? (checkins.reduce((s,c)=>s+(c.energy_level||0),0)/checkinDays).toFixed(1) : '—';
+    const avgFocus = checkinDays ? (checkins.reduce((s,c)=>s+(c.focus_level||0),0)/checkinDays).toFixed(1) : '—';
+    const goodNutrition = (checkins||[]).filter(c=>c.nutrition==='Si').length;
+    const goals = (checkins||[]).filter(c=>c.goal_achieved==='Si').length;
+    const avgPlan = checkinDays ? Math.round((checkins||[]).reduce((s,c)=>s+(c.progress_pct||0),0)/checkinDays) : 0;
+    const presAttendance = myPres.length;
+
+    // Wave Score areas from evals this week
+    const latestEval = (evals||[]).length ? evals[0] : null;
+
+    const dayNames = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+
+    document.getElementById('weeklyReportContent').innerHTML = `
+      <!-- SUMMARY CARDS -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;">
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;">${checkinDays}/${totalDays}</div>
+          <div style="font-size:10px;color:var(--grey);margin-top:3px;letter-spacing:.8px;">DÍAS CHECK-IN</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:var(--green);font-family:'Space Mono',monospace;">${avgPlan}%</div>
+          <div style="font-size:10px;color:var(--grey);margin-top:3px;letter-spacing:.8px;">PLAN COMPLETADO</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:var(--amber);font-family:'Space Mono',monospace;">${presAttendance}</div>
+          <div style="font-size:10px;color:var(--grey);margin-top:3px;letter-spacing:.8px;">SESIONES PRESENC.</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:var(--purple);font-family:'Space Mono',monospace;">${goals}/${checkinDays||0}</div>
+          <div style="font-size:10px;color:var(--grey);margin-top:3px;letter-spacing:.8px;">OBJETIVOS LOGRADOS</div>
+        </div>
+      </div>
+
+      <!-- WELLNESS STATS -->
+      <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">💧 Bienestar Semanal</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <div style="text-align:center;">
+            <div style="font-size:20px;font-weight:800;color:var(--cyan);">${avgWater}</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:2px;">💧 Agua/día</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:20px;font-weight:800;color:var(--amber);">${avgEnergy}/5</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:2px;">⚡ Energía</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:20px;font-weight:800;color:var(--purple);">${avgFocus}/5</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:2px;">🎯 Enfoque</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:11px;color:var(--grey);">🥗 Buena nutrición</span>
+          <span style="font-size:13px;font-weight:700;color:${goodNutrition>=5?'var(--green)':goodNutrition>=3?'var(--amber)':'var(--red)'};">${goodNutrition}/${checkinDays} días</span>
+        </div>
+      </div>
+
+      <!-- WAVE SCORE AREAS -->
+      ${latestEval ? `<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">⭐ Wave Score — Áreas</div>
+        ${[['Físico',latestEval.physical,'var(--green)'],['Técnica',latestEval.technique,'var(--cyan)'],['Mentalidad',latestEval.mindset,'var(--purple)'],['Competitivo',latestEval.competitive,'var(--amber)']].map(([label,val,color])=>`
+          <div style="margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <span style="font-size:12px;">${label}</span>
+              <span style="font-size:12px;font-weight:700;color:${color};font-family:'Space Mono',monospace;">${val||'—'}/10</span>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px;">
+              <div style="height:6px;background:${color};border-radius:3px;width:${(val||0)*10}%;transition:width .5s;"></div>
+            </div>
+          </div>`).join('')}
+        <div style="margin-top:10px;text-align:right;font-size:10px;color:var(--grey);">Evaluación del ${fmtDate(latestEval.date)}</div>
+      </div>` : `<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--grey);">Sin evaluaciones esta semana</div>
+      </div>`}
+
+      <!-- DAY BY DAY -->
+      <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">📅 Día a Día</div>
+        ${days.map((date,i)=>{
+          const ci=ciMap[date];
+          const pres=presMap[date]||[];
+          const hasData=ci||pres.length;
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+            <div style="min-width:36px;text-align:center;">
+              <div style="font-size:9px;color:var(--grey);">${dayNames[i]}</div>
+              <div style="font-size:13px;font-weight:700;color:${hasData?'var(--white)':'var(--grey)'};">${date.split('-')[2]}</div>
+            </div>
+            <div style="flex:1;">
+              ${ci?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                <span style="font-size:11px;color:var(--cyan);">💧${ci.water_glasses||0}</span>
+                <span style="font-size:11px;color:var(--amber);">⚡${ci.energy_level||0}/5</span>
+                <span style="font-size:11px;color:var(--purple);">🎯${ci.focus_level||0}/5</span>
+                <span style="font-size:11px;color:${ci.nutrition==='Si'?'var(--green)':ci.nutrition==='Medio'?'var(--amber)':'var(--red)'};">🥗${ci.nutrition||'—'}</span>
+                ${ci.progress_pct?`<span style="font-size:11px;color:var(--green);">✅${ci.progress_pct}%</span>`:''}
+                ${ci.goal_achieved==='Si'?'<span style="font-size:11px;">🏆 Meta</span>':''}
+              </div>`:
+              `<span style="font-size:11px;color:rgba(255,255,255,.2);">Sin check-in</span>`}
+              ${pres.map(s=>`<div style="font-size:10px;color:var(--cyan);margin-top:2px;">🏄 ${s.title}</div>`).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <!-- EXPORT PDF -->
+      <button class="save-btn" style="background:var(--purple);" onclick="genWeeklyPDF('${athleteId}','${athleteName}','${mon}','${sun}')">
+        📄 Exportar PDF Semanal
+      </button>
+    `;
+  } catch(e){ 
+    document.getElementById('weeklyReportContent').innerHTML='<p style="color:var(--red);">Error al cargar reporte</p>'; 
+    console.error(e); 
+  }
+}
+
+async function genWeeklyPDF(athleteId, athleteName, mon, sun){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const M=15; let y=M;
+  const pw=210-M*2;
+
+  // Header
+  doc.setFillColor(5,10,15);
+  doc.rect(0,0,210,297,'F');
+  doc.setFillColor(0,201,232);
+  doc.rect(0,0,210,18,'F');
+  doc.setTextColor(5,10,15);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('TSS — The Surf Sequence',M,12);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Reporte Semanal · '+athleteName,M,18.5);
+  doc.text(mon+' al '+sun,210-M,12,{align:'right'});
+
+  y=28;
+  doc.setTextColor(232,240,245);
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text('📊 Reporte generado desde TSS El Salvador',M,y); y+=10;
+
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.setTextColor(107,138,154);
+  doc.text('Para un análisis detallado, accede al perfil del atleta en la plataforma TSS.',M,y); y+=8;
+
+  doc.setTextColor(0,201,232);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Atleta: '+athleteName,M,y); y+=6;
+  doc.text('Período: '+mon+' — '+sun,M,y); y+=10;
+
+  doc.setDrawColor(0,201,232); doc.setLineWidth(0.3);
+  doc.line(M,y,210-M,y); y+=8;
+
+  doc.setTextColor(232,240,245);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text('Este PDF es un resumen exportado desde la app TSS. Los datos completos están en la plataforma.',M,y,{maxWidth:pw}); y+=12;
+
+  doc.setTextColor(0,201,232);
+  doc.setFontSize(9); doc.setFont('helvetica','bold');
+  doc.text('marcelocsurf.github.io/tss-elsalvador',M,y); y+=8;
+
+  doc.save('TSS_Reporte_'+athleteName.replace(/ /g,'_')+'_'+mon+'.pdf');
+  toast('📄 PDF exportado','success');
+}
 
 /* ============================================================
    COMPETENCIAS
