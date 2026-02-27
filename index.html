@@ -2402,7 +2402,7 @@ async function vPanel(){
     const[{data:sessions},{data:evals},{data:checkins}]=await Promise.all([
       db.from('tss_sessions').select('athlete_id,date').order('date',{ascending:false}),
       db.from('tss_evaluations').select('athlete_id,competitive'),
-      db.from('tss_daily_checkins').select('athlete_id,date,goal_achieved,progress_pct,blocks_completed,comp_state').eq('date',today),
+      db.from('tss_daily_checkins').select('athlete_id,date,goal_achieved,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition').eq('date',today),
     ]);
     const lastSes={}; (sessions||[]).forEach(s=>{if(!lastSes[s.athlete_id])lastSes[s.athlete_id]=s.date;});
     const scoreSum={},scoreCount={};
@@ -2433,15 +2433,15 @@ async function vPanel(){
           </div>
           ${ci?`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
             <div style="background:var(--bg3);border-radius:8px;padding:8px 6px;text-align:center;">
-              <div style="font-size:16px;font-weight:800;color:${waterColor};">${ci.water_glasses}</div>
+              <div style="font-size:16px;font-weight:800;color:${waterColor};">${ci.water_glasses??'—'}</div>
               <div style="font-size:9px;color:var(--grey);margin-top:2px;">💧 Agua</div>
             </div>
             <div style="background:var(--bg3);border-radius:8px;padding:8px 6px;text-align:center;">
-              <div style="font-size:16px;font-weight:800;color:var(--cyan);">${ci.energy_level}</div>
+              <div style="font-size:16px;font-weight:800;color:var(--cyan);">${ci.energy_level??'—'}</div>
               <div style="font-size:9px;color:var(--grey);margin-top:2px;">⚡ Energía</div>
             </div>
             <div style="background:var(--bg3);border-radius:8px;padding:8px 6px;text-align:center;">
-              <div style="font-size:16px;font-weight:800;color:var(--purple);">${ci.focus_level}</div>
+              <div style="font-size:16px;font-weight:800;color:var(--purple);">${ci.focus_level??'—'}</div>
               <div style="font-size:9px;color:var(--grey);margin-top:2px;">🎯 Enfoque</div>
             </div>
             <div style="background:var(--bg3);border-radius:8px;padding:8px 6px;text-align:center;">
