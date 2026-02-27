@@ -1301,7 +1301,8 @@ async function toggleBlock(planId, date){
   compState[planId+'_block'] = !compState[planId+'_block'];
   localStorage.setItem(compKey, JSON.stringify(compState));
   await saveProgressToDb(date, compState);
-  reloadPlansOnly(date, compState);
+  // Reload full view to properly handle presencial blocks
+  await loadHoy(date);
 }
 
 async function toggleTask(planId, taskIdx, date){
