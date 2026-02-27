@@ -1313,7 +1313,7 @@ async function toggleTask(planId, taskIdx, date){
   compState[key] = !compState[key];
   localStorage.setItem(compKey, JSON.stringify(compState));
   await saveProgressToDb(date, compState);
-  reloadPlansOnly(date, compState);
+  await loadHoy(date);
 }
 
 function reloadPlansOnly(date, compState){
@@ -2665,8 +2665,8 @@ async function vPerfil(athleteId=null,athleteName=null){
     const scores=(evals||[]).map(e=>e.competitive).filter(Boolean);
     const waveScore=scores.length?(scores.reduce((a,b)=>a+b,0)/scores.length):0;
     const pct=waveScore/10*100;
-    const avgEnergy=checkins?.length?(checkins.reduce((s,c)=>s+c.energy_level,0)/checkins.length).toFixed(1):'—';
-    const avgFocus=checkins?.length?(checkins.reduce((s,c)=>s+c.focus_level,0)/checkins.length).toFixed(1):'—';
+    const avgEnergy=checkins?.length?(checkins.reduce((s,c)=>s+(c.energy_level||0),0)/checkins.length).toFixed(1):'—';
+    const avgFocus=checkins?.length?(checkins.reduce((s,c)=>s+(c.focus_level||0),0)/checkins.length).toFixed(1):'—';
 
     // Load comp evals for surf score stats
     const{data:compEvals}=await db.from('tss_comp_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false});
