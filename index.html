@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>TSS — The Surf Sequence® | El Salvador 2026</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -907,8 +908,8 @@ async function saveSp(existId){
     status: existId ? undefined : 'planned'
   };
   if(!existId) payload.status = 'planned';
-  // Clean undefined
-  Object.keys(payload).forEach(k => payload[k]===undefined && delete payload[k]);
+  // Clean undefined and null to avoid schema cache errors on missing columns
+  Object.keys(payload).forEach(k => (payload[k]===undefined || payload[k]===null) && delete payload[k]);
 
   showLoad(true);
   try {
@@ -1104,14 +1105,14 @@ async function loadHoy(date){
           <span class="completed-badge">✅ Completado</span>
         </div>
         <div class="checkin-grid">
-          <div class="checkin-box"><div class="checkin-val" style="color:var(--cyan);">${ci.water_glasses}${ci.water_glasses>=8?'+':''}</div><div class="checkin-lbl">💧 Vasos agua</div></div>
+          <div class="checkin-box"><div class="checkin-val" style="color:var(--cyan);">${ci.water_glasses??0}${ci.water_glasses>=8?'+':''}</div><div class="checkin-lbl">💧 Vasos agua</div></div>
           <div class="checkin-box"><div class="checkin-val" style="color:var(--amber);">${ci.energy_level}/5</div><div class="checkin-lbl">⚡ Energía</div></div>
-          <div class="checkin-box"><div class="checkin-val" style="color:${ci.nutrition==='Si'?'var(--green)':ci.nutrition==='Medio'?'var(--amber)':'var(--red)'};">${ci.nutrition}</div><div class="checkin-lbl">🥗 Nutrición</div></div>
+          <div class="checkin-box"><div class="checkin-val" style="color:${ci.nutrition==='Si'?'var(--green)':ci.nutrition==='Medio'?'var(--amber)':ci.nutrition?'var(--red)':'var(--grey)'};">${ci.nutrition||'—'}</div><div class="checkin-lbl">🥗 Nutrición</div></div>
           <div class="checkin-box"><div class="checkin-val" style="color:var(--purple);">${ci.focus_level}/5</div><div class="checkin-lbl">🎯 Enfoque</div></div>
         </div>
         <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--r2);">
           <span style="font-size:12px;color:var(--grey);">Logré mi objetivo: </span>
-          <span style="font-size:13px;font-weight:700;color:${ci.goal_achieved==='Si'?'var(--green)':ci.goal_achieved==='Parcial'?'var(--amber)':'var(--red)'};">${ci.goal_achieved}</span>
+          <span style="font-size:13px;font-weight:700;color:${ci.goal_achieved==='Si'?'var(--green)':ci.goal_achieved==='Parcial'?'var(--amber)':ci.goal_achieved?'var(--red)':'var(--grey)'};">${ci.goal_achieved||'—'}</span>
         </div>
         ${ci.notes?`<p style="font-size:12px;color:rgba(232,240,245,.5);margin-top:8px;">${ci.notes}</p>`:''}
       </div>`;
