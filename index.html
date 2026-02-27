@@ -1081,6 +1081,15 @@ async function loadHoy(date){
     const plans = await getPlanForAthlete(S.user.id, date);
     // Get check-in if exists
     const{data:ci}=await db.from('tss_daily_checkins').select('*').eq('athlete_id',S.user.id).eq('date',date).maybeSingle();
+    // Get presencial sessions for this athlete today
+    const{data:presSessions}=await db.from('tss_presencial_sessions')
+      .select('*').eq('date',date).neq('status','cancelled').order('time_start');
+    // Filter only sessions where this athlete is assigned
+    const myPresSessions=(presSessions||[]).filter(s=>{
+      try{ const ids=s.athlete_ids?(Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]')):[];
+        return ids.includes(S.user.id);
+      }catch(e){return false;}
+    });
 
     // Load completion state from DB (fallback to localStorage)
     const compKey = `tss_comp_${S.user.id}_${date}`;
@@ -1091,15 +1100,32 @@ async function loadHoy(date){
       localStorage.setItem(compKey, JSON.stringify(compState));
     }
 
-    // Cache plans for quick re-render on toggle
+    // Cache plans + presencial blocks for quick re-render on toggle
     const cacheKey = `tss_plans_cache_${date}`;
-    try{ sessionStorage.setItem(cacheKey, JSON.stringify(plans||[])); }catch(e){}
+    try{ sessionStorage.setItem(cacheKey, JSON.stringify(allBlocks||[])); }catch(e){}
+
+    // Build presencial session blocks to include in plan
+    const presBlocks = myPresSessions.map(ps=>({
+      _isPresencial: true,
+      id: 'pres_'+ps.id,
+      _presId: ps.id,
+      title: ps.title,
+      time_start: ps.time_start,
+      mission: ps.mission,
+      duration_min: ps.duration_min,
+      location: ps.location,
+      drills: ps.drills,
+      video_url: ps.video_url,
+      status: ps.status,
+    }));
+
+    const allBlocks = [...presBlocks, ...(plans||[])];
 
     let planHtml='';
-    if(plans&&plans.length){
+    if(allBlocks.length){
       // Progress summary
-      let totalBlocks=plans.length;
-      let doneBlocks=plans.filter(p=>compState[p.id+'_block']).length;
+      let totalBlocks=allBlocks.length;
+      let doneBlocks=allBlocks.filter(p=>compState[p.id+'_block']).length;
       let pct=Math.round((doneBlocks/totalBlocks)*100);
       planHtml=`<div class="sec-title">📋 Plan del Día</div>
       <div class="card card-cyan anim-up" style="margin-bottom:12px;padding:12px 14px;">
@@ -1111,7 +1137,51 @@ async function loadHoy(date){
         ${pct===100?'<div style="text-align:center;margin-top:8px;font-size:12px;color:var(--green);font-weight:700;">🏆 ¡Día completado!</div>':''}
       </div>`;
 
-      plans.forEach(plan=>{
+      allBlocks.forEach(plan=>{
+        // PRESENCIAL SESSION BLOCK
+        if(plan._isPresencial){
+          const blockDone = !!compState[plan.id+'_block'];
+          let drills=[];
+          try{ drills=plan.drills?JSON.parse(plan.drills):[]; }catch(e){}
+          const vid=ytId(plan.video_url);
+          const statusColor = plan.status==='live'?'var(--green)':plan.status==='done'?'var(--grey)':'var(--cyan)';
+          const statusLabel = plan.status==='live'?'🟢 En Curso':plan.status==='done'?'✅ Completada':'📅 Programada';
+          planHtml+=`<div class="card anim-up" style="margin-bottom:10px;border:1px solid rgba(0,201,232,.3);${blockDone?'opacity:.7;':''}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:22px;">🏄</span>
+                <div>
+                  <div style="font-size:15px;font-weight:800;${blockDone?'text-decoration:line-through;color:var(--grey);':''}">Sesión Presencial</div>
+                  <div style="font-size:12px;color:var(--cyan);font-weight:600;">${plan.title}</div>
+                  ${plan.time_start?`<div style="font-size:11px;color:var(--grey);">🕐 ${plan.time_start}${plan.location?' · 📍'+plan.location:''}</div>`:''}
+                </div>
+              </div>
+              <button type="button" onclick="toggleBlock('${plan.id}','${date}')"
+                style="flex-shrink:0;width:32px;height:32px;border-radius:50%;border:2px solid ${blockDone?'var(--green)':'rgba(255,255,255,.2)'};
+                background:${blockDone?'rgba(34,197,94,.2)':'transparent'};cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">
+                ${blockDone?'✅':'○'}
+              </button>
+            </div>
+            <span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(0,201,232,.1);color:${statusColor};border:1px solid ${statusColor};margin-bottom:8px;display:inline-block;">${statusLabel}</span>
+            ${plan.duration_min?`<div style="font-size:11px;color:var(--grey);margin-bottom:6px;">⏱ ${plan.duration_min} minutos</div>`:''}
+            ${plan.mission?`<div style="background:rgba(0,201,232,.05);border-left:3px solid var(--cyan);border-radius:6px;padding:8px 10px;margin-bottom:8px;">
+              <div style="font-size:10px;color:var(--grey);margin-bottom:3px;letter-spacing:.8px;">MISIÓN</div>
+              <div style="font-size:13px;line-height:1.6;">${plan.mission}</div>
+            </div>`:''}
+            ${drills.length?`<div style="margin-bottom:6px;">
+              <div style="font-size:10px;color:var(--grey);margin-bottom:6px;letter-spacing:.8px;">DRILLS (${drills.length})</div>
+              ${drills.map((d,i)=>`<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;margin-bottom:5px;">
+                <div style="font-size:12px;font-weight:700;">${i+1}. ${d.name}</div>
+                ${d.desc?`<div style="font-size:11px;color:var(--grey);margin-top:2px;">${d.desc}</div>`:''}
+                ${d.time||d.reps?`<div style="font-size:11px;color:var(--cyan);margin-top:3px;">${d.time?d.time+' min':''}${d.time&&d.reps?' · ':''}${d.reps?d.reps+' reps':''}</div>`:''}
+              </div>`).join('')}
+            </div>`:''}
+            ${vid?`<div class="yt-embed" style="margin-top:8px;"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
+          </div>`;
+          return;
+        }
+
+        // REGULAR PLAN BLOCK
         const bt=getBlockType(plan.work_type);
         const vid=ytId(plan.video_url);
         let tasks=[];
@@ -1276,6 +1346,35 @@ function buildPlansHtml(plans, compState, date){
     ${pct===100?'<div style="text-align:center;margin-top:8px;font-size:12px;color:var(--green);font-weight:700;">🏆 ¡Día completado!</div>':''}
   </div>`;
   plans.forEach(plan=>{
+    // Handle presencial blocks in quick-reload
+    if(plan._isPresencial){
+      const blockDone=!!compState[plan.id+'_block'];
+      let drills=[]; try{ drills=plan.drills?JSON.parse(plan.drills):[]; }catch(e){}
+      const statusLabel=plan.status==='live'?'🟢 En Curso':plan.status==='done'?'✅ Completada':'📅 Programada';
+      html+=`<div class="card anim-up" style="margin-bottom:10px;border:1px solid rgba(0,201,232,.3);${blockDone?'opacity:.7;':''}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:22px;">🏄</span>
+            <div>
+              <div style="font-size:15px;font-weight:800;${blockDone?'text-decoration:line-through;color:var(--grey);':''}">Sesión Presencial</div>
+              <div style="font-size:12px;color:var(--cyan);font-weight:600;">${plan.title}</div>
+              ${plan.time_start?`<div style="font-size:11px;color:var(--grey);">🕐 ${plan.time_start}${plan.location?' · 📍'+plan.location:''}</div>`:''}
+            </div>
+          </div>
+          <button type="button" onclick="toggleBlock('${plan.id}','${date}')"
+            style="flex-shrink:0;width:32px;height:32px;border-radius:50%;border:2px solid ${blockDone?'var(--green)':'rgba(255,255,255,.2)'};
+            background:${blockDone?'rgba(34,197,94,.2)':'transparent'};cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">
+            ${blockDone?'✅':'○'}
+          </button>
+        </div>
+        <span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(0,201,232,.1);color:var(--cyan);border:1px solid var(--cyan);margin-bottom:8px;display:inline-block;">${statusLabel}</span>
+        ${plan.mission?`<div style="background:rgba(0,201,232,.05);border-left:3px solid var(--cyan);border-radius:6px;padding:8px 10px;margin-bottom:8px;">
+          <div style="font-size:10px;color:var(--grey);margin-bottom:3px;letter-spacing:.8px;">MISIÓN</div>
+          <div style="font-size:13px;line-height:1.6;">${plan.mission}</div>
+        </div>`:''}
+      </div>`;
+      return;
+    }
     const bt=getBlockType(plan.work_type);
     const vid=ytId(plan.video_url);
     let tasks=[]; try{ tasks=JSON.parse(plan.exercises||'[]'); }catch(e){}
