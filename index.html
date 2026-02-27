@@ -359,6 +359,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* STATE */
 let S = { user:null, pin:'', loginRole:'', athletes:[], groups:[], view:null, selDate:null };
+let spSelectedAthletes = []; // athletes selected for presencial session
 
 /* UTILS */
 function showLoad(v){ document.getElementById('loading').style.display=v?'flex':'none'; }
@@ -565,6 +566,20 @@ function renderSpCard(s, isToday){
       <div class="drill-val">${s.mission}</div>
     </div>` : ''}
 
+    ${(()=>{
+      try {
+        const ids = s.athlete_ids ? (Array.isArray(s.athlete_ids) ? s.athlete_ids : JSON.parse(s.athlete_ids||'[]')) : [];
+        if(!ids.length) return '';
+        const names = ids.map(id => { const a = S.athletes.find(x=>x.id===id); return a?a.name:'?'; }).filter(Boolean);
+        return `<div style="margin-bottom:8px;">
+          <div class="drill-label" style="margin-bottom:6px;">👥 Atletas (${names.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;">
+            ${names.map(n=>`<span class="chip" style="background:var(--cyan3);color:var(--cyan);border:1px solid var(--border);">${n}</span>`).join('')}
+          </div>
+        </div>`;
+      } catch(e){ return ''; }
+    })()}
+
     <div class="drill-row">
       ${s.duration_min ? `<div class="drill-stat"><div class="drill-stat-n">${s.duration_min}'</div><div class="drill-stat-l">Duración</div></div>` : ''}
       ${s.reps ? `<div class="drill-stat"><div class="drill-stat-n">${s.reps}</div><div class="drill-stat-l">Reps</div></div>` : ''}
@@ -770,7 +785,7 @@ function renderSpForm(existSession){
       <label class="inp-label">Título de la sesión</label>
       <input type="text" class="inp" id="sp-title" value="${s?s.title||'':''}" placeholder="Ej: Técnica de bottom turn · grupo shortboard">
       <div style="display:flex;gap:8px;">
-        <div style="flex:1;"><label class="inp-label">Fecha</label><input type="date" class="inp" id="sp-date" value="${s?s.date:today}"></div>
+        <div style="flex:1;"><label class="inp-label">Fecha</label><input type="date" class="inp" id="sp-date" min="2024-01-01" max="2030-12-31"></div>
         <div style="flex:1;"><label class="inp-label">Hora</label><input type="time" class="inp" id="sp-time" value="${s?s.time_start||'':''}" placeholder="07:00"></div>
       </div>
       <label class="inp-label">Duración (minutos)</label>
@@ -823,8 +838,32 @@ function renderSpForm(existSession){
       <textarea class="ta" id="sp-notes" placeholder="Instrucciones adicionales para el asistente o atletas...">${s?s.notes||'':''}</textarea>
     </div>
 
+    <div class="card anim-up">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:var(--white);">👥 Atletas de la Sesión</div>
+        <div style="font-size:11px;color:var(--grey);">Toca para seleccionar</div>
+      </div>
+      <div id="sp-athletes-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
+    </div>
+
+    <div class="card anim-up">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:var(--white);">👥 Atletas de la Sesión</div>
+        <div style="font-size:11px;color:var(--grey);">Toca para seleccionar</div>
+      </div>
+      <div id="sp-athletes-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
+    </div>
+
     <button class="save-btn" onclick="saveSp('${s?s.id:''}')">💾 ${s ? 'Actualizar' : 'Publicar'} Sesión Presencial</button>
     <div style="height:20px;"></div>`;
+
+  // Set date value via JS (avoids template literal issues with date input)
+  const dateInput = document.getElementById('sp-date');
+  if(dateInput) dateInput.value = s ? (s.date||today) : today;
+
+  // Render athlete selector
+  const existingAthIds = s && s.athlete_ids ? (Array.isArray(s.athlete_ids) ? s.athlete_ids : JSON.parse(s.athlete_ids||'[]')) : [];
+  renderSpAthletes(existingAthIds);
 
   // Restore pilar selection
   if(s && s.pilar){
@@ -838,6 +877,40 @@ function renderSpForm(existSession){
       spDrills = JSON.parse(s.drills);
       renderDrillList();
     } catch(e){ spDrills = []; }
+  }
+}
+
+// Render athlete selector in presencial form
+function renderSpAthletes(existingIds=[]) {
+  spSelectedAthletes = [...existingIds];
+  const grid = document.getElementById('sp-athletes-grid');
+  if(!grid) return;
+  grid.innerHTML = S.athletes.map(a => {
+    const sel = spSelectedAthletes.includes(a.id);
+    return `<div onclick="toggleSpAthlete('${a.id}',this)" id="spa-${a.id}" style="
+      padding:10px 12px;border-radius:10px;cursor:pointer;border:2px solid ${sel?'var(--cyan)':'var(--border2)'};
+      background:${sel?'var(--cyan3)':'var(--bg3)'};transition:all .2s;text-align:center;">
+      <div style="font-size:12px;font-weight:700;color:${sel?'var(--cyan)':'var(--white)'};">${a.name}</div>
+      <div style="font-size:10px;margin-top:3px;color:${sel?'var(--cyan)':'var(--grey)'};">${sel?'✅ Seleccionado':'Toca para agregar'}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSpAthlete(id, el) {
+  if(spSelectedAthletes.includes(id)) {
+    spSelectedAthletes = spSelectedAthletes.filter(x=>x!==id);
+    el.style.border = '2px solid var(--border2)';
+    el.style.background = 'var(--bg3)';
+    el.querySelector('div').style.color = 'var(--white)';
+    el.querySelectorAll('div')[1].textContent = 'Toca para agregar';
+    el.querySelectorAll('div')[1].style.color = 'var(--grey)';
+  } else {
+    spSelectedAthletes.push(id);
+    el.style.border = '2px solid var(--cyan)';
+    el.style.background = 'var(--cyan3)';
+    el.querySelector('div').style.color = 'var(--cyan)';
+    el.querySelectorAll('div')[1].textContent = '✅ Seleccionado';
+    el.querySelectorAll('div')[1].style.color = 'var(--cyan)';
   }
 }
 
@@ -904,6 +977,7 @@ async function saveSp(existId){
     mental_hack: document.getElementById('sp-mental')?.value?.trim() || null,
     video_url: document.getElementById('sp-video')?.value?.trim() || null,
     notes: document.getElementById('sp-notes')?.value?.trim() || null,
+    athlete_ids: spSelectedAthletes.length ? JSON.stringify(spSelectedAthletes) : null,
     created_by: S.user.id,
     status: existId ? undefined : 'planned'
   };
