@@ -2306,7 +2306,7 @@ async function saveEval(athleteId){
     if(error) throw error;
     toast('✅ Evaluación guardada','success');
     document.getElementById('eaSel').value=''; document.getElementById('evalFormArea').innerHTML='';
-    // Refresh panel so Wave Score updates immediately
+    // Refresh panel so Índice de Rendimiento updates immediately
     setTimeout(()=>{ if(typeof vPanel==='function') vPanel(); if(typeof renderEvalHist==='function') renderEvalHist(); },300);
   } catch(e){toast('Error al guardar','error');console.error(e);}
   finally{showLoad(false);}
@@ -2656,7 +2656,7 @@ async function vPanel(){
     ]);
     const lastSes={}; (sessions||[]).forEach(s=>{if(!lastSes[s.athlete_id])lastSes[s.athlete_id]=s.date;});
     const scoreSum={},scoreCount={};
-    (evals||[]).forEach(e=>{scoreSum[e.athlete_id]=(scoreSum[e.athlete_id]||0)+e.competitive;scoreCount[e.athlete_id]=(scoreCount[e.athlete_id]||0)+1;});
+    (evals||[]).forEach(e=>{const avg4=((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4;scoreSum[e.athlete_id]=(scoreSum[e.athlete_id]||0)+avg4;scoreCount[e.athlete_id]=(scoreCount[e.athlete_id]||0)+1;});
     const ciToday={}; (checkins||[]).forEach(c=>{ciToday[c.athlete_id]=c;});
     const active=S.athletes.filter(a=>daysSince(lastSes[a.id])<=7).length;
     const checkedIn=Object.keys(ciToday).length;
@@ -2784,7 +2784,7 @@ async function vPerfil(athleteId=null,athleteName=null){
       db.from('tss_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false}),
       db.from('tss_daily_checkins').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(14),
     ]);
-    const scores=(evals||[]).map(e=>e.competitive).filter(Boolean);
+    const scores=(evals||[]).map(e=>((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4).filter(Boolean);
     const waveScore=scores.length?(scores.reduce((a,b)=>a+b,0)/scores.length):0;
     const pct=waveScore/10*100;
     const avgEnergy=checkins?.length?(checkins.reduce((s,c)=>s+(c.energy_level||0),0)/checkins.length).toFixed(1):'—';
@@ -2801,11 +2801,50 @@ async function vPerfil(athleteId=null,athleteName=null){
     document.getElementById('perfilContent').innerHTML=`
       <div class="card card-cyan wave-score-wrap">
         <div class="score-ring" style="background:conic-gradient(var(--cyan) ${pct}%,rgba(0,201,232,.08) 0%);">
-          <div class="score-inner"><div class="score-n">${waveScore?waveScore.toFixed(1):'—'}</div><div class="score-lbl">WAVE SCORE</div></div>
+          <div class="score-inner"><div class="score-n">${waveScore?waveScore.toFixed(1):'—'}</div><div class="score-lbl">ÍNDICE</div></div>
         </div>
-        <div style="font-size:12px;color:var(--grey);">Rendimiento competitivo promedio</div>
-        <div style="font-size:10px;color:#4A6070;margin-top:4px;">${scores.length} evaluación(es) del coach</div>
+        <div style="font-size:12px;color:var(--grey);">Índice de Rendimiento (1–10)</div>
+        <div style="font-size:10px;color:#4A6070;margin-top:4px;">Promedio: Físico · Técnica · Mental · Competitivo</div>
       </div>
+      ${evals&&evals.length?`
+      <div class="card anim-up" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div class="sec-title" style="margin-bottom:0;">📊 Perfil de Rendimiento</div>
+          <div style="font-size:10px;color:var(--grey);">${fmtDate(evals[0].date)}</div>
+        </div>
+        ${(()=>{
+          const last = evals[0];
+          const prev = evals.length>1 ? evals[1] : null;
+          const areas=[
+            {key:'physical',   label:'Físico',      color:'var(--cyan)',   emoji:'💪'},
+            {key:'technique',  label:'Técnica',     color:'var(--purple)', emoji:'🏄'},
+            {key:'mindset',    label:'Mental',      color:'var(--green)',  emoji:'🧠'},
+            {key:'competitive',label:'Competitivo', color:'var(--amber)',  emoji:'⭐'},
+          ];
+          return areas.map(a=>{
+            const current = last[a.key]||0;
+            const before  = prev ? (prev[a.key]||0) : null;
+            const diff    = before!==null ? current-before : null;
+            const arrow   = diff===null?'':(diff>0?'▲':diff<0?'▼':'');
+            const diffColor = diff===null?'':(diff>0?'var(--green)':diff<0?'var(--red)':'var(--grey)');
+            return \`<div style="margin-bottom:13px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                <span style="font-size:12px;font-weight:600;color:var(--white);">\${a.emoji} \${a.label}</span>
+                <div style="display:flex;align-items:center;gap:7px;">
+                  \${diff!==null&&diff!==0?(\`<span style="font-size:11px;font-weight:700;color:\${diffColor};">\${arrow}\${Math.abs(diff)}</span>\`):''}
+                  \${diff===0?(\`<span style="font-size:10px;color:var(--grey);">sin cambio</span>\`):''}
+                  <span style="font-size:16px;font-weight:900;color:\${a.color};font-family:'Space Mono',monospace;line-height:1;">\${current}</span>
+                </div>
+              </div>
+              <div style="height:9px;background:rgba(255,255,255,.05);border-radius:8px;overflow:hidden;">
+                <div style="height:100%;width:\${current*10}%;background:\${a.color};border-radius:8px;transition:width .6s cubic-bezier(.4,0,.2,1);opacity:.85;"></div>
+              </div>
+            </div>\`;
+          }).join('');
+        })()}
+        ${evals.length>1?`<div style="font-size:10px;color:var(--grey);margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);">vs. eval anterior: ${fmtDate(evals[1].date)}</div>`:'<div style="font-size:10px;color:var(--grey);margin-top:6px;">Primera evaluación — sin comparación aún</div>'}
+      </div>
+      `:''}
       ${totalComps?`
       <div class="card card-amber anim-up" style="margin-bottom:10px;">
         <div class="sec-title" style="margin-bottom:10px;">🏆 Surf Score de Competencia</div>
@@ -2997,14 +3036,14 @@ async function genPDF(athleteId, athleteName){
     doc.setTextColor(100,130,150);
     doc.text(`Reporte generado: ${new Date().toLocaleDateString('es-SV')}`,M,y); y+=10;
 
-    // Wave Score
-    const scores=(evals||[]).map(e=>e.competitive).filter(Boolean);
+    // Índice de Rendimiento
+    const scores=(evals||[]).map(e=>((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4).filter(Boolean);
     const ws=scores.length?(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1):'N/A';
     doc.setFillColor(10,16,24);
     doc.roundedRect(M,y,W-M*2,18,3,3,'F');
     doc.setTextColor(0,201,232);
     doc.setFontSize(14); doc.setFont('helvetica','bold');
-    doc.text(`WAVE SCORE: ${ws}/10`,M+8,y+7);
+    doc.text(`ÍNDICE DE RENDIMIENTO: ${ws}/10`,M+8,y+7);
     doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.setTextColor(107,138,154);
     doc.text(`${scores.length} evaluaciones · ${sessions?.length||0} sesiones · ${checkins?.length||0} check-ins`,M+8,y+14);
@@ -3098,7 +3137,7 @@ function vAtletas(){
   </div>
   ${S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${a.name}')">
     ${a.avatar_url?`<img src="${a.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);">`:`<div class="ath-avatar">${a.name.charAt(0)}</div>`}
-    <div class="ath-info"><div class="ath-name">${a.name} ${a.injury?'<span style="color:var(--red);font-size:11px;">🚨</span>':''}</div><div class="ath-meta">Ver perfil · Wave Score · PDF</div></div>
+    <div class="ath-info"><div class="ath-name">${a.name} ${a.injury?'<span style="color:var(--red);font-size:11px;">🚨</span>':''}</div><div class="ath-meta">Ver perfil · Índice · PDF</div></div>
     <span style="color:var(--grey);font-size:18px;">›</span>
   </div>`).join('')}`);
 }
@@ -3357,7 +3396,7 @@ async function openWeeklyReport(athleteId, athleteName, weekOffset=0){
     const avgPlan = checkinDays ? Math.round((checkins||[]).reduce((s,c)=>s+(c.progress_pct||0),0)/checkinDays) : 0;
     const presAttendance = myPres.length;
 
-    // Wave Score areas from evals this week
+    // Índice de Rendimiento areas from evals this week
     const latestEval = (evals||[]).length ? evals[0] : null;
 
     const dayNames = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
@@ -3408,7 +3447,7 @@ async function openWeeklyReport(athleteId, athleteName, weekOffset=0){
 
       <!-- WAVE SCORE AREAS -->
       ${latestEval ? `<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:14px;">
-        <div style="font-size:11px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">⭐ Wave Score — Áreas</div>
+        <div style="font-size:11px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;">⭐ Índice de Rendimiento — Áreas</div>
         ${[['Físico',latestEval.physical,'var(--green)'],['Técnica',latestEval.technique,'var(--cyan)'],['Mentalidad',latestEval.mindset,'var(--purple)'],['Competitivo',latestEval.competitive,'var(--amber)']].map(([label,val,color])=>`
           <div style="margin-bottom:8px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
