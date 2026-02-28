@@ -1021,24 +1021,29 @@ async function deleteSp(sessionId){
    BOOT
 ============================================================ */
 async function bootApp(){
-  const{data:aths}=await db.from('tss_profiles').select('*').eq('role','athlete').order('name');
-  S.athletes=aths||[];
-  const{data:grps}=await db.from('tss_groups').select('*').order('name');
-  S.groups=grps||[];
-  S.selDate=todayStr();
+  try {
+    const{data:aths}=await db.from('tss_profiles').select('*').eq('role','athlete').order('name');
+    S.athletes=aths||[];
+    const{data:grps}=await db.from('tss_groups').select('*').order('name');
+    S.groups=grps||[];
+    S.selDate=todayStr();
 
-  const isCoach=S.user.role==='coach';
-  const isACoach=S.user.role==='acoach';
-  document.getElementById('landingScreen').style.display='none';
-  document.getElementById('appShell').style.display='block';
+    const isCoach=S.user.role==='coach';
+    const isACoach=S.user.role==='acoach';
+    document.getElementById('landingScreen').style.display='none';
+    document.getElementById('appShell').style.display='block';
 
-  const chipMap={coach:'rc-coach',acoach:'rc-acoach',athlete:'rc-athlete'};
-  const labelMap={coach:'Head Coach',acoach:'Coach Asistente'};
-  document.getElementById('roleChip').textContent=labelMap[S.user.role]||S.user.name;
-  document.getElementById('roleChip').className=`role-chip ${chipMap[S.user.role]||'rc-athlete'}`;
-  document.getElementById('headerSub').textContent=(isCoach||isACoach)?'Coach Panel':'El Salvador';
+    const chipMap={coach:'rc-coach',acoach:'rc-acoach',athlete:'rc-athlete'};
+    const labelMap={coach:'Head Coach',acoach:'Coach Asistente'};
+    document.getElementById('roleChip').textContent=labelMap[S.user.role]||S.user.name;
+    document.getElementById('roleChip').className=`role-chip ${chipMap[S.user.role]||'rc-athlete'}`;
+    document.getElementById('headerSub').textContent=(isCoach||isACoach)?'Coach Panel':'El Salvador';
 
-  buildNav(); switchView((isCoach||isACoach)?'panel':'hoy');
+    buildNav(); switchView((isCoach||isACoach)?'panel':'hoy');
+  } catch(e){
+    console.error('Error al iniciar app',e);
+    toast('Error de conexión. Verifica tu internet.','error');
+  }
 }
 
 function buildNav(){
@@ -2130,6 +2135,7 @@ async function execCopyWeek(){
 
 /* GRUPOS */
 async function renderGrupos(){
+  try {
   const{data:groups}=await db.from('tss_groups').select('*').order('name');
   S.groups=groups||[];
   let html=`<button class="btn btn-cyan btn-sm" style="margin-bottom:14px;" onclick="openGroupModal(null)">+ Crear Grupo</button>`;
@@ -2184,6 +2190,7 @@ function openGroupModal(groupId){
       (data||[]).forEach(m=>{ const btn=document.getElementById(`ga-${m.athlete_id}`); if(btn){btn.classList.add('on');btn.dataset.sel='1';} });
     });
   }
+  } catch(e){ console.error("renderGrupos error",e); toast("Error al cargar grupos","error"); }
 }
 
 function toggleGroupAth(id,btn){
