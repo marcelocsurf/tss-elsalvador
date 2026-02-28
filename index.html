@@ -2782,6 +2782,23 @@ async function vPerfil(athleteId=null,athleteName=null){
           <div style="display:flex;align-items:flex-end;gap:4px;height:50px;" id="waveBarChart"></div>
         </div>`:''}
       </div>`:''}
+      ${(()=>{
+        const inj = athData?.injury;
+        if(inj) return `<div class="card anim-up" style="border:1px solid var(--red);background:rgba(239,68,68,.08);margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:11px;color:var(--red);font-weight:700;letter-spacing:.8px;margin-bottom:4px;">🚨 LESIÓN ACTIVA</div>
+              <div style="font-size:14px;font-weight:600;color:var(--white);">${inj}</div>
+              ${athData.injury_since?`<div style="font-size:11px;color:var(--grey);margin-top:3px;">Desde: ${athData.injury_since}</div>`:''}
+            </div>
+            ${isCoach?`<button class="btn btn-xs btn-red" onclick="openInjuryModal('${id}','${name}')">✏️ Editar</button>`:''}
+          </div>
+        </div>`;
+        return isCoach?`<div class="card anim-up" style="border:1px dashed rgba(255,255,255,.1);margin-bottom:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:var(--grey);">Sin lesiones registradas</span>
+          <button class="btn btn-xs btn-outline" onclick="openInjuryModal('${id}','${name}')">+ Registrar lesión</button>
+        </div>`:'';
+      })()}
       <div class="stat-grid">
         <div class="stat-box"><div class="stat-n">${sessions?.length||0}</div><div class="stat-l">Sesiones</div></div>
         <div class="stat-box"><div class="stat-n">${evals?.length||0}</div><div class="stat-l">Evaluaciones</div></div>
@@ -3012,7 +3029,7 @@ function vAtletas(){
   </div>
   ${S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${a.name}')">
     ${a.avatar_url?`<img src="${a.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);">`:`<div class="ath-avatar">${a.name.charAt(0)}</div>`}
-    <div class="ath-info"><div class="ath-name">${a.name}</div><div class="ath-meta">Ver perfil · Wave Score · PDF</div></div>
+    <div class="ath-info"><div class="ath-name">${a.name} ${a.injury?'<span style="color:var(--red);font-size:11px;">🚨</span>':''}</div><div class="ath-meta">Ver perfil · Wave Score · PDF</div></div>
     <span style="color:var(--grey);font-size:18px;">›</span>
   </div>`).join('')}`);
 }
@@ -3062,6 +3079,61 @@ async function saveNewAthlete(){
   } catch(e){ toast('Error al crear atleta: '+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
+function openInjuryModal(athleteId, athleteName){
+  const athData = S.athletes.find(a=>a.id===athleteId) || {};
+  const m = document.createElement('div');
+  m.className = 'modal-overlay'; m.id = 'injuryModal';
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">🚨 Lesión — ${athleteName}</div>
+      <button class="modal-close" onclick="closeModal('injuryModal')">✕</button>
+    </div>
+    <label class="inp-label">Descripción de la lesión</label>
+    <input type="text" class="inp" id="injuryDesc" value="${athData.injury||''}" placeholder="Ej: Esguince tobillo derecho, dolor lumbar...">
+    <label class="inp-label">Fecha de inicio</label>
+    <input type="date" class="inp" id="injuryDate" value="${athData.injury_since||''}">
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="save-btn" style="flex:1;" onclick="saveInjury('${athleteId}','${athleteName}')">💾 Guardar</button>
+      ${athData.injury?`<button class="btn btn-red" style="padding:0 16px;" onclick="clearInjury('${athleteId}','${athleteName}')">✕ Limpiar</button>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('injuryModal'); };
+  setTimeout(()=>{ document.getElementById('injuryDesc')?.focus(); }, 100);
+}
+
+async function saveInjury(athleteId, athleteName){
+  const desc = document.getElementById('injuryDesc')?.value?.trim();
+  const since = document.getElementById('injuryDate')?.value || null;
+  if(!desc){ toast('Describe la lesión','error'); return; }
+  showLoad(true);
+  try {
+    const{error} = await db.from('tss_profiles').update({injury: desc, injury_since: since}).eq('id', athleteId);
+    if(error) throw error;
+    const ath = S.athletes.find(a=>a.id===athleteId);
+    if(ath){ ath.injury = desc; ath.injury_since = since; }
+    toast('🚨 Lesión registrada','success');
+    closeModal('injuryModal');
+    vPerfil(athleteId, athleteName);
+  } catch(e){ toast('Error al guardar lesión','error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
+async function clearInjury(athleteId, athleteName){
+  if(!confirm('¿Marcar al atleta como recuperado?')) return;
+  showLoad(true);
+  try {
+    const{error} = await db.from('tss_profiles').update({injury: null, injury_since: null}).eq('id', athleteId);
+    if(error) throw error;
+    const ath = S.athletes.find(a=>a.id===athleteId);
+    if(ath){ ath.injury = null; ath.injury_since = null; }
+    toast('✅ Atleta recuperado','success');
+    closeModal('injuryModal');
+    vPerfil(athleteId, athleteName);
+  } catch(e){ toast('Error','error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
 async function uploadAvatar(athleteId){
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'image/*';
