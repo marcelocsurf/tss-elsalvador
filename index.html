@@ -1052,12 +1052,14 @@ async function bootApp(){
 
 function updateHeaderAvatar(){
   const el = document.getElementById('hdrAvatar'); if(!el) return;
-  const url = S.user.avatar_url;
+  const url = S.user?.avatar_url;
+  const initial = (S.user?.name||'?').charAt(0).toUpperCase();
   if(url){
-    el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=S.user.name.charAt(0)">`;
+    el.innerHTML = `<img src="${url}" style="width:30px;height:30px;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${initial}'">`;
   } else {
-    el.textContent = S.user.name.charAt(0);
+    el.textContent = initial;
   }
+  el.style.display = 'flex';
 }
 
 function buildNav(){
@@ -2304,6 +2306,8 @@ async function saveEval(athleteId){
     if(error) throw error;
     toast('✅ Evaluación guardada','success');
     document.getElementById('eaSel').value=''; document.getElementById('evalFormArea').innerHTML='';
+    // Refresh panel so Wave Score updates immediately
+    setTimeout(()=>{ if(typeof vPanel==='function') vPanel(); if(typeof renderEvalHist==='function') renderEvalHist(); },300);
   } catch(e){toast('Error al guardar','error');console.error(e);}
   finally{showLoad(false);}
 }
