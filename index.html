@@ -2191,7 +2191,6 @@ function openGroupModal(groupId){
       (data||[]).forEach(m=>{ const btn=document.getElementById(`ga-${m.athlete_id}`); if(btn){btn.classList.add('on');btn.dataset.sel='1';} });
     });
   }
-  } catch(e){ console.error("renderGrupos error",e); toast("Error al cargar grupos","error"); }
 }
 
 function toggleGroupAth(id,btn){
