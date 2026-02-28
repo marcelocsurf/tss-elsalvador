@@ -342,8 +342,9 @@ header{padding:10px 16px;display:flex;align-items:center;justify-content:space-b
       </svg>
       <div class="hdr-logo-text">TSS® <span id="headerSub">El Salvador</span></div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;">
+    <div style="display:flex;align-items:center;gap:8px;">
       <span class="role-chip" id="roleChip"></span>
+      <div id="hdrAvatar" onclick="switchView('perfil')" style="cursor:pointer;width:30px;height:30px;border-radius:50%;background:rgba(0,201,232,.1);border:1.5px solid rgba(0,201,232,.25);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--cyan);overflow:hidden;font-family:'Space Mono',monospace;flex-shrink:0;"></div>
       <button class="logout-btn" onclick="goHome()">Salir</button>
     </div>
   </header>
@@ -1040,11 +1041,22 @@ async function bootApp(){
     document.getElementById('roleChip').textContent=labelMap[S.user.role]||S.user.name;
     document.getElementById('roleChip').className=`role-chip ${chipMap[S.user.role]||'rc-athlete'}`;
     document.getElementById('headerSub').textContent=(isCoach||isACoach)?'Coach Panel':'El Salvador';
+    updateHeaderAvatar();
 
     buildNav(); switchView((isCoach||isACoach)?'panel':'hoy');
   } catch(e){
     console.error('Error al iniciar app',e);
     toast('Error de conexión. Verifica tu internet.','error');
+  }
+}
+
+function updateHeaderAvatar(){
+  const el = document.getElementById('hdrAvatar'); if(!el) return;
+  const url = S.user.avatar_url;
+  if(url){
+    el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=S.user.name.charAt(0)">`;
+  } else {
+    el.textContent = S.user.name.charAt(0);
   }
 }
 
@@ -3185,8 +3197,9 @@ async function uploadAvatar(athleteId){
       // Update local cache
       const ath = S.athletes.find(a=>a.id===athleteId);
       if(ath) ath.avatar_url = avatarUrl;
+      if(athleteId === S.user.id){ S.user.avatar_url = avatarUrl; updateHeaderAvatar(); }
       toast('✅ Foto actualizada','success');
-      vPerfil(athleteId, S.athletes.find(a=>a.id===athleteId)?.name);
+      vPerfil(athleteId, athleteId===S.user.id ? S.user.name : S.athletes.find(a=>a.id===athleteId)?.name);
     } catch(e){ toast('Error al subir foto: '+e.message,'error'); console.error(e); }
     finally{ showLoad(false); }
   };
