@@ -2831,7 +2831,29 @@ async function vPerfil(athleteId=null,athleteName=null){
       </div>`:''}
       ${(()=>{
         const inj = athData?.injury;
-        if(inj) return `<div class="card anim-up" style="border:1px solid var(--red);background:rgba(239,68,68,.08);margin-bottom:10px;">
+        const cap = athData?.score_capacity;
+        const capHtml = isCoach ? `<div class="card anim-up" style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div>
+              <div style="font-size:11px;color:var(--cyan);font-weight:700;letter-spacing:.8px;margin-bottom:2px;">🎯 CAPACIDAD DE SCORE</div>
+              <div style="font-size:11px;color:var(--grey);">Techo técnico para generar puntuación</div>
+            </div>
+            <button class="btn btn-xs btn-outline" onclick="openScoreCapModal('${id}','${name}',${cap||0})">✏️</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:36px;font-weight:900;color:${cap>=8?'var(--green)':cap>=5?'var(--cyan)':cap?'var(--amber)':'var(--grey)'};font-family:'Space Mono',monospace;line-height:1;">${cap||'—'}</div>
+            <div style="flex:1;">
+              <div style="height:8px;background:rgba(255,255,255,.06);border-radius:8px;overflow:hidden;">
+                <div style="height:100%;width:${cap?cap*10:0}%;background:${cap>=8?'var(--green)':cap>=5?'var(--cyan)':'var(--amber)'};border-radius:8px;transition:width .5s;"></div>
+              </div>
+              <div style="font-size:11px;color:var(--grey);margin-top:5px;">${cap>=8?'Alto — puede generar scores premium':cap>=6?'Medio-Alto — buen potencial de score':cap>=4?'Medio — necesita desarrollar maniobras':cap?'Bajo — trabajar fundamentos de score':'Sin evaluar'}</div>
+            </div>
+          </div>
+        </div>` : (cap ? `<div class="card anim-up" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;">
+          <div style="font-size:32px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;">${cap}</div>
+          <div><div style="font-size:11px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;">Capacidad de Score</div><div style="font-size:12px;margin-top:3px;">${cap>=8?'Alto':cap>=6?'Medio-Alto':cap>=4?'Medio':'En desarrollo'}</div></div>
+        </div>` : '');
+        if(inj) return capHtml + `<div class="card anim-up" style="border:1px solid var(--red);background:rgba(239,68,68,.08);margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
               <div style="font-size:11px;color:var(--red);font-weight:700;letter-spacing:.8px;margin-bottom:4px;">🚨 LESIÓN ACTIVA</div>
@@ -2841,10 +2863,10 @@ async function vPerfil(athleteId=null,athleteName=null){
             ${isCoach?`<button class="btn btn-xs btn-red" onclick="openInjuryModal('${id}','${name}')">✏️ Editar</button>`:''}
           </div>
         </div>`;
-        return isCoach?`<div class="card anim-up" style="border:1px dashed rgba(255,255,255,.1);margin-bottom:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+        return capHtml + (isCoach?`<div class="card anim-up" style="border:1px dashed rgba(255,255,255,.1);margin-bottom:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:var(--grey);">Sin lesiones registradas</span>
           <button class="btn btn-xs btn-outline" onclick="openInjuryModal('${id}','${name}')">+ Registrar lesión</button>
-        </div>`:'';
+        </div>`:'');
       })()}
       <div class="stat-grid">
         <div class="stat-box"><div class="stat-n">${sessions?.length||0}</div><div class="stat-l">Sesiones</div></div>
@@ -3126,6 +3148,54 @@ async function saveNewAthlete(){
   } catch(e){ toast('Error al crear atleta: '+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
+function openScoreCapModal(athleteId, athleteName, current){
+  const m = document.createElement('div');
+  m.className = 'modal-overlay'; m.id = 'scoreCapModal';
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">🎯 Capacidad de Score</div>
+        <div style="font-size:12px;color:var(--grey);margin-top:2px;">${athleteName}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('scoreCapModal')">✕</button>
+    </div>
+    <div class="sec-title" style="margin-top:8px;">Techo técnico (1–10)</div>
+    <p style="font-size:12px;color:var(--grey);margin-bottom:14px;line-height:1.6;">¿Cuál es el máximo score que este atleta puede generar con su nivel técnico actual, independiente de las condiciones?</p>
+    <div class="scale-row" id="scoreCapRow">${[1,2,3,4,5,6,7,8,9,10].map(i=>`<button type="button" class="se-n${i===current?' on':''}" onclick="pickScoreCap(${i},this)">${i}</button>`).join('')}</div>
+    <input type="hidden" id="scoreCapVal" value="${current||0}">
+    <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:10px;min-height:36px;">
+      <div id="scoreCapDesc" style="font-size:12px;color:var(--grey);">${current>=8?'Alto — puede generar scores premium':current>=6?'Medio-Alto — buen potencial de score':current>=4?'Medio — necesita desarrollar maniobras':current?'Bajo — trabajar fundamentos de score':'Selecciona un valor'}</div>
+    </div>
+    <button class="save-btn" style="margin-top:16px;" onclick="saveScoreCap('${athleteId}','${athleteName}')">💾 Guardar</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('scoreCapModal'); };
+}
+
+function pickScoreCap(val, btn){
+  document.getElementById('scoreCapRow').querySelectorAll('.se-n').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('scoreCapVal').value = val;
+  const desc = val>=8?'Alto — puede generar scores premium':val>=6?'Medio-Alto — buen potencial de score':val>=4?'Medio — necesita desarrollar maniobras':'Bajo — trabajar fundamentos de score';
+  document.getElementById('scoreCapDesc').textContent = desc;
+}
+
+async function saveScoreCap(athleteId, athleteName){
+  const val = parseInt(document.getElementById('scoreCapVal')?.value||0);
+  if(!val){ toast('Selecciona un valor','error'); return; }
+  showLoad(true);
+  try {
+    const{error} = await db.from('tss_profiles').update({score_capacity: val}).eq('id', athleteId);
+    if(error) throw error;
+    const ath = S.athletes.find(a=>a.id===athleteId);
+    if(ath) ath.score_capacity = val;
+    toast('✅ Capacidad guardada','success');
+    closeModal('scoreCapModal');
+    vPerfil(athleteId, athleteName);
+  } catch(e){ toast('Error al guardar','error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
 function openInjuryModal(athleteId, athleteName){
   const athData = S.athletes.find(a=>a.id===athleteId) || {};
   const m = document.createElement('div');
