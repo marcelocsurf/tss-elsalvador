@@ -1240,7 +1240,8 @@ async function loadHoy(date){
     }
 
     let ciHtml='';
-    if(ci){
+    const ciComplete = ci && (ci.water_glasses || ci.energy_level || ci.focus_level);
+    if(ciComplete){
       ciHtml=`<div class="card card-green anim-up">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="sec-title" style="margin-bottom:0;">Mi Check-in de Hoy</div>
