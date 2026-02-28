@@ -1318,13 +1318,14 @@ async function toggleTask(planId, taskIdx, date){
 }
 
 async function reloadPlansSection(date, compState){
-  // Get plans from cache + fresh presencial sessions
   const cacheKey = `tss_plans_cache_${date}`;
-  let cachedBlocks = [];
-  try{ cachedBlocks = JSON.parse(sessionStorage.getItem(cacheKey)||'[]'); }catch(e){}
-  
-  // Get fresh presencial sessions for this athlete
+  let allBlocks = [];
+
   try {
+    // Always fetch fresh from DB to avoid cache issues
+    const regularPlans = await getPlanForAthlete(S.user.id, date);
+    
+    // Fetch presencial sessions
     const{data:presSessions}=await db.from('tss_presencial_sessions')
       .select('*').eq('date',date).neq('status','cancelled').order('time_start');
     const myPres=(presSessions||[]).filter(s=>{
@@ -1338,17 +1339,18 @@ async function reloadPlansSection(date, compState){
       duration_min:ps.duration_min, location:ps.location,
       drills:ps.drills, video_url:ps.video_url, status:ps.status,
     }));
-    // Merge: presencial first, then regular plans (filter out old presencial from cache)
-    const regularBlocks = cachedBlocks.filter(b=>!b._isPresencial);
-    const allBlocks = [...presBlocks, ...regularBlocks];
-    // Update cache
+
+    allBlocks = [...presBlocks, ...(regularPlans||[])];
     try{ sessionStorage.setItem(cacheKey, JSON.stringify(allBlocks)); }catch(e){}
-    cachedBlocks = allBlocks;
-  } catch(e){ console.error('Presencial reload error',e); }
+  } catch(e){ 
+    console.error('reloadPlansSection error',e);
+    // Fallback to cache
+    try{ allBlocks = JSON.parse(sessionStorage.getItem(cacheKey)||'[]'); }catch(e2){}
+  }
 
   const plansEl = document.getElementById('plansSection');
-  if(plansEl && cachedBlocks.length) {
-    plansEl.innerHTML = buildPlansHtml(cachedBlocks, compState, date);
+  if(plansEl && allBlocks.length) {
+    plansEl.innerHTML = buildPlansHtml(allBlocks, compState, date);
   }
 }
 
