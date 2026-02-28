@@ -2685,7 +2685,7 @@ async function vPanel(){
         const ci=ciToday[a.id];
         const pct=ci?.progress_pct??null;
         return `<div class="ath-row" onclick="openAthProfile('${a.id}','${a.name}')">
-          <div class="ath-avatar">${a.name.charAt(0)}</div>
+          ${a.avatar_url?`<img src="${a.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);">`:`<div class="ath-avatar">${a.name.charAt(0)}</div>`}
           <div class="ath-info">
             <div class="ath-name">${a.name} ${ci?'<span class="chip chip-green" style="font-size:9px;padding:1px 6px;">✅</span>':''}</div>
             <div class="ath-meta">${lastSes[a.id]?`Última: ${fmtDateShort(lastSes[a.id])}`:'Sin sesiones'} · Wave: <span style="color:var(--cyan);">${ws}</span></div>
@@ -2706,9 +2706,18 @@ async function vPanel(){
 async function vPerfil(athleteId=null,athleteName=null){
   const id=athleteId||S.user.id; const name=athleteName||S.user.name;
   const isCoach=S.user.role==='coach'||S.user.role==='acoach';
+  // Get avatar_url from athletes list or current user
+  const athData = S.athletes.find(a=>a.id===id) || S.user;
+  const avatarUrl = athData?.avatar_url || null;
+  const avatarHtml = avatarUrl
+    ? `<img src="${avatarUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);" onerror="this.outerHTML='<div class=\'ath-avatar\' style=\'width:52px;height:52px;font-size:22px;\'>${name.charAt(0)}</div>'">`
+    : `<div class="ath-avatar" style="width:52px;height:52px;font-size:22px;">${name.charAt(0)}</div>`;
   render(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div style="display:flex;align-items:center;gap:12px;">
-      <div class="ath-avatar" style="width:52px;height:52px;font-size:22px;">${name.charAt(0)}</div>
+      <div onclick="${isCoach?`uploadAvatar('${id}')`:'uploadMyAvatar()'}" style="cursor:pointer;position:relative;">
+        ${avatarHtml}
+        <div style="position:absolute;bottom:0;right:0;background:var(--cyan);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;">📷</div>
+      </div>
       <div><div class="page-title" style="margin-bottom:0;">${name}</div><div class="page-sub" style="margin-bottom:0;">Perfil · TSS 2026</div></div>
     </div>
     ${isCoach?`<div style="display:flex;gap:6px;">
@@ -2997,7 +3006,7 @@ function vAtletas(){
     ${isCoach ? `<button class="btn btn-cyan btn-sm" onclick="openAddAthleteModal()">+ Agregar</button>` : ''}
   </div>
   ${S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${a.name}')">
-    <div class="ath-avatar">${a.name.charAt(0)}</div>
+    ${a.avatar_url?`<img src="${a.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);">`:`<div class="ath-avatar">${a.name.charAt(0)}</div>`}
     <div class="ath-info"><div class="ath-name">${a.name}</div><div class="ath-meta">Ver perfil · Wave Score · PDF</div></div>
     <span style="color:var(--grey);font-size:18px;">›</span>
   </div>`).join('')}`);
@@ -3048,6 +3057,38 @@ async function saveNewAthlete(){
   } catch(e){ toast('Error al crear atleta: '+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
+async function uploadAvatar(athleteId){
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = e.target.files[0]; if(!file) return;
+    // Resize if too large
+    if(file.size > 2*1024*1024){ toast('Imagen muy grande, máximo 2MB','error'); return; }
+    showLoad(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${athleteId}.${ext}`;
+      const { error: upErr } = await db.storage.from('avatars').upload(path, file, {upsert:true});
+      if(upErr) throw upErr;
+      const { data: urlData } = db.storage.from('avatars').getPublicUrl(path);
+      const avatarUrl = urlData.publicUrl + '?t=' + Date.now();
+      const { error: dbErr } = await db.from('tss_profiles').update({avatar_url: avatarUrl}).eq('id', athleteId);
+      if(dbErr) throw dbErr;
+      // Update local cache
+      const ath = S.athletes.find(a=>a.id===athleteId);
+      if(ath) ath.avatar_url = avatarUrl;
+      toast('✅ Foto actualizada','success');
+      vPerfil(athleteId, S.athletes.find(a=>a.id===athleteId)?.name);
+    } catch(e){ toast('Error al subir foto: '+e.message,'error'); console.error(e); }
+    finally{ showLoad(false); }
+  };
+  input.click();
+}
+
+async function uploadMyAvatar(){
+  uploadAvatar(S.user.id);
+}
+
 function openAthProfile(id,name){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById('nb-atletas'); if(btn) btn.classList.add('active');
