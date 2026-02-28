@@ -1301,8 +1301,8 @@ async function toggleBlock(planId, date){
   compState[planId+'_block'] = !compState[planId+'_block'];
   localStorage.setItem(compKey, JSON.stringify(compState));
   await saveProgressToDb(date, compState);
-  // Reload full view to properly handle presencial blocks
-  await loadHoy(date);
+  // Only reload plans section - don't touch checkin form
+  await reloadPlansSection(date, compState);
 }
 
 async function toggleTask(planId, taskIdx, date){
@@ -1313,7 +1313,43 @@ async function toggleTask(planId, taskIdx, date){
   compState[key] = !compState[key];
   localStorage.setItem(compKey, JSON.stringify(compState));
   await saveProgressToDb(date, compState);
-  await loadHoy(date);
+  // Only reload plans section - don't touch checkin form
+  await reloadPlansSection(date, compState);
+}
+
+async function reloadPlansSection(date, compState){
+  // Get plans from cache + fresh presencial sessions
+  const cacheKey = `tss_plans_cache_${date}`;
+  let cachedBlocks = [];
+  try{ cachedBlocks = JSON.parse(sessionStorage.getItem(cacheKey)||'[]'); }catch(e){}
+  
+  // Get fresh presencial sessions for this athlete
+  try {
+    const{data:presSessions}=await db.from('tss_presencial_sessions')
+      .select('*').eq('date',date).neq('status','cancelled').order('time_start');
+    const myPres=(presSessions||[]).filter(s=>{
+      try{ const ids=s.athlete_ids?(Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]')):[];
+        return ids.includes(S.user.id);
+      }catch(e){return false;}
+    });
+    const presBlocks=myPres.map(ps=>({
+      _isPresencial:true, id:'pres_'+ps.id, _presId:ps.id,
+      title:ps.title, time_start:ps.time_start, mission:ps.mission,
+      duration_min:ps.duration_min, location:ps.location,
+      drills:ps.drills, video_url:ps.video_url, status:ps.status,
+    }));
+    // Merge: presencial first, then regular plans (filter out old presencial from cache)
+    const regularBlocks = cachedBlocks.filter(b=>!b._isPresencial);
+    const allBlocks = [...presBlocks, ...regularBlocks];
+    // Update cache
+    try{ sessionStorage.setItem(cacheKey, JSON.stringify(allBlocks)); }catch(e){}
+    cachedBlocks = allBlocks;
+  } catch(e){ console.error('Presencial reload error',e); }
+
+  const plansEl = document.getElementById('plansSection');
+  if(plansEl && cachedBlocks.length) {
+    plansEl.innerHTML = buildPlansHtml(cachedBlocks, compState, date);
+  }
 }
 
 function reloadPlansOnly(date, compState){
@@ -1326,9 +1362,10 @@ function reloadPlansOnly(date, compState){
 }
 
 function buildPlansHtml(plans, compState, date){
+  if(!plans||!plans.length) return '';
   let totalBlocks=plans.length;
   let doneBlocks=plans.filter(p=>compState[p.id+'_block']).length;
-  let pct=Math.round((doneBlocks/totalBlocks)*100);
+  let pct=totalBlocks>0?Math.round((doneBlocks/totalBlocks)*100):0;
   let html=`<div class="sec-title">📋 Plan del Día</div>
   <div class="card card-cyan anim-up" style="margin-bottom:12px;padding:12px 14px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -1427,14 +1464,27 @@ async function saveProgressToDb(date, compState){
     const totalTasks = Object.keys(compState).filter(k=>k.includes('_task_')).length;
     const doneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]).length;
     const pct = totalTasks>0 ? Math.round((doneTasks/totalTasks)*100) : (doneBlocks>0?100:0);
-    await db.from('tss_daily_checkins').upsert({
-      athlete_id: S.user.id,
-      date,
-      blocks_completed: doneBlocks,
-      tasks_completed: doneTasks,
-      progress_pct: pct,
-      comp_state: JSON.stringify(compState)
-    }, {onConflict:'athlete_id,date', ignoreDuplicates:false});
+    // Check if checkin exists first
+    const{data:existing}=await db.from('tss_daily_checkins').select('id').eq('athlete_id',S.user.id).eq('date',date).maybeSingle();
+    if(existing){
+      // Only update progress columns, never overwrite wellness data
+      await db.from('tss_daily_checkins').update({
+        blocks_completed: doneBlocks,
+        tasks_completed: doneTasks,
+        progress_pct: pct,
+        comp_state: JSON.stringify(compState)
+      }).eq('athlete_id',S.user.id).eq('date',date);
+    } else {
+      // No checkin yet - just save progress state
+      await db.from('tss_daily_checkins').insert({
+        athlete_id: S.user.id,
+        date,
+        blocks_completed: doneBlocks,
+        tasks_completed: doneTasks,
+        progress_pct: pct,
+        comp_state: JSON.stringify(compState)
+      });
+    }
   } catch(e){ console.error('Progress save error',e); }
 }
 
