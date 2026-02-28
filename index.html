@@ -2136,32 +2136,33 @@ async function execCopyWeek(){
 /* GRUPOS */
 async function renderGrupos(){
   try {
-  const{data:groups}=await db.from('tss_groups').select('*').order('name');
-  S.groups=groups||[];
-  let html=`<button class="btn btn-cyan btn-sm" style="margin-bottom:14px;" onclick="openGroupModal(null)">+ Crear Grupo</button>`;
-  if(!S.groups.length){
-    html+=`<div class="empty"><div class="empty-icon">👥</div><p class="empty-txt">Sin grupos creados</p></div>`;
-  } else {
-    for(const g of S.groups){
-      const{data:members}=await db.from('tss_group_members').select('athlete_id').eq('group_id',g.id);
-      const mids=(members||[]).map(m=>m.athlete_id);
-      const mnames=S.athletes.filter(a=>mids.includes(a.id)).map(a=>a.name);
-      html+=`<div class="card anim-up">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-          <div style="font-size:15px;font-weight:700;">${g.name}</div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn btn-xs btn-outline" onclick="openGroupModal('${g.id}')">✏️ Editar</button>
-            <button class="btn btn-xs btn-red" onclick="deleteGroup('${g.id}')">🗑</button>
+    const{data:groups}=await db.from('tss_groups').select('*').order('name');
+    S.groups=groups||[];
+    let html=`<button class="btn btn-cyan btn-sm" style="margin-bottom:14px;" onclick="openGroupModal(null)">+ Crear Grupo</button>`;
+    if(!S.groups.length){
+      html+=`<div class="empty"><div class="empty-icon">👥</div><p class="empty-txt">Sin grupos creados</p></div>`;
+    } else {
+      for(const g of S.groups){
+        const{data:members}=await db.from('tss_group_members').select('athlete_id').eq('group_id',g.id);
+        const mids=(members||[]).map(m=>m.athlete_id);
+        const mnames=S.athletes.filter(a=>mids.includes(a.id)).map(a=>a.name);
+        html+=`<div class="card anim-up">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <div style="font-size:15px;font-weight:700;">${g.name}</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-xs btn-outline" onclick="openGroupModal('${g.id}')">✏️ Editar</button>
+              <button class="btn btn-xs btn-red" onclick="deleteGroup('${g.id}')">🗑</button>
+            </div>
           </div>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;">
-          ${mnames.map(n=>`<span class="chip chip-purple">${n}</span>`).join('')}
-          ${!mnames.length?'<span style="font-size:12px;color:var(--grey);">Sin atletas asignados</span>':''}
-        </div>
-      </div>`;
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${mnames.map(n=>`<span class="chip chip-purple">${n}</span>`).join('')}
+            ${!mnames.length?'<span style="font-size:12px;color:var(--grey);">Sin atletas asignados</span>':''}
+          </div>
+        </div>`;
+      }
     }
-  }
-  document.getElementById('planTab').innerHTML=html;
+    document.getElementById('planTab').innerHTML=html;
+  } catch(e){ console.error('renderGrupos error',e); toast('Error al cargar grupos','error'); }
 }
 
 function openGroupModal(groupId){
