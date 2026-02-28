@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>TSS — The Surf Sequence® | El Salvador 2026</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TSS">
+<meta name="theme-color" content="#00C9E8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -2985,12 +2991,62 @@ async function genPDF(athleteId, athleteName){
    ATLETAS (COACH / ACOACH)
 ============================================================ */
 function vAtletas(){
-  render(`<div class="page-title">Atletas</div><div class="page-sub">Perfil completo y reporte</div>
-    ${S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${a.name}')">
-      <div class="ath-avatar">${a.name.charAt(0)}</div>
-      <div class="ath-info"><div class="ath-name">${a.name}</div><div class="ath-meta">Ver perfil · Wave Score · PDF</div></div>
-      <span style="color:var(--grey);font-size:18px;">›</span>
-    </div>`).join('')}`);
+  const isCoach = S.user.role === 'coach';
+  render(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <div><div class="page-title" style="margin-bottom:0;">Atletas</div><div class="page-sub">Perfil completo y reporte</div></div>
+    ${isCoach ? `<button class="btn btn-cyan btn-sm" onclick="openAddAthleteModal()">+ Agregar</button>` : ''}
+  </div>
+  ${S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${a.name}')">
+    <div class="ath-avatar">${a.name.charAt(0)}</div>
+    <div class="ath-info"><div class="ath-name">${a.name}</div><div class="ath-meta">Ver perfil · Wave Score · PDF</div></div>
+    <span style="color:var(--grey);font-size:18px;">›</span>
+  </div>`).join('')}`);
+}
+
+function openAddAthleteModal(){
+  const m = document.createElement('div');
+  m.className = 'modal-overlay'; m.id = 'addAthleteModal';
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">➕ Nuevo Atleta</div>
+      <button class="modal-close" onclick="closeModal('addAthleteModal')">✕</button>
+    </div>
+    <label class="inp-label">Nombre completo</label>
+    <input type="text" class="inp" id="newAthName" placeholder="Ej: Daniel Monterrosa">
+    <label class="inp-label">PIN (4 dígitos)</label>
+    <input type="number" class="inp" id="newAthPin" placeholder="Ej: 1234" maxlength="4" style="letter-spacing:8px;font-size:20px;text-align:center;">
+    <div style="font-size:11px;color:var(--grey);margin-top:-8px;margin-bottom:12px;">El atleta usará este PIN para iniciar sesión</div>
+    <button class="save-btn" onclick="saveNewAthlete()">💾 Crear Atleta</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('addAthleteModal'); };
+  setTimeout(()=>{ document.getElementById('newAthName')?.focus(); }, 100);
+}
+
+async function saveNewAthlete(){
+  const name = document.getElementById('newAthName')?.value?.trim();
+  const pin = document.getElementById('newAthPin')?.value?.trim();
+  if(!name){ toast('Ingresa el nombre del atleta','error'); return; }
+  if(!pin || pin.length !== 4 || isNaN(pin)){ toast('El PIN debe ser exactamente 4 dígitos','error'); return; }
+  // Check PIN not already in use
+  const pinExists = S.athletes.find(a=>a.pin===pin) || (pin==='0000');
+  if(pinExists){ toast('Ese PIN ya está en uso, elige otro','error'); return; }
+  showLoad(true);
+  try {
+    const{data,error} = await db.from('tss_profiles').insert({
+      user_id: crypto.randomUUID(),
+      name,
+      role: 'athlete',
+      pin
+    }).select().single();
+    if(error) throw error;
+    // Add to local list
+    S.athletes.push(data);
+    toast(`✅ ${name} agregado al equipo`,'success');
+    closeModal('addAthleteModal');
+    vAtletas();
+  } catch(e){ toast('Error al crear atleta: '+e.message,'error'); console.error(e); }
+  finally{ showLoad(false); }
 }
 function openAthProfile(id,name){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
