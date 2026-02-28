@@ -1051,8 +1051,8 @@ async function bootApp(){
 function buildNav(){
   const r=S.user.role;
   let tabs;
-  if(r==='coach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'planeacion',icon:'📋',lbl:'Planeación'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'atletas',icon:'👥',lbl:'Atletas'}];
-  else if(r==='acoach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'atletas',icon:'👥',lbl:'Atletas'}];
+  if(r==='coach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'planeacion',icon:'📋',lbl:'Planeación'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'atletas',icon:'👥',lbl:'Atletas'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
+  else if(r==='acoach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'atletas',icon:'👥',lbl:'Atletas'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
   else tabs=[{id:'hoy',icon:'🌊',lbl:'Hoy'},{id:'semana',icon:'📅',lbl:'Semana'},{id:'sesiones',icon:'📝',lbl:'Sesiones'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
   document.getElementById('bottomNav').innerHTML=tabs.map(t=>`<button class="nav-btn" id="nb-${t.id}" onclick="switchView('${t.id}')"><span class="icon">${t.icon}</span><span>${t.lbl}</span></button>`).join('');
 }
@@ -2713,12 +2713,41 @@ async function vPanel(){
 async function vPerfil(athleteId=null,athleteName=null){
   const id=athleteId||S.user.id; const name=athleteName||S.user.name;
   const isCoach=S.user.role==='coach'||S.user.role==='acoach';
+  const isOwnProfile = id===S.user.id;
   // Get avatar_url from athletes list or current user
   const athData = S.athletes.find(a=>a.id===id) || S.user;
-  const avatarUrl = athData?.avatar_url || null;
+  const avatarUrl = athData?.avatar_url || S.user.avatar_url || null;
   const avatarHtml = avatarUrl
     ? `<img src="${avatarUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);" onerror="this.outerHTML='<div class=\'ath-avatar\' style=\'width:52px;height:52px;font-size:22px;\'>${name.charAt(0)}</div>'">`
     : `<div class="ath-avatar" style="width:52px;height:52px;font-size:22px;">${name.charAt(0)}</div>`;
+
+  // Coach viewing own profile
+  if(isCoach && isOwnProfile){
+    const roleLabel = S.user.role==='coach'?'Head Coach':'Coach Asistente';
+    const roleColor = S.user.role==='coach'?'var(--amber)':'var(--purple)';
+    render(`<div class="page-title">Mi Perfil</div><div class="page-sub">TSS El Salvador 2026</div>
+    <div class="card card-cyan anim-up" style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+      <div onclick="uploadMyAvatar()" style="cursor:pointer;position:relative;flex-shrink:0;">
+        ${avatarHtml}
+        <div style="position:absolute;bottom:0;right:0;background:var(--cyan);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;">📷</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:18px;font-weight:800;color:var(--white);margin-bottom:3px;">${name}</div>
+        <span style="font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 10px;border-radius:20px;background:rgba(245,158,11,.1);color:${roleColor};border:1px solid ${roleColor}33;">${roleLabel}</span>
+      </div>
+    </div>
+    <div class="card anim-up" style="margin-bottom:10px;">
+      <div class="sec-title">Toca la foto para cambiarla</div>
+      <p style="font-size:13px;color:var(--grey);line-height:1.6;">Tu foto aparece en el sistema. Toca el círculo de arriba para subir una nueva imagen (máx. 2MB).</p>
+    </div>
+    <div class="stat-grid anim-up">
+      <div class="stat-box"><div class="stat-n" style="font-size:22px;">${S.athletes.length}</div><div class="stat-l">Atletas</div></div>
+      <div class="stat-box"><div class="stat-n" style="font-size:22px;color:var(--amber);">2026</div><div class="stat-l">Temporada</div></div>
+      <div class="stat-box"><div class="stat-n" style="font-size:22px;color:var(--green);">🇸🇻</div><div class="stat-l">El Salvador</div></div>
+    </div>`);
+    return;
+  }
+
   render(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div style="display:flex;align-items:center;gap:12px;">
       <div onclick="${isCoach?`uploadAvatar('${id}')`:'uploadMyAvatar()'}" style="cursor:pointer;position:relative;">
