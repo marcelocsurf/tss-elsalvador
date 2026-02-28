@@ -545,6 +545,8 @@ function renderSpCard(s, isToday){
   const today = todayStr();
   const isLive = s.status === 'live';
   const isDone = s.status === 'done';
+  // Parse athlete_ids at card level so it's available everywhere in this function
+  const cardAthIds = s.athlete_ids ? (Array.isArray(s.athlete_ids) ? s.athlete_ids : (() => { try{ return JSON.parse(s.athlete_ids); } catch(e){ return []; } })()) : [];
 
   // Parse drills JSON safely
   let drills = [];
@@ -571,17 +573,10 @@ function renderSpCard(s, isToday){
     </div>` : ''}
 
     ${(()=>{
-      try {
-        const ids = s.athlete_ids ? (Array.isArray(s.athlete_ids) ? s.athlete_ids : JSON.parse(s.athlete_ids||'[]')) : [];
-        if(!ids.length) return '';
-        const names = ids.map(id => { const a = S.athletes.find(x=>x.id===id); return a?a.name:'?'; }).filter(Boolean);
-        return `<div style="margin-bottom:8px;">
-          <div class="drill-label" style="margin-bottom:6px;">👥 Atletas (${names.length})</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px;">
-            ${names.map(n=>`<span class="chip" style="background:var(--cyan3);color:var(--cyan);border:1px solid var(--border);">${n}</span>`).join('')}
-          </div>
-        </div>`;
-      } catch(e){ return ''; }
+      if(!cardAthIds.length) return '';
+      const names = cardAthIds.map(id => { const a = S.athletes.find(x=>x.id===id); return a?a.name:'?'; }).filter(Boolean);
+      if(!names.length) return '';
+      return '<div style="margin-bottom:8px;"><div class="drill-label" style="margin-bottom:6px;">👥 Atletas ('+names.length+')</div><div style="display:flex;flex-wrap:wrap;gap:5px;">'+names.map(n=>'<span class="chip" style="background:var(--cyan3);color:var(--cyan);border:1px solid var(--border);">'+n+'</span>').join('')+'</div></div>';
     })()}
 
     <div class="drill-row">
@@ -625,7 +620,7 @@ function renderSpCard(s, isToday){
 
     ${canExecute && !isDone ? `<div style="display:flex;gap:8px;margin-top:12px;">
       ${!isLive ? `<button class="btn btn-green btn-sm" onclick="startSp('${s.id}')">▶ Iniciar Sesión</button>` : 
-        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}','${s.title}',${JSON.stringify(ids)})">✅ Finalizar y Registrar</button>`}
+        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}','${s.title}',${JSON.stringify(cardAthIds)})">✅ Finalizar y Registrar</button>`}
     </div>` : ''}
 
     ${isDone && s.coach_notes ? `<div class="drill-block" style="margin-top:10px;border-left:3px solid var(--cyan);">
