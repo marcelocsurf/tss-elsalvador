@@ -585,8 +585,8 @@ function renderSpCard(s, isToday){
     })()}
 
     <div class="drill-row">
+      ${s.reps ? `<div class="drill-stat"><div class="drill-stat-n">${s.reps}</div><div class="drill-stat-l">Tiempo / Reps</div></div>` : ''}
       ${s.duration_min ? `<div class="drill-stat"><div class="drill-stat-n">${s.duration_min}'</div><div class="drill-stat-l">Duración</div></div>` : ''}
-      ${s.reps ? `<div class="drill-stat"><div class="drill-stat-n">${s.reps}</div><div class="drill-stat-l">Reps</div></div>` : ''}
       ${s.conditions ? `<div class="drill-stat"><div class="drill-stat-n" style="font-size:13px;">🌊</div><div class="drill-stat-l">${s.conditions}</div></div>` : ''}
     </div>
 
@@ -625,7 +625,7 @@ function renderSpCard(s, isToday){
 
     ${canExecute && !isDone ? `<div style="display:flex;gap:8px;margin-top:12px;">
       ${!isLive ? `<button class="btn btn-green btn-sm" onclick="startSp('${s.id}')">▶ Iniciar Sesión</button>` : 
-        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}','${s.title}')">✅ Finalizar y Registrar</button>`}
+        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}','${s.title}',${JSON.stringify(ids)})">✅ Finalizar y Registrar</button>`}
     </div>` : ''}
 
     ${isDone && s.coach_notes ? `<div class="drill-block" style="margin-top:10px;border-left:3px solid var(--cyan);">
@@ -652,7 +652,8 @@ async function startSp(sessionId){
 }
 
 /* ── FEEDBACK MODAL ── */
-function openSpFeedback(sessionId, sessionTitle){
+function openSpFeedback(sessionId, sessionTitle, athleteIds){
+  const sessionAthletes = athleteIds&&athleteIds.length ? S.athletes.filter(a=>athleteIds.includes(a.id)) : S.athletes;
   const m = document.createElement('div');
   m.className = 'modal-overlay'; m.id = 'spFeedbackModal';
   m.innerHTML = `<div class="modal-sheet">
@@ -662,7 +663,7 @@ function openSpFeedback(sessionId, sessionTitle){
     </div>
     <div class="alert alert-cyan">📋 Registra el feedback de cada atleta en esta sesión</div>
     <div id="spFbAthletes">
-      ${S.athletes.map(a => `
+      ${sessionAthletes.map(a => `
         <div class="drill-block" style="margin-bottom:10px;" id="fbblock-${a.id}">
           <div class="fb-ath-name">🏄 ${a.name}</div>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
@@ -714,9 +715,12 @@ async function finalizeSp(sessionId){
       .eq('id', sessionId);
     if(sessErr) throw sessErr;
 
-    // Save individual feedbacks
+    // Save individual feedbacks — only athletes assigned to this session
+    const {data: sessData} = await db.from('tss_presencial_sessions').select('athlete_ids').eq('id',sessionId).single();
+    const sessAthIds = sessData?.athlete_ids ? (Array.isArray(sessData.athlete_ids)?sessData.athlete_ids:JSON.parse(sessData.athlete_ids||'[]')) : [];
+    const sessAthletes = sessAthIds.length ? S.athletes.filter(a=>sessAthIds.includes(a.id)) : S.athletes;
     const feedbacks = [];
-    for(const a of S.athletes){
+    for(const a of sessAthletes){
       const present = document.getElementById(`fb-present-${a.id}`)?.checked;
       if(!present) continue;
       const focus = parseInt(document.getElementById(`fb-focus-${a.id}`)?.value || 0);
