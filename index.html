@@ -373,7 +373,7 @@ function ytId(url){ if(!url) return null; const m=url.match(/(?:youtu\.be\/|yout
 function fmtDate(d){ if(!d) return '—'; return new Date(d+'T00:00:00').toLocaleDateString('es-SV',{day:'2-digit',month:'short',year:'numeric'}); }
 function fmtDateShort(d){ if(!d) return '—'; return new Date(d+'T00:00:00').toLocaleDateString('es-SV',{day:'2-digit',month:'short'}); }
 function daysSince(ds){ if(!ds) return 999; return Math.floor((Date.now()-new Date(ds).getTime())/86400000); }
-function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function todayStr(){ return new Date().toLocaleDateString('en-CA', {timeZone:'America/El_Salvador'}); }
 function render(html){ document.getElementById('mainContent').innerHTML=html; }
 function gv(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
 
@@ -1558,7 +1558,9 @@ async function getPlanForAthlete(athleteId, date){
    SEMANA — VISTA ATLETA
 ============================================================ */
 async function vSemana(){
-  const today = new Date();
+  // Use El Salvador timezone for correct date
+  const todaySV = new Date(new Date().toLocaleString('en-US', {timeZone:'America/El_Salvador'}));
+  const today = todaySV;
   const dayOfWeek = today.getDay()||7; // Mon=1
   const monday = new Date(today); monday.setDate(today.getDate()-(dayOfWeek-1));
   const days = [];
@@ -1643,7 +1645,7 @@ async function showDayDetail(date, plansByDateArg, ciByDateArg, myGroupsArg){
 
     // If called from button click (no cache passed), fetch fresh
     if(!plansByDate){
-      const today = new Date(); const dayOfWeek=today.getDay()||7;
+      const today = new Date(new Date().toLocaleString('en-US', {timeZone:'America/El_Salvador'})); const dayOfWeek=today.getDay()||7;
       const monday=new Date(today); monday.setDate(today.getDate()-(dayOfWeek-1));
       const days=[]; for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);days.push(d.toISOString().split('T')[0]);}
       const[{data:plans},{data:memberships},{data:checkins}]=await Promise.all([
@@ -3001,7 +3003,7 @@ function closeModal(id){ const m=document.getElementById(id||'weekModal'); if(m)
    REPORTE SEMANAL
 ============================================================ */
 function getWeekDays(offset=0){
-  const now=new Date();
+  const now=new Date(new Date().toLocaleString('en-US', {timeZone:'America/El_Salvador'}));
   const day=now.getDay()||7;
   const mon=new Date(now); mon.setDate(now.getDate()-day+1+(offset*7));
   return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d.toISOString().split('T')[0]; });
