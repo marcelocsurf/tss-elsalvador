@@ -493,7 +493,7 @@ async function loadSpHoy(){
         ${S.user.role==='coach'?`<button class="btn btn-cyan btn-sm" style="margin:16px auto;width:auto;" onclick="spTab('crear')">+ Crear Sesion</button>`:``}
       </div>`; return;
     }
-    el.innerHTML = data.map(s => renderSpCard(s, true)).join('');
+    el.innerHTML = (data||[]).map(s => renderSpCard(s, true)).join('');
   } catch(e){ el.innerHTML = '<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar</p>'; console.error(e); }
 }
 
@@ -1124,7 +1124,7 @@ async function loadHoy(date){
       // Progress summary
       let totalBlocks=allBlocks.length;
       let doneBlocks=allBlocks.filter(p=>compState[p.id+'_block']).length;
-      let pct=Math.round((doneBlocks/totalBlocks)*100);
+      let pct=totalBlocks>0?Math.round((doneBlocks/totalBlocks)*100):0;
       planHtml=`<div class="sec-title">📋 Plan del Día</div>
       <div class="card card-cyan anim-up" style="margin-bottom:12px;padding:12px 14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -2537,6 +2537,7 @@ async function saveCompEval(){
 
 /* --- HISTORIAL EVALUACIONES --- */
 async function renderEvalHist(){
+  try {
   document.getElementById('evalTabArea').innerHTML=`
     <div class="sec-title">Historial — Entrenamiento</div>
     <select class="sel" id="eaHistSel" onchange="loadEvalHist()" style="margin-bottom:12px;">
@@ -2551,6 +2552,7 @@ async function renderEvalHist(){
       ${S.athletes.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
     </select>
     <div id="compEvalHistArea"></div>`;
+  } catch(e){ console.error("renderEvalHist",e); }
 }
 
 async function loadEvalHist(){
@@ -3156,7 +3158,7 @@ async function openWeeklyReport(athleteId, athleteName, weekOffset=0){
     // Stats
     const totalDays = 7;
     const checkinDays = (checkins||[]).length;
-    const avgWater = checkinDays ? (checkins.reduce((s,c)=>s+(c.water_glasses||0),0)/checkinDays).toFixed(1) : '—';
+    const avgWater = checkinDays ? (checkinDays>0?(checkins.reduce((s,c)=>s+(c.water_glasses||0),0)/checkinDays).toFixed(1):'0') : '—';
     const avgEnergy = checkinDays ? (checkins.reduce((s,c)=>s+(c.energy_level||0),0)/checkinDays).toFixed(1) : '—';
     const avgFocus = checkinDays ? (checkins.reduce((s,c)=>s+(c.focus_level||0),0)/checkinDays).toFixed(1) : '—';
     const goodNutrition = (checkins||[]).filter(c=>c.nutrition==='Si').length;
@@ -3271,6 +3273,7 @@ async function openWeeklyReport(athleteId, athleteName, weekOffset=0){
 }
 
 async function genWeeklyPDF(athleteId, athleteName, mon, sun){
+  try {
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:'mm',format:'a4'});
   const M=15; let y=M;
@@ -3315,6 +3318,7 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
 
   doc.save('TSS_Reporte_'+athleteName.replace(/ /g,'_')+'_'+mon+'.pdf');
   toast('📄 PDF exportado','success');
+  } catch(e){ toast("Error al generar PDF","error"); console.error(e); }
 }
 
 /* ============================================================
