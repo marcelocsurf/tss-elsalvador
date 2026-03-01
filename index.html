@@ -1958,6 +1958,96 @@ const BLOCK_TYPES = [
 
 function getBlockType(id){ return BLOCK_TYPES.find(b=>b.id===id) || BLOCK_TYPES[BLOCK_TYPES.length-1]; }
 
+async function openSaveTemplate(date){
+  const name = prompt('Nombre del template (ej: Lunes Técnico):');
+  if(!name||!name.trim()) return;
+  showLoad(true);
+  try {
+    const{data:plans}=await db.from('tss_daily_plans').select('*').eq('date',date).order('created_at');
+    if(!plans||!plans.length){ toast('No hay actividades en este día','error'); return; }
+    const blocks = plans.map(p=>({
+      work_type:p.work_type, scope:p.scope, target_id:p.target_id,
+      objective:p.objective, notes:p.notes, exercises:p.exercises,
+      video_url:p.video_url, sesion_time:p.sesion_time, sesion_reps:p.sesion_reps
+    }));
+    const{error}=await db.from('tss_templates').insert({
+      name:name.trim(), created_by:S.user.id, blocks:JSON.stringify(blocks)
+    });
+    if(error) throw error;
+    toast('✅ Template "'+name.trim()+'" guardado','success');
+  } catch(e){ toast('Error guardando template','error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
+async function openApplyTemplate(date){
+  showLoad(true);
+  let templates=[];
+  try {
+    const{data}=await db.from('tss_templates').select('*').order('created_at',{ascending:false});
+    templates=data||[];
+  } catch(e){ toast('Error cargando templates','error'); showLoad(false); return; }
+  finally{ showLoad(false); }
+
+  if(!templates.length){
+    toast('No hay templates guardados aún','error'); return;
+  }
+
+  const m=document.createElement('div'); m.className='modal-overlay'; m.id='templateModal';
+  m.innerHTML=`<div class="modal-sheet">
+    <div class="modal-head">
+      <div><div class="modal-title">⚡ Aplicar Template</div><div class="modal-sub">${date}</div></div>
+      <button class="modal-close" onclick="closeModal('templateModal')">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--grey);margin-bottom:14px;">Selecciona un template para aplicar al día ${date}. Los bloques existentes no se borran.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${templates.map(t=>{
+        let blocks=[]; try{blocks=JSON.parse(t.blocks||'[]');}catch(e){}
+        return `<div style="background:var(--bg3);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:14px;font-weight:700;">${t.name}</div>
+            <div style="font-size:11px;color:var(--grey);margin-top:2px;">${blocks.length} actividades</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-cyan btn-sm" onclick="applyTemplate('${t.id}','${date}')">Aplicar</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteTemplate('${t.id}')">🗑</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)closeModal('templateModal');});
+}
+
+async function applyTemplate(templateId, date){
+  showLoad(true);
+  try {
+    const{data:tmpl}=await db.from('tss_templates').select('*').eq('id',templateId).single();
+    if(!tmpl) throw new Error('Template no encontrado');
+    let blocks=[]; try{blocks=JSON.parse(tmpl.blocks||'[]');}catch(e){}
+    if(!blocks.length){ toast('Template vacío','error'); return; }
+    const inserts=blocks.map(b=>({...b, date, created_by:S.user.id}));
+    const{error}=await db.from('tss_daily_plans').insert(inserts);
+    if(error) throw error;
+    closeModal('templateModal');
+    toast('✅ Template "'+tmpl.name+'" aplicado','success');
+    loadPlanDay(date);
+  } catch(e){ toast('Error aplicando template','error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
+async function deleteTemplate(templateId){
+  if(!confirm('¿Eliminar este template?')) return;
+  showLoad(true);
+  try {
+    const{error}=await db.from('tss_templates').delete().eq('id',templateId);
+    if(error) throw error;
+    closeModal('templateModal');
+    toast('Template eliminado','success');
+  } catch(e){ toast('Error eliminando template','error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
 async function loadPlanDay(date){
   const el=document.getElementById('planDayContent'); if(!el) return;
   const isCoach = S.user.role==='coach'||S.user.role==='acoach';
@@ -2024,9 +2114,13 @@ async function loadPlanDay(date){
       });
     }
 
-    html+=`<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border2);">
-      <button class="btn btn-ghost btn-sm" onclick="openCopyWeek('${date}')">📋 Copiar semana completa</button>
-    </div>`;
+    if(isCoach){
+      html+=`<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border2);display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="openCopyWeek('${date}')">📋 Copiar semana</button>
+        ${blocks.length?`<button class="btn btn-ghost btn-sm" onclick="openSaveTemplate('${date}')">💾 Guardar como Template</button>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="openApplyTemplate('${date}')">⚡ Aplicar Template</button>
+      </div>`;
+    }
 
     el.innerHTML=html;
   } catch(e){ el.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando plan</p>'; console.error(e); }
