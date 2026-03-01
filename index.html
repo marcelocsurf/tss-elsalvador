@@ -2934,7 +2934,7 @@ async function vPanel(){
           ${a.avatar_url?`<img src="${a.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);">`:`<div class="ath-avatar">${a.name.charAt(0)}</div>`}
           <div class="ath-info">
             <div class="ath-name">${a.name} ${ci?'<span class="chip chip-green" style="font-size:9px;padding:1px 6px;">✅</span>':''}</div>
-            <div class="ath-meta">${lastSes[a.id]?`Última: ${fmtDateShort(lastSes[a.id])}`:'Sin sesiones'} · Wave: <span style="color:var(--cyan);">${ws}</span></div>
+            <div class="ath-meta">${lastSes[a.id]?`Última: ${fmtDateShort(lastSes[a.id])}`:'Sin sesiones'} · Índice: <span style="color:var(--cyan);">${ws}</span></div>
             <div class="prog-bar" style="margin-top:4px;"><div class="prog-fill" style="width:${pct!=null?pct:0}%;${pct>0?'background:linear-gradient(90deg,var(--green),var(--cyan));':''}"></div></div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
