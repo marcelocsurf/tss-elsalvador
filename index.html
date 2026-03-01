@@ -2205,7 +2205,7 @@ function openAddBlockModalWithFilter(date){
 }
 
 function openAddBlockModal(date, existData=null){
-  _planTasks = existData&&existData._blocks ? JSON.parse(JSON.stringify(existData._blocks)) : [];
+  _planTasks = existData&&existData._blocks ? (Array.isArray(existData._blocks)?existData._blocks:JSON.parse(existData._blocks)) : [];
   const curScope = existData?existData.scope:'general';
   const curTarget = existData?existData.target_id||'':'';
   const groupOpts = S.groups.map(g=>`<option value="${g.id}" ${curTarget===g.id?'selected':''}>${g.name}</option>`).join('');
@@ -2269,6 +2269,19 @@ function openAddBlockModal(date, existData=null){
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) closeModal('blockModal'); };
+  // Apply preselected scope/target after DOM is ready
+  if(existData && existData.scope && existData.scope!=='general'){
+    const scopeBtn = document.querySelector(`.scope-tab[onclick*="'${existData.scope}'"]`);
+    switchScope(existData.scope, scopeBtn);
+    if(existData.scope==='individual' && existData.target_id){
+      const athSel=document.getElementById('blockAthSel');
+      if(athSel) athSel.value=existData.target_id;
+    }
+    if(existData.scope==='group' && existData.target_id){
+      const grpSel=document.getElementById('blockGroupSel');
+      if(grpSel) grpSel.value=existData.target_id;
+    }
+  }
   renderPlanTaskList();
 }
 
