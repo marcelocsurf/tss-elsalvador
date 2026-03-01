@@ -1139,6 +1139,7 @@ async function loadHoy(date){
     }));
 
     const allBlocks = [...presBlocks, ...(plans||[])];
+    const hasSesion = allBlocks.some(b=>b.work_type==='sesion'||b._isPresencial);
 
     let planHtml='';
     if(allBlocks.length){
@@ -1369,6 +1370,7 @@ async function loadHoy(date){
           </div>
           <input type="hidden" id="ci-nutri" value="">
 
+          ${hasSesion?`
           <label class="inp-label">🎯 Nivel de enfoque en el agua</label>
           ${scaleRow('ci-focus',0,5)}
 
@@ -1379,6 +1381,7 @@ async function loadHoy(date){
             <button type="button" class="opt-pill" onclick="pickOpt('ci-goal',this,'No','on-red')">No</button>
           </div>
           <input type="hidden" id="ci-goal" value="">
+          `:'<input type="hidden" id="ci-focus" value="0"><input type="hidden" id="ci-goal" value="">'}
 
           <label class="inp-label">🏄 Horas surfeadas hoy</label>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
@@ -1625,8 +1628,11 @@ async function saveCheckin(date){
   if(!water){toast('Indica cuántos vasos de agua tomaste','error');return;}
   if(!energy){toast('Indica tu nivel de energía','error');return;}
   if(!nutri){toast('Indica tu nutrición','error');return;}
-  if(!focus){toast('Indica tu nivel de enfoque','error');return;}
-  if(!goal){toast('Indica si lograste tu objetivo','error');return;}
+  // focus and goal only required when sesion fields are present
+  const hasFocusField = !!document.getElementById('sc-ci-focus');
+  const hasGoalField = document.getElementById('ci-goal')?.value !== undefined;
+  if(hasFocusField && focus===0){toast('Indica tu nivel de enfoque','error');return;}
+  if(hasGoalField && !goal && document.querySelector('[data-ci-goal]')){toast('Indica si lograste tu objetivo','error');return;}
   showLoad(true);
   try {
     const surfHours = parseFloat(document.getElementById('ci-surf-hours')?.value||0)||null;
