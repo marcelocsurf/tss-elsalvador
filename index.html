@@ -3760,14 +3760,22 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
   try {
   showLoad(true);
   // Load all data for the week
-  const [ciRes, plansRes, sessRes] = await Promise.all([
+  const [ciRes, plansRes, sessRes, evalRes, membRes] = await Promise.all([
     db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',mon).lte('date',sun).order('date'),
     db.from('tss_daily_plans').select('*').gte('date',mon).lte('date',sun).order('date'),
     db.from('tss_presencial_sessions').select('*').gte('date',mon).lte('date',sun).order('date'),
+    db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',mon).lte('date',sun).order('date'),
+    db.from('tss_group_members').select('group_id').eq('athlete_id',athleteId),
   ]);
   const checkins = ciRes.data||[];
-  const plans = (plansRes.data||[]).filter(p=>p.scope==='general'||(p.scope==='individual'&&p.target_id===athleteId));
+  const myGroups = (membRes.data||[]).map(m=>m.group_id);
+  const plans = (plansRes.data||[]).filter(p=>
+    p.scope==='general'||
+    (p.scope==='individual'&&p.target_id===athleteId)||
+    (p.scope==='group'&&myGroups.includes(p.target_id))
+  );
   const sessions = sessRes.data||[];
+  const evals = evalRes.data||[];
 
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:'mm',format:'a4'});
@@ -3799,6 +3807,7 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
 
   doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(232,240,245);
   const statW=pw/4;
+  const avgIdx = evals.length?(evals.reduce((s,e)=>s+((e.physical+e.technique+e.mindset+e.competitive)/4),0)/evals.length).toFixed(1):null;
   const stats=[
     ['🏄 '+totalSurf.toFixed(1)+'h','Horas Surf'],
     ['⚡ '+avgEnergy+'/5','Energía'],
@@ -3814,6 +3823,12 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
     doc.text(st[1],x+(statW-3)/2,y+12,{align:'center'});
   });
   y+=20;
+  if(avgIdx){
+    doc.setFillColor(0,60,75); doc.roundedRect(M,y,pw,10,2,2,'F');
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(0,201,232);
+    doc.text('ÍNDICE DE RENDIMIENTO SEMANAL: '+avgIdx+'/10',M+pw/2,y+6,{align:'center'});
+    y+=14;
+  }
 
   // Daily checkins
   if(checkins.length){
@@ -3826,7 +3841,9 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
       doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(232,240,245);
       doc.text(ci.date,M+3,y+6);
       doc.setFont('helvetica','normal'); doc.setTextColor(107,138,154);
-      const line='💧'+ci.water_glasses+'v  ⚡'+ci.energy_level+'/5  🎯'+ci.focus_level+'/5  🥗'+(ci.nutrition||'—')+'  ✅'+(ci.goal_achieved||'—')+(ci.surf_hours?'  🏄'+ci.surf_hours+'h':'')+(ci.progress_pct?'  📋'+ci.progress_pct+'%':'');
+      let sesResLine='';
+      if(ci.sesion_result){try{const sr=JSON.parse(ci.sesion_result);const vals=Object.values(sr);if(vals.length){sesResLine='  🌊'+(vals.includes('Si')?'✅':vals.includes('Parcial')?'⚡':'❌');}}catch(e){}}
+      const line='💧'+ci.water_glasses+'v  ⚡'+ci.energy_level+'/5  🎯'+(ci.focus_level||'—')+'/5  🥗'+(ci.nutrition||'—')+'  ✅'+(ci.goal_achieved||'—')+(ci.surf_hours?'  🏄'+ci.surf_hours+'h':'')+sesResLine+(ci.progress_pct?'  📋'+ci.progress_pct+'%':'');
       doc.text(line,M+28,y+6);
       y+=12;
       if(ci.notes){ doc.setTextColor(107,138,154); doc.setFontSize(7); const lines=doc.splitTextToSize('Nota: '+ci.notes,pw-30); doc.text(lines,M+3,y); y+=lines.length*4; }
@@ -3850,6 +3867,28 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
       doc.setTextColor(107,138,154);
       doc.text(s.status==='done'?'✅ Completada':s.status==='live'?'En curso':'Planificada',M+130,y+5);
       y+=10;
+    });
+    y+=4;
+  }
+
+  // Evaluaciones del coach
+  if(evals.length){
+    if(y>250){doc.addPage();y=20;}
+    doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('EVALUACIONES DEL COACH',M,y); y+=2;
+    doc.setDrawColor(0,201,232); doc.line(M,y,210-M,y); y+=5;
+    evals.forEach(ev=>{
+      if(y>270){doc.addPage();y=20;}
+      const idx4=((ev.physical+ev.technique+ev.mindset+ev.competitive)/4).toFixed(1);
+      doc.setFillColor(12,20,28); doc.roundedRect(M,y,pw,14,2,2,'F');
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(232,240,245);
+      doc.text(ev.date,M+3,y+5);
+      doc.setTextColor(0,201,232); doc.setFontSize(10);
+      doc.text('Índice: '+idx4+'/10',M+pw-3,y+5,{align:'right'});
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(107,138,154);
+      doc.text('Físico: '+ev.physical+'  Técnica: '+ev.technique+'  Mental: '+ev.mindset+'  Competitivo: '+ev.competitive,M+3,y+11);
+      if(ev.notes){ const ns=doc.splitTextToSize('Obs: '+ev.notes, pw-6); doc.text(ns,M+3,y+14); y+=ns.length*3.5; }
+      y+=16;
     });
     y+=4;
   }
