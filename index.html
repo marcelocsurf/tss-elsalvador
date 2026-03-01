@@ -1672,81 +1672,101 @@ async function getPlanForAthlete(athleteId, date){
 /* ============================================================
    SEMANA — VISTA ATLETA
 ============================================================ */
-async function vSemana(){
-  // Use El Salvador timezone for correct date
+async function vSemana(weekOffset=0){
   const todaySV = new Date(new Date().toLocaleString('en-US', {timeZone:'America/El_Salvador'}));
   const today = todaySV;
-  const dayOfWeek = today.getDay()||7; // Mon=1
-  const monday = new Date(today); monday.setDate(today.getDate()-(dayOfWeek-1));
+  const todayStr2 = today.toISOString().split('T')[0];
+  const dayOfWeek = today.getDay()||7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate()-(dayOfWeek-1)+(weekOffset*7));
+  // Build 14 days (2 weeks)
   const days = [];
-  for(let i=0;i<7;i++){
+  for(let i=0;i<14;i++){
     const d = new Date(monday); d.setDate(monday.getDate()+i);
     days.push(d.toISOString().split('T')[0]);
   }
   const dayNames = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
 
-  render(`<div class="page-title">Mi Semana</div><div class="page-sub">Plan semanal de entrenamiento</div>
+  // Week labels
+  const week1start = days[0].split('-'); const week1end = days[6].split('-');
+  const week2start = days[7].split('-'); const week2end = days[13].split('-');
+  const fmt = d => parseInt(d[2])+'/'+parseInt(d[1]);
+  const w1label = fmt(week1start)+' — '+fmt(week1end);
+  const w2label = fmt(week2start)+' — '+fmt(week2end);
+
+  render(`<div class="page-title">Mi Plan</div><div class="page-sub">Próximas 2 semanas</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="vSemana(${weekOffset-1})">← Anterior</button>
+      <span style="font-size:11px;color:var(--grey);">Semana ${weekOffset===0?'actual':weekOffset>0?'+'+weekOffset:weekOffset}</span>
+      <button class="btn btn-ghost btn-sm" onclick="vSemana(${weekOffset+1})">Siguiente →</button>
+    </div>
     <div id="semanaContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
 
   const el = document.getElementById('semanaContent'); if(!el) return;
   try {
-    // Load all plans for the week + completion states
-    const{data:plans}=await db.from('tss_daily_plans').select('*')
-      .gte('date', days[0]).lte('date', days[6]).order('created_at');
-
-    // Load athlete's group memberships
-    const{data:memberships}=await db.from('tss_group_members').select('group_id').eq('athlete_id',S.user.id);
-    const myGroups = (memberships||[]).map(m=>m.group_id);
-
-    // Load checkins for the week
-    const{data:checkins}=await db.from('tss_daily_checkins').select('date,progress_pct,blocks_completed,goal_achieved')
-      .eq('athlete_id',S.user.id).gte('date',days[0]).lte('date',days[6]);
+    const[plansRes, membRes, ciRes, presRes] = await Promise.all([
+      db.from('tss_daily_plans').select('*').gte('date',days[0]).lte('date',days[13]).order('created_at'),
+      db.from('tss_group_members').select('group_id').eq('athlete_id',S.user.id),
+      db.from('tss_daily_checkins').select('date,progress_pct,blocks_completed,goal_achieved').eq('athlete_id',S.user.id).gte('date',days[0]).lte('date',days[13]),
+      db.from('tss_presencial_sessions').select('id,date,title,time_start,status').gte('date',days[0]).lte('date',days[13]).neq('status','cancelled'),
+    ]);
+    const myGroups=(membRes.data||[]).map(m=>m.group_id);
     const ciByDate={};
-    (checkins||[]).forEach(c=>ciByDate[c.date]=c);
-
-    // Filter plans relevant to this athlete per day
+    (ciRes.data||[]).forEach(ci=>ciByDate[ci.date]=ci);
+    // presencial sessions by date
+    const presByDate={};
+    (presRes.data||[]).forEach(ps=>{
+      if(!presByDate[ps.date]) presByDate[ps.date]=[];
+      presByDate[ps.date].push(ps);
+    });
+    // filter plans per athlete
     const plansByDate={};
-    (plans||[]).forEach(p=>{
-      const ok = p.scope==='general' ||
-        (p.scope==='individual'&&p.target_id===S.user.id) ||
-        (p.scope==='group'&&myGroups.includes(p.target_id));
+    (plansRes.data||[]).forEach(p=>{
+      const ok=p.scope==='general'||(p.scope==='individual'&&p.target_id===S.user.id)||(p.scope==='group'&&myGroups.includes(p.target_id));
       if(!ok) return;
       if(!plansByDate[p.date]) plansByDate[p.date]=[];
       plansByDate[p.date].push(p);
     });
 
-    const todayStr2 = today.toISOString().split('T')[0];
-
-    let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px;">`;
-    days.forEach((date,i)=>{
-      const isToday = date===todayStr2;
-      const isPast = date<todayStr2;
-      const dayPlans = plansByDate[date]||[];
-      const ci = ciByDate[date];
-      const pct = ci?.progress_pct||0;
-      const hasPlans = dayPlans.length>0;
-
-      html+=`<button onclick="showDayDetail('${date}')" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;
-        border-radius:10px;border:1px solid ${isToday?'var(--cyan)':hasPlans?'rgba(255,255,255,.1)':'rgba(255,255,255,.04)'};
-        background:${isToday?'rgba(0,201,232,.12)':'rgba(255,255,255,.02)'};cursor:pointer;">
-        <span style="font-size:9px;font-weight:700;color:${isToday?'var(--cyan)':'var(--grey)'};">${dayNames[i]}</span>
-        <span style="font-size:13px;font-weight:800;color:${isToday?'var(--white)':isPast?'var(--grey)':'rgba(232,240,245,.7)'};">${parseInt(date.split('-')[2])}</span>
-        ${hasPlans?`<div style="width:28px;height:3px;border-radius:2px;background:var(--bg3);overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${pct===100?'var(--green)':pct>0?'var(--cyan)':'rgba(0,201,232,.2)'};"></div>
-        </div>`:'<div style="width:28px;height:3px;"></div>'}
-        <span style="font-size:10px;">${hasPlans?(pct===100?'✅':dayPlans.length+'📋'):'—'}</span>
-      </button>`;
+    // Render 2 weeks
+    let html='';
+    [0,1].forEach(week=>{
+      const weekDays = days.slice(week*7, week*7+7);
+      const label = week===0?w1label:w2label;
+      const isCurrentWeek = weekDays.includes(todayStr2);
+      html+=`<div style="margin-bottom:16px;">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:${isCurrentWeek?'var(--cyan)':'var(--grey)'};font-weight:700;margin-bottom:8px;padding:0 2px;">
+          ${isCurrentWeek?'● ':''} Semana ${week+1} · ${label}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">`;
+      weekDays.forEach((date,i)=>{
+        const isToday=date===todayStr2;
+        const isPast=date<todayStr2;
+        const dayPlans=plansByDate[date]||[];
+        const presessions=presByDate[date]||[];
+        const ci=ciByDate[date];
+        const pct=ci?.progress_pct||0;
+        const hasPlans=dayPlans.length>0||presessions.length>0;
+        const hasPresencial=presessions.length>0;
+        html+=`<button onclick="showDayDetail('${date}')" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;
+          border-radius:10px;border:1px solid ${isToday?'var(--cyan)':hasPlans?'rgba(255,255,255,.12)':'rgba(255,255,255,.04)'};
+          background:${isToday?'rgba(0,201,232,.12)':isPast?'rgba(255,255,255,.01)':'rgba(255,255,255,.02)'};cursor:pointer;position:relative;">
+          <span style="font-size:9px;font-weight:700;color:${isToday?'var(--cyan)':isPast?'#3a4a54':'var(--grey)'};">${dayNames[i]}</span>
+          <span style="font-size:13px;font-weight:800;color:${isToday?'var(--white)':isPast?'#3a4a54':'rgba(232,240,245,.7)'};">${parseInt(date.split('-')[2])}</span>
+          ${hasPresencial?`<span style="font-size:8px;color:var(--green);">🏄</span>`:(hasPlans?`<div style="width:24px;height:3px;border-radius:2px;background:var(--bg3);overflow:hidden;"><div style="height:100%;width:${pct}%;background:${pct===100?'var(--green)':pct>0?'var(--cyan)':'rgba(0,201,232,.2)'};"></div></div>`:'<div style="height:11px;"></div>')}
+          <span style="font-size:9px;">${hasPlans?(pct===100?'✅':dayPlans.length+presessions.length+'📋'):'—'}</span>
+        </button>`;
+      });
+      html+='</div></div>';
     });
-    html+='</div>';
 
-    // Show detail of today or selected day
     html+=`<div id="weekDayDetail"></div>`;
     el.innerHTML=html;
+    // Auto-show today or first day of range
+    const autoDay = days.includes(todayStr2)?todayStr2:days[0];
+    showDayDetail(autoDay, plansByDate, ciByDate, myGroups);
 
-    // Auto-show today
-    showDayDetail(todayStr2, plansByDate, ciByDate, myGroups);
-
-  } catch(e){ el.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);">Error al cargar semana</p>'; console.error(e); }
+  } catch(e){ el.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);">Error al cargar</p>'; console.error(e); }
 }
 
 async function showDayDetail(date, plansByDateArg, ciByDateArg, myGroupsArg){
