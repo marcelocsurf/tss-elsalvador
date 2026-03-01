@@ -1267,6 +1267,7 @@ async function loadHoy(date){
           <div class="checkin-box"><div class="checkin-val" style="color:var(--amber);">${ci.energy_level}/5</div><div class="checkin-lbl">⚡ Energía</div></div>
           <div class="checkin-box"><div class="checkin-val" style="color:${ci.nutrition==='Si'?'var(--green)':ci.nutrition==='Medio'?'var(--amber)':ci.nutrition?'var(--red)':'var(--grey)'};">${ci.nutrition||'—'}</div><div class="checkin-lbl">🥗 Nutrición</div></div>
           <div class="checkin-box"><div class="checkin-val" style="color:var(--purple);">${ci.focus_level}/5</div><div class="checkin-lbl">🎯 Enfoque</div></div>
+          ${ci.surf_hours?`<div class="checkin-box"><div class="checkin-val" style="color:var(--cyan);">${ci.surf_hours}h</div><div class="checkin-lbl">🏄 Surf</div></div>`:''}
         </div>
         <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--r2);">
           <span style="font-size:12px;color:var(--grey);">Logré mi objetivo: </span>
@@ -1304,6 +1305,11 @@ async function loadHoy(date){
           </div>
           <input type="hidden" id="ci-goal" value="">
 
+          <label class="inp-label">🏄 Horas surfeadas hoy</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+            <input type="number" class="inp" id="ci-surf-hours" min="0" max="12" step="0.5" placeholder="0" style="width:100px;text-align:center;font-size:20px;font-weight:800;color:var(--cyan);font-family:'Space Mono',monospace;">
+            <span style="font-size:13px;color:var(--grey);">horas en el agua</span>
+          </div>
           <label class="inp-label">Notas (opcional)</label>
           <textarea class="ta" id="ci-notes" placeholder="¿Cómo estuvo el día?"></textarea>
           <button class="save-btn" onclick="saveCheckin('${date}')">💾 Guardar Check-in</button>
@@ -1548,9 +1554,11 @@ async function saveCheckin(date){
   if(!goal){toast('Indica si lograste tu objetivo','error');return;}
   showLoad(true);
   try {
+    const surfHours = parseFloat(document.getElementById('ci-surf-hours')?.value||0)||null;
     const{error}=await db.from('tss_daily_checkins').upsert({
       athlete_id:S.user.id,date,water_glasses:water,energy_level:energy,
-      nutrition:nutri,focus_level:focus,goal_achieved:goal,notes:gv('ci-notes')
+      nutrition:nutri,focus_level:focus,goal_achieved:goal,notes:gv('ci-notes'),
+      surf_hours:surfHours
     },{onConflict:'athlete_id,date'});
     if(error) throw error;
     toast('✅ Check-in guardado','success');
@@ -2655,7 +2663,7 @@ async function vPanel(){
     const[{data:sessions},{data:evals},{data:checkins}]=await Promise.all([
       db.from('tss_sessions').select('athlete_id,date').order('date',{ascending:false}),
       db.from('tss_evaluations').select('athlete_id,competitive'),
-      db.from('tss_daily_checkins').select('athlete_id,date,goal_achieved,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition').eq('date',today),
+      db.from('tss_daily_checkins').select('athlete_id,date,goal_achieved,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours').eq('date',today),
     ]);
     const lastSes={}; (sessions||[]).forEach(s=>{if(!lastSes[s.athlete_id])lastSes[s.athlete_id]=s.date;});
     const scoreSum={},scoreCount={};
@@ -2702,6 +2710,7 @@ async function vPanel(){
               <div style="font-size:9px;color:var(--grey);margin-top:2px;">Objetivo</div>
             </div>
           </div>`:''}
+                    ${ci&&ci.surf_hours?('<div style="background:rgba(0,201,232,.08);border:1px solid rgba(0,201,232,.2);border-radius:8px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;margin-top:6px;"><span style="font-size:11px;color:var(--grey);">🏄 Horas en el agua hoy</span><span style="font-size:15px;font-weight:900;color:var(--cyan);">'+ci.surf_hours+'h</span></div>'):''}
         </div>`;
       }).join('')}
       <div class="sec-title">Equipo</div>
@@ -2792,6 +2801,12 @@ async function vPerfil(athleteId=null,athleteName=null){
     const pct=waveScore/10*100;
     const avgEnergy=checkins?.length?(checkins.reduce((s,c)=>s+(c.energy_level||0),0)/checkins.length).toFixed(1):'—';
     const avgFocus=checkins?.length?(checkins.reduce((s,c)=>s+(c.focus_level||0),0)/checkins.length).toFixed(1):'—';
+    // Surf hours stats
+    const totalSurfHours=(checkins||[]).reduce((s,c)=>s+(c.surf_hours||0),0);
+    const today7=new Date(); today7.setDate(today7.getDate()-7);
+    const weekCheckins=(checkins||[]).filter(c=>new Date(c.date)>=today7);
+    const weekSurfHours=weekCheckins.reduce((s,c)=>s+(c.surf_hours||0),0);
+    const firstCheckinDate=(checkins||[]).length?checkins[checkins.length-1].date:null;
 
     // Load comp evals for surf score stats
     const{data:compEvals}=await db.from('tss_comp_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false});
@@ -2809,6 +2824,25 @@ async function vPerfil(athleteId=null,athleteName=null){
         <div style="font-size:12px;color:var(--grey);">Índice de Rendimiento (1–10)</div>
         <div style="font-size:10px;color:#4A6070;margin-top:4px;">Promedio: Físico · Técnica · Mental · Competitivo</div>
       </div>
+      ${totalSurfHours>0?`
+      <div class="card card-cyan anim-up" style="margin-bottom:10px;">
+        <div class="sec-title" style="margin-bottom:12px;">🏄 Horas en el Agua</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <div style="text-align:center;background:var(--bg3);padding:12px 6px;border-radius:10px;">
+            <div style="font-size:26px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;line-height:1;">${weekSurfHours.toFixed(1)}</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:4px;letter-spacing:.8px;text-transform:uppercase;">Esta semana</div>
+          </div>
+          <div style="text-align:center;background:var(--bg3);padding:12px 6px;border-radius:10px;">
+            <div style="font-size:26px;font-weight:900;color:var(--green);font-family:'Space Mono',monospace;line-height:1;">${totalSurfHours.toFixed(1)}</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:4px;letter-spacing:.8px;text-transform:uppercase;">Total acumulado</div>
+          </div>
+          <div style="text-align:center;background:var(--bg3);padding:12px 6px;border-radius:10px;">
+            <div style="font-size:14px;font-weight:800;color:var(--amber);line-height:1.2;">${firstCheckinDate?fmtDateShort(firstCheckinDate):'—'}</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:4px;letter-spacing:.8px;text-transform:uppercase;">Desde</div>
+          </div>
+        </div>
+      </div>
+      `:''}
       ${(()=>{
         if(!evals||!evals.length) return '';
         const last=evals[0]; const prev=evals.length>1?evals[1]:null;
