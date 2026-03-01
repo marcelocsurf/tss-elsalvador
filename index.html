@@ -1072,7 +1072,7 @@ function buildNav(){
   let tabs;
   if(r==='coach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'planeacion',icon:'📋',lbl:'Planeación'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'atletas',icon:'👥',lbl:'Atletas'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
   else if(r==='acoach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'atletas',icon:'👥',lbl:'Atletas'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
-  else tabs=[{id:'hoy',icon:'🌊',lbl:'Hoy'},{id:'semana',icon:'📅',lbl:'Semana'},{id:'sesiones',icon:'📝',lbl:'Sesiones'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
+  else tabs=[{id:'hoy',icon:'🌊',lbl:'Hoy'},{id:'semana',icon:'📅',lbl:'Semana'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
   document.getElementById('bottomNav').innerHTML=tabs.map(t=>`<button class="nav-btn" id="nb-${t.id}" onclick="switchView('${t.id}')"><span class="icon">${t.icon}</span><span>${t.lbl}</span></button>`).join('');
 }
 
@@ -1080,7 +1080,7 @@ function switchView(view){
   S.view=view;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById(`nb-${view}`); if(btn) btn.classList.add('active');
-  ({hoy:vHoy,semana:vSemana,sesiones:vSesiones,perfil:vPerfil,panel:vPanel,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial})[view]?.();
+  ({hoy:vHoy,semana:vSemana,perfil:vPerfil,panel:vPanel,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial})[view]?.();
 }
 
 /* ============================================================
@@ -1843,15 +1843,7 @@ async function showDayDetail(date, plansByDateArg, ciByDateArg, myGroupsArg){
   } catch(e){ el.innerHTML='<p style="color:var(--red);font-size:12px;padding:10px;">Error</p>'; console.error(e); }
 }
 
-function vSesiones(){
-  render(`<div class="page-title">Mis Sesiones</div><div class="page-sub">Registra y revisa tu entrenamiento</div>
-    <div class="inner-tabs">
-      <button class="itab active" id="it-reg" onclick="sTab('reg')">+ Registrar</button>
-      <button class="itab" id="it-hist" onclick="sTab('hist')">Historial</button>
-    </div>
-    <div id="sesTab"></div>`);
-  sTab('reg');
-}
+
 function sTab(t){
   document.querySelectorAll('.itab').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById(`it-${t}`); if(el) el.classList.add('active');
@@ -3209,7 +3201,7 @@ async function vPerfil(athleteId=null,athleteName=null){
           ${evals[0].limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;">⚠️ ${evals[0].limitations}</p>`:''}
           ${evals[0].recommendations?`<p style="font-size:12px;color:var(--grey);margin-top:4px;">📋 ${evals[0].recommendations}</p>`:''}
         </div>`:''}
-      ${athleteId?`<button class="btn btn-ghost" style="margin-top:12px;" onclick="switchView('${S.user.role==='coach'||S.user.role==='acoach'?'panel':'sesiones'}')">← Volver</button>`:''}
+      ${athleteId?`<button class="btn btn-ghost" style="margin-top:12px;" onclick="switchView('${S.user.role==='coach'||S.user.role==='acoach'?'panel':'semana'}')">← Volver</button>`:''}
       <div id="compEvalProfileSection" style="margin-top:14px;"></div>
       <div id="compSection" style="margin-top:14px;"><p style="padding:12px;text-align:center;color:var(--grey);font-size:12px;">Cargando competencias...</p></div>`;
 
