@@ -2115,6 +2115,7 @@ async function loadPlanDay(date){
         const bt = getBlockType(plan.work_type);
         const vid = ytId(plan.video_url);
         let scopeLabel = '';
+        if(plan.scope==='general'){ scopeLabel=`<span class="chip" style="font-size:9px;background:rgba(0,201,232,.12);color:var(--cyan);border:1px solid rgba(0,201,232,.25);">🌊 Todo el equipo</span>`; }
         if(plan.scope==='group'){ const g=S.groups.find(g=>g.id===plan.target_id); scopeLabel=`<span class="chip chip-amber" style="font-size:9px;">👥 ${g?g.name:'Grupo'}</span>`; }
         if(plan.scope==='individual'){ const a=S.athletes.find(a=>a.id===plan.target_id); scopeLabel=`<span class="chip chip-purple" style="font-size:9px;">🏄 ${a?a.name:'Atleta'}</span>`; }
         html+=`<div class="card card-${bt.color} anim-up plan-block" data-scope="${plan.scope}" data-target="${plan.target_id||''}" style="margin-bottom:10px;">
