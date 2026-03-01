@@ -1454,6 +1454,14 @@ async function reloadPlansSection(date, compState){
     try{ allBlocks = JSON.parse(sessionStorage.getItem(cacheKey)||'[]'); }catch(e2){}
   }
 
+  // Count real totals for accurate progress
+  const regularBlocks = allBlocks.filter(b=>!b._isPresencial);
+  let realTotalTasks=0, realTotalBlocks=regularBlocks.length;
+  regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); realTotalTasks+=t.length; }catch(e){} });
+  // Re-save progress with correct totals if compState has data
+  if(Object.keys(compState).length>0){
+    await saveProgressToDb(date, compState, realTotalTasks||null, realTotalBlocks||null);
+  }
   const plansEl = document.getElementById('plansSection');
   if(plansEl && allBlocks.length) {
     plansEl.innerHTML = buildPlansHtml(allBlocks, compState, date);
@@ -1566,13 +1574,13 @@ function buildPlansHtml(plans, compState, date){
   return html;
 }
 
-async function saveProgressToDb(date, compState){
+async function saveProgressToDb(date, compState, realTotalTasks=null, realTotalBlocks=null){
   try {
     const doneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]).length;
-    const totalBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')).length;
-    const totalTasks = Object.keys(compState).filter(k=>k.includes('_task_')).length;
+    const totalBlocks = realTotalBlocks ?? Object.keys(compState).filter(k=>k.endsWith('_block')).length;
     const doneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]).length;
-    // Use tasks if available, else use blocks — never jump to 100 unless everything is done
+    const totalTasks = realTotalTasks ?? Object.keys(compState).filter(k=>k.includes('_task_')).length;
+    // Use real totals — never jump to 100 unless everything is truly done
     const pct = totalTasks>0
       ? Math.round((doneTasks/totalTasks)*100)
       : (totalBlocks>0 ? Math.round((doneBlocks/totalBlocks)*100) : 0);
