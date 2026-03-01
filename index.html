@@ -1485,9 +1485,13 @@ function buildPlansHtml(plans, compState, date){
 async function saveProgressToDb(date, compState){
   try {
     const doneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]).length;
+    const totalBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')).length;
     const totalTasks = Object.keys(compState).filter(k=>k.includes('_task_')).length;
     const doneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]).length;
-    const pct = totalTasks>0 ? Math.round((doneTasks/totalTasks)*100) : (doneBlocks>0?100:0);
+    // Use tasks if available, else use blocks — never jump to 100 unless everything is done
+    const pct = totalTasks>0
+      ? Math.round((doneTasks/totalTasks)*100)
+      : (totalBlocks>0 ? Math.round((doneBlocks/totalBlocks)*100) : 0);
     // Check if checkin exists first
     const{data:existing}=await db.from('tss_daily_checkins').select('id').eq('athlete_id',S.user.id).eq('date',date).maybeSingle();
     if(existing){
