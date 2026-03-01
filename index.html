@@ -2096,7 +2096,7 @@ async function loadPlanDay(date){
       const athOpts = S.athletes.map(a=>`<option value="ath_${a.id}">${a.name}</option>`).join('');
       const grpOpts = S.groups.map(g=>`<option value="grp_${g.id}">👥 ${g.name}</option>`).join('');
       html+=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
-        <button class="btn btn-cyan" style="flex-shrink:0;" onclick="openAddBlockModal('${date}')">+ Agregar</button>
+        <button class="btn btn-cyan" style="flex-shrink:0;" onclick="openAddBlockModalWithFilter('${date}')">+ Agregar</button>
         <select id="planFilter" onchange="filterPlanView()" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--white);font-size:13px;cursor:pointer;">
           <option value="all">👁 Ver todo el equipo</option>
           ${athOpts}
@@ -2191,6 +2191,16 @@ function switchScope(scope, btn){
   document.getElementById('blockScopeVal').value = scope;
   document.getElementById('scopeGroupRow').style.display = scope==='group'?'block':'none';
   document.getElementById('scopeAthRow').style.display = scope==='individual'?'block':'none';
+}
+
+function openAddBlockModalWithFilter(date){
+  const sel = document.getElementById('planFilter');
+  const val = sel ? sel.value : 'all';
+  let preScope = 'general', preTarget = '';
+  if(val && val.startsWith('ath_')){ preScope='individual'; preTarget=val.replace('ath_',''); }
+  else if(val && val.startsWith('grp_')){ preScope='group'; preTarget=val.replace('grp_',''); }
+  const preData = preScope==='general' ? null : {scope:preScope, target_id:preTarget, _blocks:[]};
+  openAddBlockModal(date, preData);
 }
 
 function openAddBlockModal(date, existData=null){
