@@ -2188,7 +2188,7 @@ function renderPlanTaskList(){
 
 function switchScope(scope, btn){
   document.querySelectorAll('.scope-tab').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
   document.getElementById('blockScopeVal').value = scope;
   document.getElementById('scopeGroupRow').style.display = scope==='group'?'block':'none';
   document.getElementById('scopeAthRow').style.display = scope==='individual'?'block':'none';
@@ -2201,8 +2201,7 @@ function openAddBlockModalWithFilter(date){
   if(val && val.startsWith('ath_')){ preScope='individual'; preTarget=val.replace('ath_',''); }
   else if(val && val.startsWith('grp_')){ preScope='group'; preTarget=val.replace('grp_',''); }
   const preData = preScope==='general' ? null : {scope:preScope, target_id:preTarget, _blocks:[]};
-  console.log('[TSS] openAddBlockModalWithFilter:', {val, preScope, preTarget, preData});
-  console.log('[TSS] S.athletes IDs:', S.athletes.map(a=>a.id));
+
   openAddBlockModal(date, preData);
 }
 
@@ -2271,21 +2270,12 @@ function openAddBlockModal(date, existData=null){
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) closeModal('blockModal'); };
-  // Apply preselected
+  // Apply preselected scope/target after DOM ready
   if(existData && existData.scope && existData.scope!=='general'){
-    const sv = document.getElementById('blockScopeVal');
-    if(sv) sv.value = existData.scope;
-    document.querySelectorAll('.scope-tab').forEach(b=>{
-      const oc = b.getAttribute('onclick')||'';
-      b.classList.toggle('active', oc.includes("'"+existData.scope+"'"));
-    });
-    const grpRow = document.getElementById('scopeGroupRow');
-    const athRow = document.getElementById('scopeAthRow');
-    if(grpRow) grpRow.style.display = existData.scope==='group'?'block':'none';
-    if(athRow) athRow.style.display = existData.scope==='individual'?'block':'none';
+    switchScope(existData.scope, null);
     if(existData.scope==='individual' && existData.target_id){
       const athSel=document.getElementById('blockAthSel');
-      if(athSel){ athSel.value=existData.target_id; console.log('[TSS] athSel set to:',existData.target_id,'actual value:',athSel.value,'options:',Array.from(athSel.options).map(o=>o.value)); }
+      if(athSel) athSel.value=existData.target_id;
     }
     if(existData.scope==='group' && existData.target_id){
       const grpSel=document.getElementById('blockGroupSel');
@@ -2343,6 +2333,7 @@ async function saveBlock(date, existId){
   let target_id = null;
   if(scope==='group') target_id = document.getElementById('blockGroupSel')?.value || null;
   if(scope==='individual') target_id = document.getElementById('blockAthSel')?.value || null;
+
   if((scope==='group'||scope==='individual')&&!target_id){ toast('Selecciona el destino','error'); return; }
   const isSesionBlock = work_type === 'sesion';
   const payload = {
