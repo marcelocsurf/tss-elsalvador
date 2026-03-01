@@ -2201,6 +2201,8 @@ function openAddBlockModalWithFilter(date){
   if(val && val.startsWith('ath_')){ preScope='individual'; preTarget=val.replace('ath_',''); }
   else if(val && val.startsWith('grp_')){ preScope='group'; preTarget=val.replace('grp_',''); }
   const preData = preScope==='general' ? null : {scope:preScope, target_id:preTarget, _blocks:[]};
+  console.log('[TSS] openAddBlockModalWithFilter:', {val, preScope, preTarget, preData});
+  console.log('[TSS] S.athletes IDs:', S.athletes.map(a=>a.id));
   openAddBlockModal(date, preData);
 }
 
@@ -2283,7 +2285,7 @@ function openAddBlockModal(date, existData=null){
     if(athRow) athRow.style.display = existData.scope==='individual'?'block':'none';
     if(existData.scope==='individual' && existData.target_id){
       const athSel=document.getElementById('blockAthSel');
-      if(athSel) athSel.value=existData.target_id;
+      if(athSel){ athSel.value=existData.target_id; console.log('[TSS] athSel set to:',existData.target_id,'actual value:',athSel.value,'options:',Array.from(athSel.options).map(o=>o.value)); }
     }
     if(existData.scope==='group' && existData.target_id){
       const grpSel=document.getElementById('blockGroupSel');
