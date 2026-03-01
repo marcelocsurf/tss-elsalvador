@@ -2060,6 +2060,24 @@ async function deleteTemplate(templateId){
   finally{ showLoad(false); }
 }
 
+function filterPlanView(){
+  const sel = document.getElementById('planFilter');
+  if(!sel) return;
+  const val = sel.value;
+  document.querySelectorAll('.plan-block').forEach(el=>{
+    if(val==='all'){ el.style.display=''; return; }
+    const scope = el.dataset.scope;
+    const target = el.dataset.target;
+    if(val.startsWith('ath_')){
+      const athId = val.replace('ath_','');
+      el.style.display = (scope==='general'||scope==='individual'&&target===athId) ? '' : 'none';
+    } else if(val.startsWith('grp_')){
+      const grpId = val.replace('grp_','');
+      el.style.display = (scope==='general'||scope==='group'&&target===grpId) ? '' : 'none';
+    }
+  });
+}
+
 async function loadPlanDay(date){
   const el=document.getElementById('planDayContent'); if(!el) return;
   const isCoach = S.user.role==='coach'||S.user.role==='acoach';
@@ -2074,9 +2092,17 @@ async function loadPlanDay(date){
     let html='';
 
     if(isCoach){
-      html+=`<button class="btn btn-cyan" style="margin-bottom:14px;" onclick="openAddBlockModal('${date}')">
-        + Agregar Actividad al Día
-      </button>`;
+      // Build filter options
+      const athOpts = S.athletes.map(a=>`<option value="ath_${a.id}">${a.name}</option>`).join('');
+      const grpOpts = S.groups.map(g=>`<option value="grp_${g.id}">👥 ${g.name}</option>`).join('');
+      html+=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-cyan" style="flex-shrink:0;" onclick="openAddBlockModal('${date}')">+ Agregar</button>
+        <select id="planFilter" onchange="filterPlanView()" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--white);font-size:13px;cursor:pointer;">
+          <option value="all">👁 Ver todo el equipo</option>
+          ${athOpts}
+          ${grpOpts}
+        </select>
+      </div>`;
     }
 
     if(!blocks.length){
@@ -2091,7 +2117,7 @@ async function loadPlanDay(date){
         let scopeLabel = '';
         if(plan.scope==='group'){ const g=S.groups.find(g=>g.id===plan.target_id); scopeLabel=`<span class="chip chip-amber" style="font-size:9px;">👥 ${g?g.name:'Grupo'}</span>`; }
         if(plan.scope==='individual'){ const a=S.athletes.find(a=>a.id===plan.target_id); scopeLabel=`<span class="chip chip-purple" style="font-size:9px;">🏄 ${a?a.name:'Atleta'}</span>`; }
-        html+=`<div class="card card-${bt.color} anim-up" style="margin-bottom:10px;">
+        html+=`<div class="card card-${bt.color} anim-up plan-block" data-scope="${plan.scope}" data-target="${plan.target_id||''}" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:22px;">${bt.emoji}</span>
