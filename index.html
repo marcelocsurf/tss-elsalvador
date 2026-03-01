@@ -2269,10 +2269,18 @@ function openAddBlockModal(date, existData=null){
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) closeModal('blockModal'); };
-  // Apply preselected scope/target after DOM is ready
+  // Apply preselected
   if(existData && existData.scope && existData.scope!=='general'){
-    const scopeBtn = document.querySelector(`.scope-tab[onclick*="'${existData.scope}'"]`);
-    switchScope(existData.scope, scopeBtn);
+    const sv = document.getElementById('blockScopeVal');
+    if(sv) sv.value = existData.scope;
+    document.querySelectorAll('.scope-tab').forEach(b=>{
+      const oc = b.getAttribute('onclick')||'';
+      b.classList.toggle('active', oc.includes("'"+existData.scope+"'"));
+    });
+    const grpRow = document.getElementById('scopeGroupRow');
+    const athRow = document.getElementById('scopeAthRow');
+    if(grpRow) grpRow.style.display = existData.scope==='group'?'block':'none';
+    if(athRow) athRow.style.display = existData.scope==='individual'?'block':'none';
     if(existData.scope==='individual' && existData.target_id){
       const athSel=document.getElementById('blockAthSel');
       if(athSel) athSel.value=existData.target_id;
@@ -2281,8 +2289,7 @@ function openAddBlockModal(date, existData=null){
       const grpSel=document.getElementById('blockGroupSel');
       if(grpSel) grpSel.value=existData.target_id;
     }
-  }
-  renderPlanTaskList();
+  }  renderPlanTaskList();
 }
 
 function selectBlockType(id, btn){
