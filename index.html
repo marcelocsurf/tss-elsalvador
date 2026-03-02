@@ -3016,7 +3016,7 @@ async function vPanel(){
       <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
         <button class="btn btn-cyan" style="flex:1;min-width:140px;" onclick="genMonthlyPDF('team')">📊 Reporte Mes Equipo</button>
         <button class="btn" style="flex:1;min-width:140px;background:var(--purple);" onclick="openMonthlyAthleteSelect()">📄 Reporte Mes Atleta</button>
-      </div>\`;
+      </div>`;
   } catch(e){document.getElementById('panelContent').innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error</p>'; console.error(e);}
 }
 
@@ -3032,7 +3032,7 @@ async function vPerfil(athleteId=null,athleteName=null){
   const avatarUrl = athData?.avatar_url || S.user.avatar_url || null;
   const _initials = name?name.charAt(0):'?';
   const avatarHtml = avatarUrl
-    ? '<img src="'+avatarUrl+'" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);" onerror="this.style.display='none'">'
+    ? ["<img src=\"",avatarUrl,"\" style=\"width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);\" onerror=\"this.onerror=null\">"].join("")
     : '<div class="ath-avatar" style="width:52px;height:52px;font-size:22px;">'+_initials+'</div>';
 
   // Coach viewing own profile
