@@ -2972,6 +2972,7 @@ async function vPanel(){
               ${ci?'<span class="chip chip-green" style="font-size:10px;">✅ Check-in</span>':'<span class="chip" style="font-size:10px;background:rgba(255,255,255,.06);color:var(--grey);">Sin check-in</span>'}
               ${pct===100?'<span class="chip chip-green" style="font-size:10px;">🏆 100%</span>':pct>0?`<span class="chip chip-amber" style="font-size:10px;">⚡ ${pct}%</span>`:''}
             </div>
+            ${ci?.notes?`<div style="font-size:10px;color:rgba(255,255,255,.5);font-style:italic;margin-top:4px;padding:3px 0;border-left:2px solid var(--cyan);padding-left:7px;">💬 ${ci.notes.substring(0,70)}${ci.notes.length>70?'…':''}</div>`:''}
           </div>
           ${ci?`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
             <div style="background:var(--bg3);border-radius:8px;padding:8px 6px;text-align:center;">
@@ -2992,6 +2993,7 @@ async function vPanel(){
             </div>
           </div>`:''}
                     ${ci&&ci.surf_hours?('<div style="background:rgba(0,201,232,.08);border:1px solid rgba(0,201,232,.2);border-radius:8px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;margin-top:6px;"><span style="font-size:11px;color:var(--grey);">🏄 Horas en el agua hoy</span><span style="font-size:15px;font-weight:900;color:var(--cyan);">'+ci.surf_hours+'h</span></div>'):''}
+          ${ci&&ci.notes?`<div style="background:rgba(255,255,255,.04);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;padding:8px 12px;margin-top:6px;"><span style="font-size:9px;color:var(--grey);letter-spacing:1px;display:block;margin-bottom:3px;">💬 NOTAS DEL ATLETA</span><span style="font-size:11px;color:var(--white);line-height:1.4;">${ci.notes}</span></div>`:''}
         </div>`;
       }).join('')}
       <div class="sec-title">Equipo</div>
