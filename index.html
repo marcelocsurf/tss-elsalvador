@@ -3012,7 +3012,11 @@ async function vPanel(){
             <span style="color:var(--grey);font-size:18px;">›</span>
           </div>
         </div>`;
-      }).join('')}`;
+      }).join('')}
+      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+        <button class="btn btn-cyan" style="flex:1;min-width:140px;" onclick="genMonthlyPDF('team')">📊 Reporte Mes Equipo</button>
+        <button class="btn" style="flex:1;min-width:140px;background:var(--purple);" onclick="openMonthlyAthleteSelect()">📄 Reporte Mes Atleta</button>
+      </div>\`;
   } catch(e){document.getElementById('panelContent').innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error</p>'; console.error(e);}
 }
 
@@ -3026,9 +3030,10 @@ async function vPerfil(athleteId=null,athleteName=null){
   // Get avatar_url from athletes list or current user
   const athData = S.athletes.find(a=>a.id===id) || S.user;
   const avatarUrl = athData?.avatar_url || S.user.avatar_url || null;
+  const _initials = name?name.charAt(0):'?';
   const avatarHtml = avatarUrl
-    ? `<img src="${avatarUrl}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);" onerror="this.outerHTML='<div class=\'ath-avatar\' style=\'width:52px;height:52px;font-size:22px;\'>${name.charAt(0)}</div>'">`
-    : `<div class="ath-avatar" style="width:52px;height:52px;font-size:22px;">${name.charAt(0)}</div>`;
+    ? '<img src="'+avatarUrl+'" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);" onerror="this.style.display='none'">'
+    : '<div class="ath-avatar" style="width:52px;height:52px;font-size:22px;">'+_initials+'</div>';
 
   // Coach viewing own profile
   if(isCoach && isOwnProfile){
@@ -3812,6 +3817,252 @@ async function openWeeklyReport(athleteId, athleteName, weekOffset=0){
     document.getElementById('weeklyReportContent').innerHTML='<p style="color:var(--red);">Error al cargar reporte</p>'; 
     console.error(e); 
   }
+}
+
+
+function openMonthlyAthleteSelect(){
+  const opts = S.athletes.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  let m=document.getElementById('monthlyAthModal'); if(m)m.remove();
+  m=document.createElement('div'); m.className='modal-overlay'; m.id='monthlyAthModal';
+  m.innerHTML=`<div class="modal-sheet">
+    <div class="modal-head"><div class="modal-title">Reporte Mensual</div><button class="btn-icon" onclick="closeModal('monthlyAthModal')">✕</button></div>
+    <label class="inp-label">Selecciona el atleta</label>
+    <select class="sel" id="monthlyAthSel">${opts}</select>
+    <div style="margin-top:16px;">
+      <button class="btn btn-cyan" style="width:100%;" onclick="genMonthlyPDF(document.getElementById('monthlyAthSel').value)">📄 Generar PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{if(e.target===m)closeModal('monthlyAthModal');};
+}
+
+async function genMonthlyPDF(athleteIdOrTeam){
+  try {
+    showLoad(true);
+    // Get previous month range
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+    const mon = firstDay.toISOString().split('T')[0];
+    const sun = lastDay.toISOString().split('T')[0];
+    const monthName = firstDay.toLocaleString('es',{month:'long',year:'numeric'});
+
+    const isTeam = athleteIdOrTeam==='team';
+    const athletes = isTeam ? S.athletes : S.athletes.filter(a=>a.id===athleteIdOrTeam);
+    if(!athletes.length){ toast('No hay atletas','error'); return; }
+
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const M=15; const pw=210-M*2;
+
+    for(let ai=0; ai<athletes.length; ai++){
+      const ath = athletes[ai];
+      if(ai>0) doc.addPage();
+      let y=M;
+
+      // Load data for this athlete
+      const [ciRes,evalRes,sessRes] = await Promise.all([
+        db.from('tss_daily_checkins').select('*').eq('athlete_id',ath.id).gte('date',mon).lte('date',sun).order('date'),
+        db.from('tss_evaluations').select('*').eq('athlete_id',ath.id).gte('date',mon).lte('date',sun).order('date'),
+        db.from('tss_presencial_sessions').select('*').gte('date',mon).lte('date',sun).order('date'),
+      ]);
+      const checkins = ciRes.data||[];
+      const evals = evalRes.data||[];
+      const sessions = (sessRes.data||[]).filter(s=>{
+        try{ const ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]'); return ids.includes(ath.id); }catch(e){return false;}
+      });
+
+      // HEADER
+      doc.setFillColor(5,10,15); doc.rect(0,0,210,297,'F');
+      doc.setFillColor(0,201,232); doc.rect(0,0,210,22,'F');
+      doc.setTextColor(5,10,15); doc.setFontSize(13); doc.setFont('helvetica','bold');
+      doc.text('TSS — The Surf Sequence',M,10);
+      doc.setFontSize(9); doc.setFont('helvetica','normal');
+      doc.text('El Salvador National Surf Team',M,16);
+      doc.setTextColor(5,10,15); doc.setFontSize(10); doc.setFont('helvetica','bold');
+      doc.text('REPORTE MENSUAL',210-M,10,{align:'right'});
+      doc.text(monthName.toUpperCase(),210-M,16,{align:'right'});
+      y=30;
+
+      // ATHLETE NAME
+      doc.setTextColor(232,240,245); doc.setFontSize(14); doc.setFont('helvetica','bold');
+      doc.text(ath.name,M,y); y+=3;
+      doc.setDrawColor(0,201,232); doc.line(M,y,210-M,y); y+=6;
+
+      // SUMMARY STATS
+      const totalSurf = checkins.reduce((s,ci)=>s+(parseFloat(ci.surf_hours)||0),0);
+      const avgEnergy = checkins.length ? (checkins.reduce((s,ci)=>s+(ci.energy_level||0),0)/checkins.length).toFixed(1) : '—';
+      const avgFocus = checkins.length ? (checkins.reduce((s,ci)=>s+(ci.focus_level||0),0)/checkins.length).toFixed(1) : '—';
+      const goalsAchieved = checkins.filter(ci=>ci.goal_achieved==='Si').length;
+      const checkinsTotal = checkins.filter(ci=>ci.water_glasses||ci.energy_level).length;
+      const avgPct = checkins.length ? Math.round(checkins.reduce((s,ci)=>s+(ci.progress_pct||0),0)/checkins.length) : 0;
+
+      // Last eval for index
+      const lastEval = evals.length ? evals[evals.length-1] : null;
+      const idx4 = lastEval ? (((lastEval.physical||0)+(lastEval.technique||0)+(lastEval.mindset||0)+(lastEval.competitive||0))/4).toFixed(1) : '—';
+
+      // Stats boxes
+      const stats = [
+        {l:'Horas Surf',v:totalSurf.toFixed(1)+'h'},
+        {l:'Check-ins',v:checkinsTotal+'/'+checkins.length},
+        {l:'Energía Prom',v:avgEnergy+'/10'},
+        {l:'Enfoque Prom',v:avgFocus+'/10'},
+        {l:'Objetivos',v:goalsAchieved},
+        {l:'% Plan Prom',v:avgPct+'%'},
+        {l:'Sesiones',v:sessions.length},
+        {l:'Índice Final',v:idx4+'/10'},
+      ];
+      const bw=(pw)/4; const bh=16;
+      stats.forEach((s,i)=>{
+        const col=i%4; const row=Math.floor(i/4);
+        const bx=M+col*bw; const by=y+row*(bh+3);
+        doc.setFillColor(12,20,32); doc.roundedRect(bx,by,bw-2,bh,2,2,'F');
+        doc.setDrawColor(0,201,232); doc.setLineWidth(0.3); doc.roundedRect(bx,by,bw-2,bh,2,2,'S');
+        doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+        doc.text(s.v,bx+(bw-2)/2,by+6,{align:'center'});
+        doc.setTextColor(100,140,160); doc.setFontSize(6); doc.setFont('helvetica','normal');
+        doc.text(s.l,bx+(bw-2)/2,by+11,{align:'center'});
+      });
+      y+=38;
+
+      // EVALUACIONES DEL COACH
+      if(evals.length){
+        if(y>250){doc.addPage();y=20;}
+        doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+        doc.text('EVALUACIONES DEL COACH',M,y); y+=2;
+        doc.setDrawColor(0,201,232); doc.line(M,y,210-M,y); y+=5;
+        evals.forEach(ev=>{
+          if(y>270){doc.addPage();y=20;}
+          const evIdx=(((ev.physical||0)+(ev.technique||0)+(ev.mindset||0)+(ev.competitive||0))/4).toFixed(1);
+          doc.setFillColor(12,20,28); doc.roundedRect(M,y,pw,18,2,2,'F');
+          doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(232,240,245);
+          doc.text(ev.date,M+3,y+5);
+          doc.setTextColor(0,201,232); doc.setFontSize(10);
+          doc.text('Índice: '+evIdx+'/10',M+pw-3,y+5,{align:'right'});
+          doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(180,200,210);
+          const breakdown=`Físico: ${ev.physical||0}  Técnica: ${ev.technique||0}  Mental: ${ev.mindset||0}  Competitivo: ${ev.competitive||0}`;
+          doc.text(breakdown,M+3,y+10);
+          if(ev.strengths){ doc.setTextColor(100,200,140); doc.text('+ '+ev.strengths.substring(0,80),M+3,y+15); }
+          y+=22;
+        });
+        y+=4;
+      }
+
+      // SESIONES PRESENCIALES
+      if(sessions.length){
+        if(y>250){doc.addPage();y=20;}
+        doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+        doc.text('SESIONES PRESENCIALES',M,y); y+=2;
+        doc.setDrawColor(0,201,232); doc.line(M,y,210-M,y); y+=5;
+        sessions.forEach(s=>{
+          if(y>275){doc.addPage();y=20;}
+          doc.setFillColor(12,20,28); doc.roundedRect(M,y,pw,10,2,2,'F');
+          doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(232,240,245);
+          const sLine=`${s.date}  ${s.time_start||''}  ${s.title||''}`;
+          doc.text(sLine,M+3,y+6);
+          const statusColor = s.status==='done'?[34,197,94]:[245,158,11];
+          doc.setTextColor(...statusColor);
+          doc.text(s.status==='done'?'✓ Completada':'Programada',M+pw-3,y+6,{align:'right'});
+          y+=13;
+        });
+        y+=4;
+      }
+
+      // PROGRESO SEMANAL (mini chart - text based)
+      if(checkins.length){
+        if(y>240){doc.addPage();y=20;}
+        doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+        doc.text('REGISTRO DIARIO',M,y); y+=2;
+        doc.setDrawColor(0,201,232); doc.line(M,y,210-M,y); y+=5;
+        // Header row
+        doc.setFillColor(5,15,25); doc.rect(M,y,pw,7,'F');
+        doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(0,201,232);
+        const cols2=[{t:'Fecha',x:M+3},{t:'Agua',x:M+38},{t:'Energía',x:M+58},{t:'Enfoque',x:M+78},{t:'Surf h',x:M+98},{t:'Objetivo',x:M+118},{t:'% Plan',x:M+140}];
+        cols2.forEach(col=>doc.text(col.t,col.x,y+4.5));
+        y+=8;
+        checkins.forEach(ci=>{
+          if(y>278){doc.addPage();y=20;}
+          const rowBg = checkins.indexOf(ci)%2===0?[8,16,26]:[12,22,34];
+          doc.setFillColor(...rowBg); doc.rect(M,y,pw,7,'F');
+          doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(200,220,230);
+          doc.text(ci.date||'',M+3,y+4.5);
+          doc.text((ci.water_glasses||0)+' vasos',M+38,y+4.5);
+          doc.text((ci.energy_level||0)+'/10',M+58,y+4.5);
+          doc.text((ci.focus_level||0)+'/10',M+78,y+4.5);
+          doc.text((parseFloat(ci.surf_hours)||0)+'h',M+98,y+4.5);
+          const goalColor=ci.goal_achieved==='Si'?[34,197,94]:ci.goal_achieved==='Parcial'?[245,158,11]:[180,180,180];
+          doc.setTextColor(...goalColor);
+          doc.text(ci.goal_achieved||'—',M+118,y+4.5);
+          doc.setTextColor(200,220,230);
+          doc.text((ci.progress_pct||0)+'%',M+140,y+4.5);
+          y+=8;
+        });
+      }
+    }
+
+    // TEAM SUMMARY PAGE (only for team report)
+    if(isTeam && athletes.length>1){
+      doc.addPage();
+      let y=M;
+      doc.setFillColor(5,10,15); doc.rect(0,0,210,297,'F');
+      doc.setFillColor(0,201,232); doc.rect(0,0,210,22,'F');
+      doc.setTextColor(5,10,15); doc.setFontSize(13); doc.setFont('helvetica','bold');
+      doc.text('TSS — RESUMEN DEL EQUIPO',M,10);
+      doc.setFontSize(9); doc.setFont('helvetica','normal');
+      doc.text(monthName.toUpperCase(),M,16);
+      y=30;
+
+      doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+      doc.text('COMPARATIVA DE ATLETAS',M,y); y+=2;
+      doc.setDrawColor(0,201,232); doc.line(M,y,210-M,y); y+=5;
+
+      // Header
+      doc.setFillColor(5,15,25); doc.rect(M,y,pw,8,'F');
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(0,201,232);
+      const teamCols=[{t:'Atleta',x:M+3},{t:'Surf h',x:M+65},{t:'Energía',x:M+85},{t:'Enfoque',x:M+105},{t:'Sesiones',x:M+125},{t:'% Plan',x:M+145},{t:'Índice',x:M+165}];
+      teamCols.forEach(col=>doc.text(col.t,col.x,y+5));
+      y+=10;
+
+      for(const ath of athletes){
+        if(y>270){doc.addPage();y=20;}
+        const [ciR,evR,seR]=await Promise.all([
+          db.from('tss_daily_checkins').select('surf_hours,energy_level,focus_level,progress_pct,goal_achieved').eq('athlete_id',ath.id).gte('date',mon).lte('date',sun),
+          db.from('tss_evaluations').select('physical,technique,mindset,competitive').eq('athlete_id',ath.id).gte('date',mon).lte('date',sun).order('date'),
+          db.from('tss_presencial_sessions').select('athlete_ids,status').gte('date',mon).lte('date',sun),
+        ]);
+        const cis=ciR.data||[]; const evs=evR.data||[];
+        const sesh=(seR.data||[]).filter(s=>{try{const ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]');return ids.includes(ath.id);}catch(e){return false;}});
+        const tSurf=cis.reduce((s,ci)=>s+(parseFloat(ci.surf_hours)||0),0).toFixed(1);
+        const aEn=cis.length?(cis.reduce((s,ci)=>s+(ci.energy_level||0),0)/cis.length).toFixed(1):'—';
+        const aFo=cis.length?(cis.reduce((s,ci)=>s+(ci.focus_level||0),0)/cis.length).toFixed(1):'—';
+        const aPct=cis.length?Math.round(cis.reduce((s,ci)=>s+(ci.progress_pct||0),0)/cis.length)+'%':'—';
+        const lastEv=evs.length?evs[evs.length-1]:null;
+        const evIdx=lastEv?(((lastEv.physical||0)+(lastEv.technique||0)+(lastEv.mindset||0)+(lastEv.competitive||0))/4).toFixed(1):'—';
+
+        const rowBg=athletes.indexOf(ath)%2===0?[8,16,26]:[12,22,34];
+        doc.setFillColor(...rowBg); doc.rect(M,y,pw,9,'F');
+        doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(232,240,245);
+        doc.text(ath.name.substring(0,22),M+3,y+6);
+        doc.setFont('helvetica','normal'); doc.setTextColor(200,220,230);
+        doc.text(tSurf+'h',M+65,y+6);
+        doc.text(aEn+'/10',M+85,y+6);
+        doc.text(aFo+'/10',M+105,y+6);
+        doc.text(String(sesh.length),M+125,y+6);
+        doc.text(aPct,M+145,y+6);
+        doc.setTextColor(0,201,232);
+        doc.text(evIdx,M+165,y+6);
+        y+=10;
+      }
+    }
+
+    const fileName = isTeam
+      ? `TSS_Reporte_Equipo_${monthName.replace(' ','_')}.pdf`
+      : `TSS_${athletes[0].name.replace(' ','_')}_${monthName.replace(' ','_')}.pdf`;
+    doc.save(fileName);
+    if(!isTeam) closeModal('monthlyAthModal');
+    toast('✅ Reporte generado','success');
+  } catch(e){ toast('Error al generar reporte: '+e.message,'error'); console.error(e); }
+  finally{ showLoad(false); }
 }
 
 async function genWeeklyPDF(athleteId, athleteName, mon, sun){
