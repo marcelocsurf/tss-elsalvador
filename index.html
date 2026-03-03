@@ -3256,6 +3256,33 @@ async function vPanel(){
   } catch(e){ render('<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando panel</p>'); console.error(e); }
 }
 
+function openEditBio(athleteId){
+  const ath = S.athletes.find(a=>a.id===athleteId) || {};
+  let m = document.getElementById('editBioModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='editBioModal';
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">✏️ Datos Físicos</div>
+      <button class="btn-icon" onclick="closeModal('editBioModal')">✕</button>
+    </div>
+    <input type="hidden" id="editBioId" value="${athleteId}">
+    <label class="inp-label">Fecha de nacimiento</label>
+    <input class="inp" type="date" id="editBirthDate" value="${ath.birth_date||''}">
+    <label class="inp-label" style="margin-top:12px;">Peso actual (kg)</label>
+    <input class="inp" type="number" step="0.1" min="30" max="200" id="editWeight" placeholder="Ej: 72.5" value="${ath.weight_kg||''}">
+    <label class="inp-label" style="margin-top:12px;">Altura (cm)</label>
+    <input class="inp" type="number" step="0.1" min="100" max="230" id="editHeight" placeholder="Ej: 175" value="${ath.height_cm||''}">
+    <label class="inp-label" style="margin-top:12px;">Posición de surf</label>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button type="button" id="stanceRegular" class="btn${ath.stance==='Goofy'?'':' btn-cyan'}" style="flex:1;" onclick="document.getElementById('stanceRegular').classList.add('btn-cyan');document.getElementById('stanceGoofy').classList.remove('btn-cyan');">🏄 Regular</button>
+      <button type="button" id="stanceGoofy" class="btn${ath.stance==='Goofy'?' btn-cyan':''}" style="flex:1;" onclick="document.getElementById('stanceGoofy').classList.add('btn-cyan');document.getElementById('stanceRegular').classList.remove('btn-cyan');">🏄 Goofy</button>
+    </div>
+    <button class="btn btn-cyan" style="width:100%;" onclick="saveEditBio()">💾 Guardar</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('editBioModal'); };
+}
+
 async function saveEditBio(){
   const athleteId = document.getElementById('editBioId').value;
   const birth_date = document.getElementById('editBirthDate').value || null;
