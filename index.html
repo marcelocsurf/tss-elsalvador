@@ -3539,7 +3539,7 @@ async function vPerfil(athleteId=null,athleteName=null){
           </div>`:''}
           ${isCoach&&!isOwnProfile?`<button class="btn" style="width:100%;margin-top:10px;background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.25);font-size:12px;" onclick="openEditBio('${id}')">✏️ Editar datos físicos</button>`:''}
           ${!isCoach&&isOwnProfile?`<button class="btn" style="width:100%;margin-top:10px;background:rgba(0,201,232,.08);color:var(--cyan);border:1px solid rgba(0,201,232,.2);font-size:12px;" onclick="openEditBio('${id}')">✏️ Actualizar mis datos</button>`:''}
-        </div>` : (isCoach&&!isOwnProfile?`<div class="card anim-up" style="margin-bottom:10px;border:1px dashed rgba(255,255,255,.1);">
+        </div>` : ((isCoach||isOwnProfile)?`<div class="card anim-up" style="margin-bottom:10px;border:1px dashed rgba(255,255,255,.1);">
           <div style="text-align:center;padding:10px;">
             <div style="font-size:11px;color:var(--grey);margin-bottom:8px;">Sin datos físicos cargados</div>
             <button class="btn btn-sm" style="background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.25);" onclick="openEditBio('${id}')">+ Agregar datos</button>
