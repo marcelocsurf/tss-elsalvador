@@ -3199,6 +3199,65 @@ async function vPanel(){
 /* ============================================================
    PERFIL — ATLETA + PDF
 ============================================================ */
+
+function openEditBio(athleteId){
+  const ath = S.athletes.find(a=>a.id===athleteId) || {};
+  let m = document.getElementById('editBioModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='editBioModal';
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">✏️ Datos Físicos</div>
+      <button class="btn-icon" onclick="closeModal('editBioModal')">✕</button>
+    </div>
+    <input type="hidden" id="editBioId" value="${athleteId}">
+    <label class="inp-label">Fecha de nacimiento</label>
+    <input class="inp" type="date" id="editBirthDate" value="${ath.birth_date||''}">
+    <label class="inp-label" style="margin-top:12px;">Peso actual (kg)</label>
+    <input class="inp" type="number" step="0.1" min="30" max="200" id="editWeight" placeholder="Ej: 72.5" value="${ath.weight_kg||''}">
+    <label class="inp-label" style="margin-top:12px;">Altura (cm)</label>
+    <input class="inp" type="number" step="0.1" min="100" max="230" id="editHeight" placeholder="Ej: 175" value="${ath.height_cm||''}">
+    <label class="inp-label" style="margin-top:12px;">Posición de surf</label>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button type="button" id="stanceRegular" class="btn${ath.stance==='Goofy'?'':' btn-cyan'}" style="flex:1;" onclick="document.getElementById('stanceRegular').classList.add('btn-cyan');document.getElementById('stanceGoofy').classList.remove('btn-cyan');">🏄 Regular</button>
+      <button type="button" id="stanceGoofy" class="btn${ath.stance==='Goofy'?' btn-cyan':''}" style="flex:1;" onclick="document.getElementById('stanceGoofy').classList.add('btn-cyan');document.getElementById('stanceRegular').classList.remove('btn-cyan');">🏄 Goofy</button>
+    </div>
+    <button class="btn btn-cyan" style="width:100%;" onclick="saveEditBio()">💾 Guardar</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('editBioModal'); };
+}
+
+async function saveEditBio(){
+  const athleteId = document.getElementById('editBioId').value;
+  const birth_date = document.getElementById('editBirthDate').value || null;
+  const weight_kg = parseFloat(document.getElementById('editWeight').value) || null;
+  const height_cm = parseFloat(document.getElementById('editHeight').value) || null;
+  const stance = document.getElementById('stanceGoofy').classList.contains('btn-cyan') ? 'Goofy' : 'Regular';
+  try {
+    const {error} = await db.from('tss_profiles').update({birth_date, weight_kg, height_cm, stance}).eq('id', athleteId);
+    if(error) throw error;
+    // Update local cache
+    const ai = S.athletes.findIndex(a=>a.id===athleteId);
+    if(ai>=0) S.athletes[ai] = {...S.athletes[ai], birth_date, weight_kg, height_cm, stance};
+    toast('✅ Datos actualizados','success');
+    closeModal('editBioModal');
+    // Refresh profile
+    const athName = S.athletes[ai]?.name || '';
+    vPerfil(athleteId, athName);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+}
+
+async function confirmDeactivate(athleteId, athleteName){
+  if(!confirm('¿Desactivar a ' + athleteName + '? Sus datos históricos se conservan pero dejará de aparecer en el equipo.')) return;
+  try {
+    const {error} = await db.from('tss_profiles').update({active: false}).eq('id', athleteId);
+    if(error) throw error;
+    S.athletes = S.athletes.filter(a=>a.id!==athleteId);
+    toast('✅ ' + athleteName + ' desactivado','success');
+    vAtletas();
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+}
+
 async function vPerfil(athleteId=null,athleteName=null){
   const id=athleteId||S.user.id; const name=athleteName||S.user.name;
   const isCoach=S.user.role==='coach'||S.user.role==='acoach';
@@ -3246,14 +3305,20 @@ async function vPerfil(athleteId=null,athleteName=null){
       </div>
       <div><div class="page-title" style="margin-bottom:0;">${name}</div><div class="page-sub" style="margin-bottom:0;">Perfil · TSS 2026</div></div>
     </div>
-    ${isCoach?`<div style="display:flex;gap:6px;">
+    ${isCoach?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-cyan btn-sm" onclick="openWeeklyReport('${id}','${name}')">📊 Reporte</button>
       <button class="btn btn-purple btn-sm" onclick="genPDF('${id}','${name}')">📄 PDF</button>
+      <button class="btn btn-sm" style="background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);" onclick="openEditBio('${id}')">✏️ Bio</button>
+      <button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="confirmDeactivate('${id}','${name}')">🗑 Desactivar</button>
     </div>`:''}
   </div>
   <div id="perfilContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
   try {
-    const[{data:sessions},{data:evals},{data:checkins}]=await Promise.all([
+    // Refresh athlete data from DB to get new bio fields
+  const {data:freshAth} = await db.from('tss_profiles').select('*').eq('id',id).maybeSingle();
+  if(freshAth){ const ai=S.athletes.findIndex(a=>a.id===id); if(ai>=0) S.athletes[ai]={...S.athletes[ai],...freshAth}; }
+  const athBio = freshAth || S.athletes.find(a=>a.id===id) || {};
+  const[{data:sessions},{data:evals},{data:checkins}]=await Promise.all([
       db.from('tss_sessions').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(5),
       db.from('tss_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false}),
       db.from('tss_daily_checkins').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(14),
@@ -3385,7 +3450,46 @@ async function vPerfil(athleteId=null,athleteName=null){
           <div style="font-size:32px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;">${cap}</div>
           <div><div style="font-size:11px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;">Capacidad de Score</div><div style="font-size:12px;margin-top:3px;">${cap>=8?'Alto':cap>=6?'Medio-Alto':cap>=4?'Medio':'En desarrollo'}</div></div>
         </div>` : '');
-        if(inj) return capHtml + `<div class="card anim-up" style="border:1px solid var(--red);background:rgba(239,68,68,.08);margin-bottom:10px;">
+        // Bio card
+        const birthDate = athBio.birth_date ? new Date(athBio.birth_date+'T00:00:00') : null;
+        const age = birthDate ? Math.floor((new Date()-birthDate)/(1000*60*60*24*365.25)) : null;
+        const imc = (athBio.weight_kg && athBio.height_cm) ? (athBio.weight_kg/((athBio.height_cm/100)**2)).toFixed(1) : null;
+        const imcLabel = imc ? (imc<18.5?'Bajo peso':imc<25?'Normal':imc<30?'Sobrepeso':'Obesidad') : null;
+        const imcColor = imc ? (imc<18.5?'var(--amber)':imc<25?'var(--green)':imc<30?'var(--amber)':'var(--red)') : 'var(--grey)';
+        const bioHtml = (age||athBio.weight_kg||athBio.height_cm||athBio.stance) ? `
+        <div class="card anim-up" style="margin-bottom:10px;">
+          <div class="sec-title" style="margin-bottom:10px;">DATOS FÍSICOS</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+            ${age?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:var(--white);">${age}</div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">🎂 Edad</div>
+            </div>`:''}
+            ${athBio.height_cm?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:var(--cyan);">${athBio.height_cm}<span style="font-size:11px;">cm</span></div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">📏 Altura</div>
+            </div>`:''}
+            ${athBio.weight_kg?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:var(--amber);">${athBio.weight_kg}<span style="font-size:11px;">kg</span></div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">⚖️ Peso</div>
+            </div>`:''}
+            ${imc?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:${imcColor};">${imc}</div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">📊 IMC · ${imcLabel}</div>
+            </div>`:''}
+          </div>
+          ${athBio.stance?`<div style="margin-top:8px;background:var(--bg3);border-radius:10px;padding:10px;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;color:var(--grey);">🏄 Posición de surf</span>
+            <span style="font-size:13px;font-weight:700;color:var(--cyan);">${athBio.stance}</span>
+          </div>`:''}
+          ${isCoach&&!isOwnProfile?`<button class="btn" style="width:100%;margin-top:10px;background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.25);font-size:12px;" onclick="openEditBio('${id}')">✏️ Editar datos físicos</button>`:''}
+          ${!isCoach&&isOwnProfile?`<button class="btn" style="width:100%;margin-top:10px;background:rgba(0,201,232,.08);color:var(--cyan);border:1px solid rgba(0,201,232,.2);font-size:12px;" onclick="openEditBio('${id}')">✏️ Actualizar mis datos</button>`:''}
+        </div>` : (isCoach&&!isOwnProfile?`<div class="card anim-up" style="margin-bottom:10px;border:1px dashed rgba(255,255,255,.1);">
+          <div style="text-align:center;padding:10px;">
+            <div style="font-size:11px;color:var(--grey);margin-bottom:8px;">Sin datos físicos cargados</div>
+            <button class="btn btn-sm" style="background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.25);" onclick="openEditBio('${id}')">+ Agregar datos</button>
+          </div>
+        </div>`:'');
+        if(inj) return capHtml + bioHtml + `<div class="card anim-up" style="border:1px solid var(--red);background:rgba(239,68,68,.08);margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
               <div style="font-size:11px;color:var(--red);font-weight:700;letter-spacing:.8px;margin-bottom:4px;">🚨 LESIÓN ACTIVA</div>
@@ -3648,6 +3752,11 @@ function openAddAthleteModal(){
     <label class="inp-label">PIN (4 dígitos)</label>
     <input type="number" class="inp" id="newAthPin" placeholder="Ej: 1234" maxlength="4" style="letter-spacing:8px;font-size:20px;text-align:center;">
     <div style="font-size:11px;color:var(--grey);margin-top:-8px;margin-bottom:12px;">El atleta usará este PIN para iniciar sesión</div>
+    <label class="inp-label" style="margin-top:12px;">Posición de surf</label>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button type="button" id="newStanceRegular" class="btn btn-cyan" style="flex:1;" onclick="document.getElementById('newStanceRegular').classList.add('btn-cyan');document.getElementById('newStanceGoofy').classList.remove('btn-cyan');">🏄 Regular</button>
+      <button type="button" id="newStanceGoofy" class="btn" style="flex:1;" onclick="document.getElementById('newStanceGoofy').classList.add('btn-cyan');document.getElementById('newStanceRegular').classList.remove('btn-cyan');">🏄 Goofy</button>
+    </div>
     <button class="save-btn" onclick="saveNewAthlete()">💾 Crear Atleta</button>
   </div>`;
   document.body.appendChild(m);
@@ -3669,7 +3778,9 @@ async function saveNewAthlete(){
       user_id: crypto.randomUUID(),
       name,
       role: 'athlete',
-      pin
+      pin,
+      stance: document.getElementById('newStanceGoofy')?.classList.contains('btn-cyan')?'Goofy':'Regular',
+      active: true
     }).select().single();
     if(error) throw error;
     // Add to local list
