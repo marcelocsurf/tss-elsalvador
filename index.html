@@ -1030,7 +1030,7 @@ async function deleteSp(sessionId){
 ============================================================ */
 async function bootApp(){
   try {
-    const{data:aths}=await db.from('tss_profiles').select('*').eq('role','athlete').order('name');
+    const{data:aths}=await db.from('tss_profiles').select('*').eq('role','athlete').neq('active',false).order('name');
     S.athletes=aths||[];
     const{data:grps}=await db.from('tss_groups').select('*').order('name');
     S.groups=grps||[];
