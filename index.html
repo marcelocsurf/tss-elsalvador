@@ -2936,6 +2936,180 @@ async function loadCompEvalHist(){
 /* ============================================================
    PANEL COACH
 ============================================================ */
+
+async function openDayReport(athleteId, athleteName){
+  const today = todayStr();
+  // Show modal immediately with loading state
+  let m = document.getElementById('dayReportModal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.className = 'modal-overlay';
+  m.id = 'dayReportModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:90vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div class="modal-title">📋 Reporte del Día</div>
+      <button class="btn-icon" onclick="closeModal('dayReportModal')">✕</button>
+    </div>
+    <div id="dayReportBody" style="padding:4px 0;">
+      <div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando...</div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('dayReportModal'); };
+
+  try {
+    const [ciRes, plansRes, evalRes] = await Promise.all([
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).eq('date',today).maybeSingle(),
+      db.from('tss_daily_plans').select('*').eq('date',today).order('created_at'),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(1),
+    ]);
+    const ci = ciRes.data;
+    const lastEval = evalRes.data?.[0] || null;
+
+    // Get athlete's plans
+    const athProfile = S.athletes.find(a=>a.id===athleteId);
+    const myGroups = [];
+    const {data:gm} = await db.from('tss_group_members').select('group_id').eq('athlete_id',athleteId);
+    (gm||[]).forEach(g=>myGroups.push(g.group_id));
+    const plans = (plansRes.data||[]).filter(p=>
+      p.scope==='general' ||
+      (p.scope==='individual' && p.target_id===athleteId) ||
+      (p.scope==='group' && myGroups.includes(p.target_id))
+    );
+
+    // Load comp state
+    const compKey = 'tss_comp_'+athleteId+'_'+today;
+    let compState = {};
+    if(ci?.comp_state){ try{ compState=JSON.parse(ci.comp_state); }catch(e){} }
+
+    // Build plan progress
+    let planHtml = '';
+    if(plans.length){
+      plans.forEach(p=>{
+        const blockDone = !!compState[p.id+'_block'];
+        let tasks=[]; try{ tasks=JSON.parse(p.exercises||'[]'); }catch(e){}
+        const tasksDone = tasks.filter((_,i)=>compState[p.id+'_task_'+i]).length;
+        const bt = {sesion:'🏄',fisico:'💪',mental:'🧠',tecnico:'🎯',tactico:'♟️',respiracion:'🌬️',meditacion:'🧘',mobility:'🤸',recovery:'🛌',otro:'📋'}[p.work_type]||'📋';
+        const statusColor = blockDone?'var(--green)':tasksDone>0?'var(--amber)':'rgba(255,255,255,.15)';
+        const statusIcon = blockDone?'✅':tasksDone>0?'⚡':'○';
+        planHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:5px;">
+          <span style="font-size:18px;">${bt}</span>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:700;color:var(--white);">${p.title||p.work_type}</div>
+            ${tasks.length?`<div style="font-size:10px;color:var(--grey);margin-top:2px;">${tasksDone}/${tasks.length} tareas</div>`:''}
+          </div>
+          <span style="font-size:16px;color:${statusColor};">${statusIcon}</span>
+        </div>`;
+      });
+    } else {
+      planHtml = '<div style="font-size:11px;color:var(--grey);padding:8px;">Sin plan asignado hoy</div>';
+    }
+
+    // Wellness bars
+    const energy = ci?.energy_level||0;
+    const focus = ci?.focus_level||0;
+    const water = ci?.water_glasses||0;
+    const energyColor = energy>=7?'var(--green)':energy>=4?'var(--amber)':'var(--red)';
+    const focusColor = focus>=7?'var(--cyan)':focus>=4?'var(--amber)':'var(--red)';
+    const waterColor = water>=8?'var(--green)':water>=4?'var(--amber)':'var(--red)';
+    const goalIcon = ci?.goal_achieved==='Si'?'✅ Sí':ci?.goal_achieved==='Parcial'?'⚡ Parcial':ci?.goal_achieved==='No'?'❌ No':'—';
+    const goalColor = ci?.goal_achieved==='Si'?'var(--green)':ci?.goal_achieved==='Parcial'?'var(--amber)':ci?.goal_achieved==='No'?'var(--red)':'var(--grey)';
+    const pct = ci?.progress_pct??0;
+    const pctColor = pct>=80?'var(--green)':pct>=40?'var(--amber)':'var(--red)';
+    const evalIdx = lastEval ? (((lastEval.physical||0)+(lastEval.technique||0)+(lastEval.mindset||0)+(lastEval.competitive||0))/4).toFixed(1) : null;
+
+    const body = document.getElementById('dayReportBody');
+    body.innerHTML = `
+      <!-- ATHLETE HEADER -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div class="ath-avatar" style="width:44px;height:44px;font-size:18px;flex-shrink:0;">${athleteName.charAt(0)}</div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--white);">${athleteName}</div>
+          <div style="font-size:11px;color:var(--grey);">${today}</div>
+        </div>
+        ${evalIdx?`<div style="margin-left:auto;text-align:center;background:rgba(0,201,232,.1);border:1px solid rgba(0,201,232,.3);border-radius:10px;padding:6px 12px;">
+          <div style="font-size:18px;font-weight:900;color:var(--cyan);">${evalIdx}</div>
+          <div style="font-size:9px;color:var(--grey);">Índice</div>
+        </div>`:''}
+      </div>
+
+      ${!ci?'<div style="background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.2);border-radius:10px;padding:12px;text-align:center;color:rgba(255,100,100,.8);font-size:12px;margin-bottom:16px;">⚠️ Sin check-in hoy</div>':''}
+
+      <!-- 1. PLAN DEL DÍA -->
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:8px;">PLAN DEL DÍA</div>
+      <div style="margin-bottom:16px;">${planHtml}</div>
+
+      <!-- PROGRESS BAR -->
+      ${ci?`<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:10px;color:var(--grey);">Progreso del plan</span>
+          <span style="font-size:16px;font-weight:900;color:${pctColor};">${pct}%</span>
+        </div>
+        <div style="background:rgba(255,255,255,.08);border-radius:4px;height:6px;">
+          <div style="width:${pct}%;height:100%;border-radius:4px;background:linear-gradient(90deg,${pctColor},var(--cyan));transition:width .3s;"></div>
+        </div>
+      </div>`:''}
+
+      <!-- 2. CONDICIÓN FÍSICA -->
+      ${ci?`<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:8px;">CONDICIÓN FÍSICA</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+        <div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:${energyColor};">${energy}<span style="font-size:11px;">/10</span></div>
+          <div style="font-size:9px;color:var(--grey);margin-top:3px;">⚡ Energía</div>
+          <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;margin-top:6px;">
+            <div style="width:${energy*10}%;height:100%;border-radius:4px;background:${energyColor};"></div>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;color:${focusColor};">${focus}<span style="font-size:11px;">/10</span></div>
+          <div style="font-size:9px;color:var(--grey);margin-top:3px;">🎯 Enfoque</div>
+          <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;margin-top:6px;">
+            <div style="width:${focus*10}%;height:100%;border-radius:4px;background:${focusColor};"></div>
+          </div>
+        </div>
+      </div>`:''}
+
+      <!-- 3. NUTRICIÓN E HIDRATACIÓN -->
+      ${ci?`<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:8px;">NUTRICIÓN E HIDRATACIÓN</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+        <div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:20px;font-weight:900;color:${waterColor};">${water}</div>
+          <div style="font-size:9px;color:var(--grey);margin-top:3px;">💧 Vasos</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:13px;font-weight:700;color:${ci.nutrition==='Si'?'var(--green)':ci.nutrition==='Medio'?'var(--amber)':'var(--red)'};">${ci.nutrition||'—'}</div>
+          <div style="font-size:9px;color:var(--grey);margin-top:3px;">🥗 Dieta</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:15px;font-weight:900;color:var(--cyan);">${ci.surf_hours||0}h</div>
+          <div style="font-size:9px;color:var(--grey);margin-top:3px;">🏄 Surf</div>
+        </div>
+      </div>`:''}
+
+      <!-- 4. OBJETIVO -->
+      ${ci?`<div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:11px;color:var(--grey);">¿Logró el objetivo del día?</span>
+        <span style="font-size:13px;font-weight:800;color:${goalColor};">${goalIcon}</span>
+      </div>`:''}
+
+      <!-- 5. NOTAS DEL ATLETA -->
+      ${ci?.notes?`<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:8px;">NOTAS DEL ATLETA</div>
+      <div style="background:rgba(0,201,232,.06);border:1px solid rgba(0,201,232,.2);border-radius:10px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:13px;color:var(--white);line-height:1.6;font-style:italic;">"${ci.notes}"</div>
+      </div>`:''}
+
+      <!-- FOOTER BUTTON -->
+      <button class="btn btn-cyan" style="width:100%;margin-top:4px;" onclick="closeModal('dayReportModal');openAthProfile('${athleteId}','${athleteName}')">
+        Ver Perfil Completo →
+      </button>
+    `;
+  } catch(e){
+    const body = document.getElementById('dayReportBody');
+    if(body) body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando reporte</div>';
+    console.error(e);
+  }
+}
+
 async function vPanel(){
   render(`<div class="page-title">Panel del Coach</div><div class="page-sub">Estado del equipo · TSS El Salvador</div>
     <div id="panelContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
@@ -2965,7 +3139,7 @@ async function vPanel(){
         const pct=ci?.progress_pct??null;
         const goalIcon=ci?.goal_achieved==='Si'?'✅':ci?.goal_achieved==='Parcial'?'⚡':ci?.goal_achieved==='No'?'❌':'—';
         const waterColor=ci?.water_glasses>=8?'var(--green)':ci?.water_glasses>=4?'var(--amber)':'var(--grey)';
-        return `<div onclick="openAthProfile('${a.id}','${a.name}')" class="card" style="margin-bottom:8px;padding:12px 14px;cursor:pointer;">
+        return `<div onclick="openDayReport('${a.id}','${a.name}')" class="card" style="margin-bottom:8px;padding:12px 14px;cursor:pointer;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${ci?'10px':'0'};">
             <div style="font-size:14px;font-weight:800;">${a.name}</div>
             <div style="display:flex;align-items:center;gap:6px;">
