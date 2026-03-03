@@ -3101,140 +3101,159 @@ async function openDayReport(athleteId, athleteName){
 }
 
 async function vPanel(){
-    // Build athlete status list
-  const total = S.athletes.length;
-  const withCI = S.athletes.filter(a => ciToday[a.id]).length;
-  const with100 = S.athletes.filter(a => ciToday[a.id]?.progress_pct === 100).length;
-  const avgEnergy = S.athletes.filter(a=>ciToday[a.id]?.energy_level>0)
-    .reduce((s,a,_,arr) => s + ciToday[a.id].energy_level/arr.length, 0).toFixed(1);
+  render(`<div class="page-title">Coach Panel</div><div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando...</div>`);
+  try {
+    const today = todayStr();
+    const [{data:sessions},{data:evals},{data:checkins}] = await Promise.all([
+      db.from('tss_presencial_sessions').select('athlete_ids,date').order('date',{ascending:false}),
+      db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive').order('date',{ascending:false}),
+      db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes').eq('date',today),
+    ]);
 
-  // Sort: check-in with notes first, then check-in, then no check-in
-  const sorted = [...S.athletes].sort((a,b) => {
-    const ca = ciToday[a.id], cb = ciToday[b.id];
-    if(ca && !cb) return -1; if(!ca && cb) return 1;
-    if(ca?.notes && !cb?.notes) return -1; if(!ca?.notes && cb?.notes) return 1;
-    return (cb?.progress_pct||0) - (ca?.progress_pct||0);
-  });
+    // last session per athlete
+    const lastSes = {};
+    (sessions||[]).forEach(s=>{
+      let ids=[]; try{ ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]'); }catch(e){}
+      ids.forEach(id=>{ if(!lastSes[id]) lastSes[id]=s.date; });
+    });
 
-  render(`
-  <div class="page-title">Coach Panel</div>
-  <div class="page-sub">TSS El Salvador · ${todayStr()}</div>
+    // wave score
+    const scoreSum={}, scoreCount={};
+    (evals||[]).forEach(e=>{
+      const avg4=((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4;
+      scoreSum[e.athlete_id]=(scoreSum[e.athlete_id]||0)+avg4;
+      scoreCount[e.athlete_id]=(scoreCount[e.athlete_id]||0)+1;
+    });
 
-  <!-- RESUMEN DEL DÍA -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
-    <div style="background:linear-gradient(135deg,rgba(0,201,232,.15),rgba(0,201,232,.05));border:1px solid rgba(0,201,232,.25);border-radius:14px;padding:14px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:var(--cyan);">${withCI}<span style="font-size:14px;color:rgba(255,255,255,.3);">/${total}</span></div>
-      <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:3px;">CHECK-IN</div>
+    // checkins today
+    const ciToday={};
+    (checkins||[]).forEach(ci=>{ ciToday[ci.athlete_id]=ci; });
+
+    // stats
+    const total = S.athletes.length;
+    const withCI = S.athletes.filter(a=>ciToday[a.id]).length;
+    const with100 = S.athletes.filter(a=>ciToday[a.id]?.progress_pct===100).length;
+    const energyArr = S.athletes.filter(a=>ciToday[a.id]?.energy_level>0);
+    const avgEnergy = energyArr.length ? (energyArr.reduce((s,a)=>s+(ciToday[a.id].energy_level||0),0)/energyArr.length).toFixed(1) : '—';
+
+    // sort: check-in + notes first, then check-in, then no check-in, by % desc
+    const sorted = [...S.athletes].sort((a,b)=>{
+      const ca=ciToday[a.id], cb=ciToday[b.id];
+      if(ca && !cb) return -1; if(!ca && cb) return 1;
+      if(ca?.notes && !cb?.notes) return -1; if(!ca?.notes && cb?.notes) return 1;
+      return (cb?.progress_pct||0)-(ca?.progress_pct||0);
+    });
+
+    render(`
+    <div class="page-title">Coach Panel</div>
+    <div class="page-sub">TSS El Salvador · ${today}</div>
+
+    <!-- RESUMEN DEL DÍA -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+      <div style="background:linear-gradient(135deg,rgba(0,201,232,.15),rgba(0,201,232,.05));border:1px solid rgba(0,201,232,.25);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:28px;font-weight:900;color:var(--cyan);">${withCI}<span style="font-size:13px;color:rgba(255,255,255,.3);">/${total}</span></div>
+        <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:3px;">CHECK-IN</div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.04));border:1px solid rgba(34,197,94,.2);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:28px;font-weight:900;color:var(--green);">${with100}</div>
+        <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:3px;">PLAN 100%</div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.04));border:1px solid rgba(245,158,11,.2);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:28px;font-weight:900;color:var(--amber);">${avgEnergy}</div>
+        <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:3px;">ENERGÍA PROM</div>
+      </div>
     </div>
-    <div style="background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.04));border:1px solid rgba(34,197,94,.2);border-radius:14px;padding:14px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:var(--green);">${with100}</div>
-      <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:3px;">PLAN 100%</div>
-    </div>
-    <div style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.04));border:1px solid rgba(245,158,11,.2);border-radius:14px;padding:14px;text-align:center;">
-      <div style="font-size:28px;font-weight:900;color:var(--amber);">${withCI>0?avgEnergy:'—'}</div>
-      <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:3px;">ENERGÍA PROM</div>
-    </div>
-  </div>
 
-  <!-- ALERTA -->
-  ${S.athletes.filter(a=>daysSince(lastSes[a.id])>7).length > 0 ?
-    `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
-      <span style="font-size:18px;">⚠️</span>
+    <!-- ALERTA sin actividad -->
+    ${S.athletes.filter(a=>daysSince(lastSes[a.id])>7).length>0?`
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:16px;">⚠️</span>
       <span style="font-size:12px;color:var(--amber);">${S.athletes.filter(a=>daysSince(lastSes[a.id])>7).length} atleta(s) sin actividad en 7 días</span>
-    </div>` : ''}
+    </div>`:''}
 
-  <!-- ATLETAS -->
-  <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:10px;">REPORTE DEL DÍA · ${new Date().toLocaleDateString('es',{day:'2-digit',month:'short'}).toUpperCase()}</div>
+    <!-- LISTA ATLETAS HOY -->
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:10px;">REPORTE DEL DÍA · ${new Date().toLocaleDateString('es',{day:'2-digit',month:'short'}).toUpperCase()}</div>
 
-  ${sorted.map(a => {
-    const days = daysSince(lastSes[a.id]);
-    const ws = scoreCount[a.id] ? (scoreSum[a.id]/scoreCount[a.id]).toFixed(1) : '—';
-    const ci = ciToday[a.id];
-    const pct = ci?.progress_pct ?? null;
-    const pctColor = pct===100?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
-    const energyColor = (ci?.energy_level>=4)?'var(--green)':(ci?.energy_level>=2)?'var(--amber)':'var(--grey)';
-    const focusColor = (ci?.focus_level>=4)?'var(--cyan)':(ci?.focus_level>=2)?'var(--amber)':'var(--grey)';
-    const waterColor = (ci?.water_glasses>=6)?'var(--green)':(ci?.water_glasses>=3)?'var(--amber)':'var(--grey)';
-    const stateColor = ci ? 'rgba(0,201,232,.12)' : 'rgba(255,255,255,.02)';
-    const stateBorder = ci ? 'rgba(0,201,232,.2)' : 'rgba(255,255,255,.06)';
-
-    return `<div onclick="openDayReport('${a.id}','${a.name}')"
-      style="background:${stateColor};border:1px solid ${stateBorder};border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all .2s;">
-
-      <!-- ROW 1: nombre + status badges -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${ci?'10px':'0'};">
-        <div style="font-size:15px;font-weight:800;color:var(--white);">${a.name}</div>
-        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-          ${ci
-            ? `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);">✅ Check-in</span>`
-            : `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--grey);">Sin check-in</span>`}
-          ${pct===100?`<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);">🏆 100%</span>`
-            :pct>0?`<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.25);">⚡ ${pct}%</span>`:''}
+    ${sorted.map(a=>{
+      const ci=ciToday[a.id];
+      const pct=ci?.progress_pct??null;
+      const ws=scoreCount[a.id]?(scoreSum[a.id]/scoreCount[a.id]).toFixed(1):'—';
+      const pctColor=pct===100?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
+      const energyColor=(ci?.energy_level>=4)?'var(--green)':(ci?.energy_level>=2)?'var(--amber)':'var(--grey)';
+      const focusColor=(ci?.focus_level>=4)?'var(--cyan)':(ci?.focus_level>=2)?'var(--amber)':'var(--grey)';
+      const waterColor=(ci?.water_glasses>=6)?'var(--green)':(ci?.water_glasses>=3)?'var(--amber)':'var(--grey)';
+      const stateColor=ci?'rgba(0,201,232,.08)':'rgba(255,255,255,.02)';
+      const stateBorder=ci?'rgba(0,201,232,.18)':'rgba(255,255,255,.06)';
+      return `<div onclick="openDayReport('${a.id}','${a.name}')"
+        style="background:${stateColor};border:1px solid ${stateBorder};border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${ci?'10px':'0'};">
+          <div style="font-size:15px;font-weight:800;color:var(--white);">${a.name}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
+            ${ci?'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);">✅ Check-in</span>'
+               :'<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--grey);">Sin check-in</span>'}
+            ${pct===100?'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);">🏆 100%</span>'
+              :pct>0?`<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(245,158,11,.12);color:var(--amber);">⚡ ${pct}%</span>`:''}
+          </div>
         </div>
-      </div>
+        ${ci?`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
+            <div style="font-size:17px;font-weight:900;color:${waterColor};">${ci.water_glasses??'—'}</div>
+            <div style="font-size:8px;color:var(--grey);margin-top:1px;">💧 Agua</div>
+          </div>
+          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
+            <div style="font-size:17px;font-weight:900;color:${energyColor};">${ci.energy_level??'—'}</div>
+            <div style="font-size:8px;color:var(--grey);margin-top:1px;">⚡ Energía</div>
+          </div>
+          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
+            <div style="font-size:17px;font-weight:900;color:${focusColor};">${ci.focus_level??'—'}</div>
+            <div style="font-size:8px;color:var(--grey);margin-top:1px;">🎯 Enfoque</div>
+          </div>
+          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
+            <div style="font-size:17px;font-weight:900;color:var(--purple);">${ws}</div>
+            <div style="font-size:8px;color:var(--grey);margin-top:1px;">⭐ Índice</div>
+          </div>
+        </div>
+        ${pct!==null?`<div style="margin-top:8px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:9px;color:var(--grey);">Plan del día</span>
+            <span style="font-size:9px;font-weight:700;color:${pctColor};">${pct}%</span>
+          </div>
+          <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;">
+            <div style="width:${pct}%;height:100%;border-radius:4px;background:linear-gradient(90deg,${pctColor},var(--cyan));"></div>
+          </div>
+        </div>`:''}
+        ${ci?.notes?`<div style="margin-top:8px;border-left:2px solid var(--cyan);padding-left:8px;">
+          <span style="font-size:10px;color:rgba(255,255,255,.45);font-style:italic;">💬 ${ci.notes.substring(0,65)}${ci.notes.length>65?'…':''}</span>
+        </div>`:''}`:''
+        }
+      </div>`;
+    }).join('')}
 
-      <!-- ROW 2: métricas (solo si hay check-in) -->
-      ${ci ? `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-        <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-          <div style="font-size:17px;font-weight:900;color:${waterColor};">${ci.water_glasses??'—'}</div>
-          <div style="font-size:8px;color:var(--grey);margin-top:1px;">💧 Agua</div>
+    <!-- ÍNDICE HISTÓRICO -->
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin:16px 0 10px;">EQUIPO · ÍNDICE HISTÓRICO</div>
+    ${S.athletes.map(a=>{
+      const ws=scoreCount[a.id]?(scoreSum[a.id]/scoreCount[a.id]).toFixed(1):'—';
+      const days=daysSince(lastSes[a.id]);
+      return `<div onclick="openAthProfile('${a.id}','${a.name}')"
+        style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;margin-bottom:6px;cursor:pointer;">
+        <div style="font-size:13px;font-weight:700;">${a.name}</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${days>7?`<span style="font-size:10px;color:var(--red);">⚠️ ${days}d</span>`
+            :days>3?`<span style="font-size:10px;color:var(--amber);">${days}d</span>`
+            :`<span style="font-size:10px;color:var(--green);">●</span>`}
+          <span style="font-size:16px;font-weight:900;color:${ws==='—'?'var(--grey)':'var(--cyan)'};">${ws}</span>
+          <span style="font-size:10px;color:var(--grey);">→</span>
         </div>
-        <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-          <div style="font-size:17px;font-weight:900;color:${energyColor};">${ci.energy_level??'—'}</div>
-          <div style="font-size:8px;color:var(--grey);margin-top:1px;">⚡ Energía</div>
-        </div>
-        <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-          <div style="font-size:17px;font-weight:900;color:${focusColor};">${ci.focus_level??'—'}</div>
-          <div style="font-size:8px;color:var(--grey);margin-top:1px;">🎯 Enfoque</div>
-        </div>
-        <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-          <div style="font-size:17px;font-weight:900;color:var(--purple);">${ws}</div>
-          <div style="font-size:8px;color:var(--grey);margin-top:1px;">⭐ Índice</div>
-        </div>
-      </div>` : ''}
+      </div>`;
+    }).join('')}
 
-      <!-- ROW 3: barra de progreso (si hay %) -->
-      ${pct !== null ? `<div style="margin-top:8px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-          <span style="font-size:9px;color:var(--grey);">Plan del día</span>
-          <span style="font-size:9px;font-weight:700;color:${pctColor};">${pct}%</span>
-        </div>
-        <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;">
-          <div style="width:${pct}%;height:100%;border-radius:4px;background:linear-gradient(90deg,${pctColor},var(--cyan));"></div>
-        </div>
-      </div>` : ''}
-
-      <!-- ROW 4: nota del atleta -->
-      ${ci?.notes ? `<div style="margin-top:8px;border-left:2px solid var(--cyan);padding-left:8px;">
-        <span style="font-size:10px;color:rgba(255,255,255,.45);font-style:italic;">💬 ${ci.notes.substring(0,65)}${ci.notes.length>65?'…':''}</span>
-      </div>` : ''}
-    </div>`;
-  }).join('')}
-
-  <!-- EQUIPO HISTÓRICO -->
-  <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin:16px 0 10px;">EQUIPO · ÍNDICE HISTÓRICO</div>
-  ${S.athletes.map(a=>{
-    const ws=scoreCount[a.id]?(scoreSum[a.id]/scoreCount[a.id]).toFixed(1):'—';
-    const days=daysSince(lastSes[a.id]);
-    return `<div onclick="openAthProfile('${a.id}','${a.name}')"
-      style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;margin-bottom:6px;cursor:pointer;">
-      <div style="font-size:13px;font-weight:700;">${a.name}</div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        ${days>7?`<span style="font-size:10px;color:var(--red);">⚠️ ${days}d</span>`
-          :days>3?`<span style="font-size:10px;color:var(--amber);">${days}d</span>`
-          :`<span style="font-size:10px;color:var(--green);">●</span>`}
-        <span style="font-size:16px;font-weight:900;color:${ws==='—'?'var(--grey)':'var(--cyan)'};">${ws}</span>
-        <span style="font-size:10px;color:var(--grey);">→</span>
-      </div>
-    </div>`;
-  }).join('')}
-
-  <!-- BOTONES REPORTES -->
-  <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
-    <button class="btn btn-cyan" style="flex:1;min-width:140px;" onclick="genMonthlyPDF('team')">📊 Reporte Mes Equipo</button>
-    <button class="btn" style="flex:1;min-width:140px;background:var(--purple);" onclick="openMonthlyAthleteSelect()">📄 Reporte Mes Atleta</button>
-  </div>
-  `);
+    <!-- BOTONES PDF -->
+    <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+      <button class="btn btn-cyan" style="flex:1;min-width:140px;" onclick="genMonthlyPDF('team')">📊 Reporte Mes Equipo</button>
+      <button class="btn" style="flex:1;min-width:140px;background:var(--purple);" onclick="openMonthlyAthleteSelect()">📄 Reporte Mes Atleta</button>
+    </div>
+    `);
+  } catch(e){ render('<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando panel</p>'); console.error(e); }
 }
 
 async function saveEditBio(){
