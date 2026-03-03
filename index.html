@@ -1345,10 +1345,7 @@ async function loadHoy(date){
           <div class="checkin-box"><div class="checkin-val" style="color:var(--purple);">${ci.focus_level}/5</div><div class="checkin-lbl">🎯 Enfoque</div></div>
           ${ci.surf_hours?`<div class="checkin-box"><div class="checkin-val" style="color:var(--cyan);">${ci.surf_hours}h</div><div class="checkin-lbl">🏄 Surf</div></div>`:''}
         </div>
-        <div style="text-align:center;padding:8px;background:var(--bg3);border-radius:var(--r2);">
-          <span style="font-size:12px;color:var(--grey);">Logré mi objetivo: </span>
-          <span style="font-size:13px;font-weight:700;color:${ci.goal_achieved==='Si'?'var(--green)':ci.goal_achieved==='Parcial'?'var(--amber)':ci.goal_achieved?'var(--red)':'var(--grey)'};">${ci.goal_achieved||'—'}</span>
-        </div>
+        
         ${ci.notes?`<p style="font-size:12px;color:rgba(232,240,245,.5);margin-top:8px;">${ci.notes}</p>`:''}
       </div>`;
     } else {
@@ -1374,13 +1371,6 @@ async function loadHoy(date){
           <label class="inp-label">🎯 Nivel de enfoque en el agua</label>
           ${scaleRow('ci-focus',0,5)}
 
-          <label class="inp-label">✅ Logré mi objetivo del día</label>
-          <div class="opt-row">
-            <button type="button" class="opt-pill" onclick="pickOpt('ci-goal',this,'Si','on-green')">Sí</button>
-            <button type="button" class="opt-pill" onclick="pickOpt('ci-goal',this,'Parcial','on-amber')">Parcial</button>
-            <button type="button" class="opt-pill" onclick="pickOpt('ci-goal',this,'No','on-red')">No</button>
-          </div>
-          <input type="hidden" id="ci-goal" value="">
           `:'<input type="hidden" id="ci-focus" value="0"><input type="hidden" id="ci-goal" value="">'}
 
           <label class="inp-label">🏄 Horas surfeadas hoy</label>
