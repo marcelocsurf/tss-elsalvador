@@ -4418,122 +4418,279 @@ async function genMonthlyPDF(athleteIdOrTeam){
 
 
 async function genAnalyticsPDF(athleteId, athleteName){
-  toast('Generando PDF...','info');
+  toast('Generando reporte...','info');
   try {
     const today = todayStr();
     const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-29);
     const from30 = d30ago.toISOString().split('T')[0];
 
-    const [{data:checkins},{data:evals},{data:compEvals}] = await Promise.all([
+    // Fetch all data
+    const [{data:checkins},{data:evals},{data:compEvals},{data:sessions},{data:profile}] = await Promise.all([
       db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',from30).order('date',{ascending:true}),
-      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(20),
       db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
+      db.from('tss_presencial_sessions').select('id,date,title,athlete_ids').gte('date',from30).order('date',{ascending:false}),
+      db.from('tss_profiles').select('*').eq('id',athleteId).maybeSingle(),
     ]);
 
     const cis = checkins||[];
     const evs = evals||[];
     const comps = compEvals||[];
+    const ath = profile||{};
 
+    // Attendance
+    const attended = (sessions||[]).filter(s=>{
+      try{ const ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]'); return ids.includes(athleteId); }catch(e){ return false; }
+    });
+
+    // Stats
+    const avgC = cis.length ? Math.round(cis.reduce((s,ci)=>s+(ci.progress_pct||0),0)/cis.length) : 0;
+    const totalH = cis.reduce((s,ci)=>s+(ci.surf_hours||0),0);
+    const avgEnergy = cis.filter(ci=>ci.energy_level>0).length ? (cis.filter(ci=>ci.energy_level>0).reduce((s,ci)=>s+(ci.energy_level||0),0)/cis.filter(ci=>ci.energy_level>0).length).toFixed(1) : '—';
+    const avgWater = cis.filter(ci=>ci.water_glasses>0).length ? (cis.filter(ci=>ci.water_glasses>0).reduce((s,ci)=>s+(ci.water_glasses||0),0)/cis.filter(ci=>ci.water_glasses>0).length).toFixed(1) : '—';
+    const avgFocus = cis.filter(ci=>ci.focus_level>0).length ? (cis.filter(ci=>ci.focus_level>0).reduce((s,ci)=>s+(ci.focus_level||0),0)/cis.filter(ci=>ci.focus_level>0).length).toFixed(1) : '—';
+    const checkinDays = cis.filter(ci=>ci.water_glasses||ci.energy_level||ci.notes).length;
+
+    // Eval stats
+    const lastEval = evs[0]||null;
+    const prevEval = evs[1]||null;
+    const currentIdx = lastEval ? (((lastEval.physical||0)+(lastEval.technique||0)+(lastEval.mindset||0)+(lastEval.competitive||0))/4).toFixed(1) : '—';
+    const prevIdx = prevEval ? (((prevEval.physical||0)+(prevEval.technique||0)+(prevEval.mindset||0)+(prevEval.competitive||0))/4).toFixed(1) : null;
+    const trend = (currentIdx!=='—'&&prevIdx) ? (parseFloat(currentIdx)>parseFloat(prevIdx)?'↑ Subiendo':parseFloat(currentIdx)<parseFloat(prevIdx)?'↓ Bajando':'= Estable') : '';
+
+    // Weekly surf hours (4 weeks)
+    const weeks = [];
+    for(let w=3;w>=0;w--){
+      const wStart = new Date(); wStart.setDate(wStart.getDate() - wStart.getDay() - w*7);
+      const wEnd = new Date(wStart); wEnd.setDate(wEnd.getDate()+6);
+      const ws = wStart.toISOString().split('T')[0];
+      const we = wEnd.toISOString().split('T')[0];
+      const wCis = cis.filter(ci=>ci.date>=ws&&ci.date<=we);
+      weeks.push({
+        label: `S${4-w}`,
+        hours: wCis.reduce((s,ci)=>s+(ci.surf_hours||0),0).toFixed(1),
+        compliance: wCis.length ? Math.round(wCis.reduce((s,ci)=>s+(ci.progress_pct||0),0)/wCis.length) : 0,
+        checkins: wCis.filter(ci=>ci.water_glasses||ci.energy_level).length
+      });
+    }
+
+    // Bio
+    const birthDate = ath.birth_date ? new Date(ath.birth_date+'T00:00:00') : null;
+    const age = birthDate ? Math.floor((new Date()-birthDate)/(1000*60*60*24*365.25)) : null;
+    const imc = (ath.weight_kg&&ath.height_cm) ? (ath.weight_kg/((ath.height_cm/100)**2)).toFixed(1) : null;
+    const imcLabel = imc ? (imc<18.5?'Bajo peso':imc<25?'Normal':imc<30?'Sobrepeso':'Obesidad') : null;
+
+    // ── PDF SETUP ───────────────────────────────────────────
     const {jsPDF} = window.jspdf;
-    const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-    const W=210, M=14;
-    let y=M;
+    const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210, M=14, CW=W-M*2;
+    let y=0;
 
-    // Header
-    doc.setFillColor(0,201,232); doc.rect(0,0,W,18,'F');
-    doc.setTextColor(5,10,15); doc.setFontSize(14); doc.setFont('helvetica','bold');
-    doc.text('TSS EL SALVADOR — REPORTE INDIVIDUAL',M,12);
-    y=26;
+    const cyan=[0,201,232], white=[232,240,245], grey=[100,120,135], dark=[8,15,25], bg2=[18,25,38], bg3=[25,35,52];
+    const green=[34,197,94], amber=[245,158,11], red=[239,68,68], purple=[168,85,247];
 
-    doc.setTextColor(0,201,232); doc.setFontSize(16); doc.setFont('helvetica','bold');
-    doc.text(athleteName, M, y); y+=8;
-    doc.setTextColor(150,150,150); doc.setFontSize(9); doc.setFont('helvetica','normal');
-    doc.text(`Período: ${from30} → ${today}   |   Generado: ${today}`, M, y); y+=10;
+    const setC = (rgb) => doc.setTextColor(...rgb);
+    const setF = (rgb) => doc.setFillColor(...rgb);
+    const setD = (rgb) => doc.setDrawColor(...rgb);
+    const box = (x,iy,w,h,rgb,r=3) => { setF(rgb); doc.roundedRect(x,iy,w,h,r,r,'F'); };
+    const line = (x1,y1,x2,y2,rgb,lw=0.3) => { setD(rgb); doc.setLineWidth(lw); doc.line(x1,y1,x2,y2); };
+    const txt = (text,x,iy,size,rgb,style='normal') => { setC(rgb); doc.setFontSize(size); doc.setFont('helvetica',style); doc.text(String(text),x,iy); };
 
-    // KPIs
-    const avgC = cis.length ? Math.round(cis.reduce((s,c)=>s+(c.progress_pct||0),0)/cis.length) : 0;
-    const totalH = cis.reduce((s,c)=>s+(c.surf_hours||0),0);
-    const lastIdx = evs.length ? (((evs[0].physical||0)+(evs[0].technique||0)+(evs[0].mindset||0)+(evs[0].competitive||0))/4).toFixed(1) : '—';
+    // ══ PAGE 1 ══════════════════════════════════════════════
 
-    doc.setFillColor(20,30,40); doc.rect(M,y,W-M*2,18,'F');
-    doc.setTextColor(0,201,232); doc.setFontSize(18); doc.setFont('helvetica','bold');
-    doc.text(avgC+'%', M+8, y+12);
-    doc.text(lastIdx, M+70, y+12);
-    doc.text(totalH.toFixed(1)+'h', M+130, y+12);
-    doc.setTextColor(120,140,150); doc.setFontSize(7);
-    doc.text('CUMPLIMIENTO PROM.',M+8,y+17);
-    doc.text('ÍNDICE ACTUAL',M+70,y+17);
-    doc.text('HORAS SURF',M+130,y+17);
-    y+=26;
+    // Header bar
+    setF(dark); doc.rect(0,0,W,22,'F');
+    setF(cyan); doc.rect(0,22,W,2,'F');
+    txt('TSS EL SALVADOR',M,10,8,grey,'normal');
+    txt('REPORTE INDIVIDUAL DE ATLETA',M,16,11,white,'bold');
+    txt(today,W-M,16,8,grey,'normal'); doc.setTextColor(...grey); doc.setFontSize(8); doc.text(today,W-M,16,{align:'right'});
+    y=32;
 
-    // Daily log
-    doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
-    doc.text('REGISTRO DIARIO', M, y); y+=6;
-    doc.setFontSize(7); doc.setFont('helvetica','normal');
-    doc.setTextColor(200,200,200);
-    doc.text('FECHA', M, y);
-    doc.text('CUMPL.', M+30, y);
-    doc.text('AGUA', M+55, y);
-    doc.text('ENERGÍA', M+75, y);
-    doc.text('ENFOQUE', M+100, y);
-    doc.text('HORAS', M+125, y);
-    doc.text('NOTAS', M+145, y);
+    // Athlete name + bio row
+    txt(athleteName,M,y,18,cyan,'bold'); y+=8;
+    const bioItems = [];
+    if(age) bioItems.push(`🎂 ${age} años`);
+    if(ath.height_cm) bioItems.push(`📏 ${ath.height_cm}cm`);
+    if(ath.weight_kg) bioItems.push(`⚖️ ${ath.weight_kg}kg`);
+    if(imc) bioItems.push(`IMC ${imc} · ${imcLabel}`);
+    if(ath.stance) bioItems.push(`🏄 ${ath.stance}`);
+    if(ath.score_capacity) bioItems.push(`🎯 Score Cap: ${ath.score_capacity}/10`);
+    txt(bioItems.join('   '),M,y,8,grey);
+    txt(`Período: ${from30} → ${today}`,M,y+6,8,grey);
+    y+=18;
+
+    // Injury alert
+    if(ath.injury){
+      box(M,y,CW,10,[60,15,15],2);
+      setD(red); doc.setLineWidth(0.4); doc.roundedRect(M,y,CW,10,2,2,'S');
+      txt(`🚨 LESIÓN ACTIVA: ${ath.injury}${ath.injury_since?' — desde '+ath.injury_since:''}`,M+3,y+6.5,8,red,'bold');
+      y+=14;
+    }
+
+    // ── KPI CARDS ──
+    const kpis = [
+      {label:'CUMPLIMIENTO PROM.',val:avgC+'%',color:avgC>=80?green:avgC>=50?amber:red},
+      {label:'ÍNDICE ACTUAL',val:currentIdx+(trend?' '+trend:''),color:purple},
+      {label:'HORAS SURF 30D',val:totalH.toFixed(1)+'h',color:cyan},
+      {label:'ASISTENCIA',val:attended.length+' sesiones',color:green},
+      {label:'CHECK-INS',val:checkinDays+'/'+cis.length+' días',color:amber},
+      {label:'ENERGÍA PROM.',val:avgEnergy+'/5',color:amber},
+    ];
+    const kw=(CW-10)/3, kh=16;
+    kpis.forEach((k,i)=>{
+      const kx=M+(i%3)*(kw+5);
+      const ky=y+Math.floor(i/3)*(kh+4);
+      box(kx,ky,kw,kh,bg3,2);
+      txt(k.val,kx+kw/2,ky+7,12,k.color,'bold');
+      doc.setFontSize(7); doc.setTextColor(...grey); doc.setFont('helvetica','normal');
+      doc.text(k.label,kx+kw/2,ky+13,{align:'center'});
+    });
+    y+=42;
+
+    // ── WEEKLY BREAKDOWN ──
+    line(M,y,W-M,y,grey,0.2); y+=5;
+    txt('DESGLOSE SEMANAL (ÚLTIMAS 4 SEMANAS)',M,y,8,cyan,'bold'); y+=6;
+    const wcols=[M,M+35,M+70,M+105,M+140];
+    txt('SEMANA',wcols[0],y,7,grey,'bold');
+    txt('HORAS SURF',wcols[1],y,7,grey,'bold');
+    txt('CUMPLIMIENTO',wcols[2],y,7,grey,'bold');
+    txt('CHECK-INS',wcols[3],y,7,grey,'bold');
+    y+=4; line(M,y,W-M,y,grey,0.2); y+=4;
+    weeks.forEach(w=>{
+      const cColor=w.compliance>=80?green:w.compliance>=50?amber:red;
+      txt(w.label,wcols[0],y,8,white); txt(w.hours+'h',wcols[1],y,8,cyan); txt(w.compliance+'%',wcols[2],y,8,cColor,'bold'); txt(String(w.checkins),wcols[3],y,8,white);
+      y+=6;
+    });
     y+=4;
-    doc.setDrawColor(0,201,232); doc.setLineWidth(.3); doc.line(M,y,W-M,y); y+=4;
 
-    cis.forEach(ci => {
-      if(y>270){ doc.addPage(); y=M; }
+    // ── EVALUACIÓN DEL COACH ──
+    if(evs.length){
+      line(M,y,W-M,y,grey,0.2); y+=5;
+      txt('EVALUACIÓN DEL COACH',M,y,8,cyan,'bold'); y+=6;
+
+      // Dimension bars
+      const dims=[
+        {key:'physical',label:'💪 Físico',color:cyan},
+        {key:'technique',label:'🏄 Técnica',color:purple},
+        {key:'mindset',label:'🧠 Mental',color:green},
+        {key:'competitive',label:'⭐ Competitivo',color:amber},
+      ];
+      const barW=CW/2-10;
+      dims.forEach((d,i)=>{
+        const dx=M+(i%2)*(barW+20);
+        const dy=y+Math.floor(i/2)*14;
+        const cur=lastEval?lastEval[d.key]||0:0;
+        const prev=prevEval?prevEval[d.key]||0:0;
+        const diff=cur-prev;
+        const diffTxt=diff>0?'↑'+diff:diff<0?'↓'+Math.abs(diff):'=';
+        const diffColor=diff>0?green:diff<0?red:grey;
+        txt(d.label,dx,dy+4,8,white); txt(cur+'/10',dx+barW-8,dy+4,8,d.color,'bold');
+        txt(diffTxt,dx+barW-18,dy+4,7,diffColor);
+        box(dx,dy+6,barW,4,bg3,1);
+        box(dx,dy+6,barW*cur/10,4,d.color,1);
+      });
+      y+=dims.length/2*14+2;
+
+      // Last eval text fields
+      if(lastEval){
+        const textFields=[
+          {key:'strengths',label:'✅ Fortalezas'},
+          {key:'limitations',label:'⚠️ Limitaciones'},
+          {key:'recommendations',label:'📋 Recomendaciones'},
+        ];
+        textFields.forEach(tf=>{
+          if(lastEval[tf.key]){
+            if(y>260){doc.addPage();y=M;}
+            txt(tf.label+':',M,y,7,grey,'bold');
+            const lines=doc.splitTextToSize(lastEval[tf.key],CW-5);
+            txt(lines.join(' '),M+25,y,7,white);
+            y+=lines.length*4+2;
+          }
+        });
+        txt('Última evaluación: '+lastEval.date+(lastEval.date&&prevEval?' | Anterior: '+prevEval.date:''),M,y,7,grey);
+        y+=6;
+      }
+    }
+
+    // ── WELLNESS ──
+    if(cis.length){
+      if(y>240){doc.addPage();y=M;}
+      line(M,y,W-M,y,grey,0.2); y+=5;
+      txt('WELLNESS — PROMEDIOS 30 DÍAS',M,y,8,cyan,'bold'); y+=6;
+      const wItems=[
+        {label:'💧 Agua',val:avgWater,unit:'vasos',color:cyan},
+        {label:'⚡ Energía',val:avgEnergy,unit:'/5',color:amber},
+        {label:'🎯 Enfoque',val:avgFocus,unit:'/5',color:purple},
+      ];
+      const ww=(CW-10)/3;
+      wItems.forEach((wi,i)=>{
+        const wx=M+i*(ww+5);
+        box(wx,y,ww,14,bg3,2);
+        txt(wi.val,wx+ww/2,y+7,12,wi.color,'bold');
+        doc.setFontSize(7); doc.setTextColor(...grey); doc.text(wi.label+' '+wi.unit,wx+ww/2,y+12,{align:'center'});
+      });
+      y+=20;
+    }
+
+    // ── REGISTRO DIARIO ──
+    if(y>230){doc.addPage();y=M;}
+    line(M,y,W-M,y,grey,0.2); y+=5;
+    txt('REGISTRO DIARIO',M,y,8,cyan,'bold'); y+=6;
+    const cols=[M,M+28,M+50,M+68,M+86,M+106,M+124,M+142];
+    const headers=['FECHA','CUMPL.','AGUA','ENERGÍA','ENFOQUE','HORAS','OBJETIVO','NOTAS'];
+    headers.forEach((h,i)=>{ txt(h,cols[i],y,6,grey,'bold'); });
+    y+=3; line(M,y,W-M,y,grey,0.2); y+=4;
+
+    cis.slice().reverse().forEach(ci=>{
+      if(y>275){doc.addPage();y=M;}
       const pct=ci.progress_pct||0;
-      doc.setTextColor(pct>=80?0:pct>=50?200:200, pct>=80?180:pct>=50?150:50, pct>=80?80:50);
-      doc.text(ci.date, M, y);
-      doc.text(pct+'%', M+30, y);
-      doc.setTextColor(200,200,200);
-      doc.text(String(ci.water_glasses||0), M+55, y);
-      doc.text(String(ci.energy_level||0), M+75, y);
-      doc.text(String(ci.focus_level||0), M+100, y);
-      doc.text(String(ci.surf_hours||0)+'h', M+125, y);
-      if(ci.notes) doc.text(ci.notes.substring(0,30), M+145, y);
+      const pc=pct>=80?green:pct>=50?amber:red;
+      txt(ci.date,cols[0],y,7,white);
+      txt(pct+'%',cols[1],y,7,pc,'bold');
+      txt(String(ci.water_glasses||0),cols[2],y,7,ci.water_glasses>=6?green:ci.water_glasses>=4?white:grey);
+      txt(String(ci.energy_level||0),cols[3],y,7,ci.energy_level>=4?green:ci.energy_level>=3?white:grey);
+      txt(String(ci.focus_level||0),cols[4],y,7,white);
+      txt((ci.surf_hours||0)+'h',cols[5],y,7,cyan);
+      if(ci.goal_achieved) txt(ci.goal_achieved==='Si'?'✓':'✗',cols[6],y,7,ci.goal_achieved==='Si'?green:red);
+      if(ci.notes){ const n=ci.notes.substring(0,28); txt(n,cols[7],y,6,grey); }
       y+=5;
     });
 
-    // Evaluations
-    if(evs.length){
-      y+=6;
-      if(y>250){ doc.addPage(); y=M; }
-      doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
-      doc.text('EVALUACIONES DEL COACH', M, y); y+=6;
-      evs.slice(0,8).forEach(e=>{
-        if(y>270){ doc.addPage(); y=M; }
-        const avg4=((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4;
-        doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
-        doc.text(e.date||'', M, y);
-        doc.text('Índice: '+avg4.toFixed(1), M+30, y);
-        doc.text('F:'+e.physical+' T:'+e.technique+' M:'+e.mindset+' C:'+e.competitive, M+60, y);
-        y+=5;
-      });
-    }
-
-    // Competitions
+    // ── COMPETENCIAS ──
     if(comps.length){
-      y+=6;
-      if(y>250){ doc.addPage(); y=M; }
-      doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
-      doc.text('COMPETENCIAS', M, y); y+=6;
+      if(y>230){doc.addPage();y=M;}
+      y+=4; line(M,y,W-M,y,grey,0.2); y+=5;
+      txt('HISTORIAL DE COMPETENCIAS',M,y,8,cyan,'bold'); y+=6;
+      const ccols=[M,M+28,M+85,M+115,M+140,M+165];
+      ['FECHA','COMPETENCIA','CATEGORÍA','RONDA','PROM. OLA','MEJOR OLA'].forEach((h,i)=>txt(h,ccols[i],y,6,grey,'bold'));
+      y+=3; line(M,y,W-M,y,grey,0.2); y+=4;
       comps.forEach(co=>{
-        if(y>270){ doc.addPage(); y=M; }
-        doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
-        doc.text(co.date||'', M, y);
-        doc.text(co.competition_name||'', M+30, y);
-        if(co.avg_wave_score) doc.text('Prom: '+parseFloat(co.avg_wave_score).toFixed(2), M+100, y);
-        if(co.result) doc.text(co.result, M+140, y);
+        if(y>275){doc.addPage();y=M;}
+        txt(co.date||'',ccols[0],y,7,white);
+        const evName=(co.event_name||co.competition_name||'').substring(0,22);
+        txt(evName,ccols[1],y,7,white);
+        txt(co.athlete_category||'',ccols[2],y,7,grey);
+        txt(co.round_reached||'',ccols[3],y,7,white);
+        txt(co.avg_wave_score?parseFloat(co.avg_wave_score).toFixed(2):'—',ccols[4],y,7,cyan,'bold');
+        txt(co.highest_wave?parseFloat(co.highest_wave).toFixed(1):'—',ccols[5],y,7,amber,'bold');
         y+=5;
       });
     }
 
-    doc.save(`TSS_${athleteName.replace(/ /g,'_')}_analytics_${today}.pdf`);
-    toast('✅ PDF descargado','success');
-  } catch(e){ toast('Error generando PDF','error'); console.error(e); }
+    // Footer on all pages
+    const pageCount = doc.getNumberOfPages();
+    for(let p=1;p<=pageCount;p++){
+      doc.setPage(p);
+      setF(dark); doc.rect(0,287,W,10,'F');
+      txt('TSS El Salvador  ·  Sistema de Entrenamiento Técnico de Surf  ·  Generado '+today,W/2,293,6,grey,'normal');
+      doc.setTextColor(...grey); doc.setFontSize(6); doc.text('Pág. '+p+' / '+pageCount,W-M,293,{align:'right'});
+    }
+
+    doc.save('TSS_'+athleteName.replace(/ /g,'_')+'_'+today+'.pdf');
+    toast('✅ Reporte descargado','success');
+  } catch(e){ toast('Error generando reporte','error'); console.error(e); }
 }
+
 
 
 async function genWeeklyPDF(athleteId, athleteName, mon, sun){
