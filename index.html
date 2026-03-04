@@ -4503,18 +4503,18 @@ async function genAnalyticsPDF(athleteId, athleteName){
     setF(cyan); doc.rect(0,22,W,2,'F');
     txt('TSS EL SALVADOR',M,10,8,grey,'normal');
     txt('REPORTE INDIVIDUAL DE ATLETA',M,16,11,white,'bold');
-    txt(today,W-M,16,8,grey,'normal'); doc.setTextColor(...grey); doc.setFontSize(8); doc.text(today,W-M,16,{align:'right'});
+    doc.setTextColor(...grey); doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.text(today,W-M,16,{align:'right'});
     y=32;
 
     // Athlete name + bio row
     txt(athleteName,M,y,18,cyan,'bold'); y+=8;
     const bioItems = [];
-    if(age) bioItems.push(`🎂 ${age} años`);
-    if(ath.height_cm) bioItems.push(`📏 ${ath.height_cm}cm`);
-    if(ath.weight_kg) bioItems.push(`⚖️ ${ath.weight_kg}kg`);
-    if(imc) bioItems.push(`IMC ${imc} · ${imcLabel}`);
-    if(ath.stance) bioItems.push(`🏄 ${ath.stance}`);
-    if(ath.score_capacity) bioItems.push(`🎯 Score Cap: ${ath.score_capacity}/10`);
+    if(age) bioItems.push(`${age} años`);
+    if(ath.height_cm) bioItems.push(`${ath.height_cm}cm`);
+    if(ath.weight_kg) bioItems.push(`${ath.weight_kg}kg`);
+    if(imc) bioItems.push(`IMC ${imc} - ${imcLabel}`);
+    if(ath.stance) bioItems.push(`Surf: ${ath.stance}`);
+    if(ath.score_capacity) bioItems.push(`Score Cap: ${ath.score_capacity}/10`);
     txt(bioItems.join('   '),M,y,8,grey);
     txt(`Período: ${from30} → ${today}`,M,y+6,8,grey);
     y+=18;
@@ -4523,7 +4523,7 @@ async function genAnalyticsPDF(athleteId, athleteName){
     if(ath.injury){
       box(M,y,CW,10,[60,15,15],2);
       setD(red); doc.setLineWidth(0.4); doc.roundedRect(M,y,CW,10,2,2,'S');
-      txt(`🚨 LESIÓN ACTIVA: ${ath.injury}${ath.injury_since?' — desde '+ath.injury_since:''}`,M+3,y+6.5,8,red,'bold');
+      txt(`LESION ACTIVA: ${ath.injury}${ath.injury_since?' — desde '+ath.injury_since:''}`,M+3,y+6.5,8,red,'bold');
       y+=14;
     }
 
@@ -4570,10 +4570,10 @@ async function genAnalyticsPDF(athleteId, athleteName){
 
       // Dimension bars
       const dims=[
-        {key:'physical',label:'💪 Físico',color:cyan},
-        {key:'technique',label:'🏄 Técnica',color:purple},
-        {key:'mindset',label:'🧠 Mental',color:green},
-        {key:'competitive',label:'⭐ Competitivo',color:amber},
+        {key:'physical',label:'Fisico',color:cyan},
+        {key:'technique',label:'Tecnica',color:purple},
+        {key:'mindset',label:'Mental',color:green},
+        {key:'competitive',label:'Competitivo',color:amber},
       ];
       const barW=CW/2-10;
       dims.forEach((d,i)=>{
@@ -4618,9 +4618,9 @@ async function genAnalyticsPDF(athleteId, athleteName){
       line(M,y,W-M,y,grey,0.2); y+=5;
       txt('WELLNESS — PROMEDIOS 30 DÍAS',M,y,8,cyan,'bold'); y+=6;
       const wItems=[
-        {label:'💧 Agua',val:avgWater,unit:'vasos',color:cyan},
-        {label:'⚡ Energía',val:avgEnergy,unit:'/5',color:amber},
-        {label:'🎯 Enfoque',val:avgFocus,unit:'/5',color:purple},
+        {label:'Agua',val:avgWater,unit:'vasos',color:cyan},
+        {label:'Energia',val:avgEnergy,unit:'/5',color:amber},
+        {label:'Enfoque',val:avgFocus,unit:'/5',color:purple},
       ];
       const ww=(CW-10)/3;
       wItems.forEach((wi,i)=>{
