@@ -1031,7 +1031,7 @@ async function deleteSp(sessionId){
 ============================================================ */
 async function bootApp(){
   try {
-    const{data:aths}=await db.from('tss_profiles').select('*').eq('role','athlete').neq('active',false).order('name');
+    const{data:aths}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active').eq('role','athlete').neq('active',false).order('name');
     S.athletes=aths||[];
     const{data:grps}=await db.from('tss_groups').select('*').order('name');
     S.groups=grps||[];
@@ -3111,8 +3111,8 @@ async function vPanel(){
   try {
     const today = todayStr();
     const [{data:sessions},{data:evals},{data:checkins}] = await Promise.all([
-      db.from('tss_presencial_sessions').select('athlete_ids,date').order('date',{ascending:false}),
-      db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive').order('date',{ascending:false}),
+      db.from('tss_presencial_sessions').select('athlete_ids,date').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false}),
+      db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive').order('date',{ascending:false}).limit(300),
       db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes').eq('date',today),
     ]);
 
@@ -3383,7 +3383,7 @@ async function vPerfil(athleteId=null,athleteName=null){
   const athBio = freshAth || S.athletes.find(a=>a.id===id) || {};
   const[{data:sessions},{data:evals},{data:checkins}]=await Promise.all([
       db.from('tss_sessions').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(5),
-      db.from('tss_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false}),
+      db.from('tss_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(20),
       db.from('tss_daily_checkins').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(14),
     ]);
     const scores=(evals||[]).map(e=>((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4).filter(Boolean);
@@ -4455,7 +4455,7 @@ async function openAthleteAnalytics(athleteId, athleteName){
       db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',from30).order('date',{ascending:true}),
       db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
       db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
-      db.from('tss_presencial_sessions').select('*').order('date',{ascending:false}).limit(50),
+      db.from('tss_presencial_sessions').select('*').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false}).limit(50),
     ]);
 
     const cis = checkins || [];
