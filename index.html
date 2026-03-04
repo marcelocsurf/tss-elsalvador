@@ -3521,22 +3521,30 @@ async function vPerfil(athleteId=null,athleteName=null){
         <div class="card anim-up" style="margin-bottom:10px;">
           <div class="sec-title" style="margin-bottom:10px;">DATOS FÍSICOS</div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
-            ${age?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
-              <div style="font-size:22px;font-weight:900;color:var(--white);">${age}</div>
-              <div style="font-size:9px;color:var(--grey);margin-top:2px;">🎂 Edad</div>
-            </div>`:''}
-            ${athBio.height_cm?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
-              <div style="font-size:22px;font-weight:900;color:var(--cyan);">${athBio.height_cm}<span style="font-size:11px;">cm</span></div>
-              <div style="font-size:9px;color:var(--grey);margin-top:2px;">📏 Altura</div>
-            </div>`:''}
-            ${athBio.weight_kg?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
-              <div style="font-size:22px;font-weight:900;color:var(--amber);">${athBio.weight_kg}<span style="font-size:11px;">kg</span></div>
-              <div style="font-size:9px;color:var(--grey);margin-top:2px;">⚖️ Peso</div>
-            </div>`:''}
-            ${imc?`<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
-              <div style="font-size:22px;font-weight:900;color:${imcColor};">${imc}</div>
-              <div style="font-size:9px;color:var(--grey);margin-top:2px;">📊 IMC · ${imcLabel}</div>
-            </div>`:''}
+            <div onclick="openEditBio('${id}')" style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;cursor:pointer;">
+              ${age ? `<div style="font-size:22px;font-weight:900;color:var(--white);">${age}</div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">🎂 Edad</div>` :
+              `<div style="font-size:18px;margin-bottom:2px;">🎂</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.25);">+ Edad</div>`}
+            </div>
+            <div onclick="openEditBio('${id}')" style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;cursor:pointer;">
+              ${athBio.height_cm ? `<div style="font-size:22px;font-weight:900;color:var(--cyan);">${athBio.height_cm}<span style="font-size:11px;">cm</span></div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">📏 Altura</div>` :
+              `<div style="font-size:18px;margin-bottom:2px;">📏</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.25);">+ Altura</div>`}
+            </div>
+            <div onclick="openEditBio('${id}')" style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;cursor:pointer;">
+              ${athBio.weight_kg ? `<div style="font-size:22px;font-weight:900;color:var(--amber);">${athBio.weight_kg}<span style="font-size:11px;">kg</span></div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">⚖️ Peso</div>` :
+              `<div style="font-size:18px;margin-bottom:2px;">⚖️</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.25);">+ Peso</div>`}
+            </div>
+            <div onclick="openEditBio('${id}')" style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;cursor:pointer;">
+              ${imc ? `<div style="font-size:22px;font-weight:900;color:${imcColor};">${imc}</div>
+              <div style="font-size:9px;color:var(--grey);margin-top:2px;">📊 IMC · ${imcLabel}</div>` :
+              `<div style="font-size:18px;margin-bottom:2px;">📊</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.25);">+ IMC</div>`}
+            </div>
           </div>
           <div style="margin-top:8px;background:var(--bg3);border-radius:10px;padding:10px;display:flex;align-items:center;justify-content:space-between;">
             <span style="font-size:11px;color:var(--grey);">🏄 Posición de surf</span>
