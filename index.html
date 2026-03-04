@@ -3564,7 +3564,7 @@ async function vPerfil(athleteId=null,athleteName=null){
             ${isCoach?`<button class="btn btn-xs btn-red" onclick="openInjuryModal('${id}','${name}')">✏️ Editar</button>`:''}
           </div>
         </div>`;
-        return capHtml + (isCoach?`<div class="card anim-up" style="border:1px dashed rgba(255,255,255,.1);margin-bottom:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+        return capHtml + bioHtml + (isCoach?`<div class="card anim-up" style="border:1px dashed rgba(255,255,255,.1);margin-bottom:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:12px;color:var(--grey);">Sin lesiones registradas</span>
           <button class="btn btn-xs btn-outline" onclick="openInjuryModal('${id}','${name}')">+ Registrar lesión</button>
         </div>`:'');
