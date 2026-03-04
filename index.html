@@ -8,7 +8,8 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{
   --bg:#040810;--bg2:#080E16;--bg3:#0C141E;
@@ -3367,7 +3368,8 @@ async function vPerfil(athleteId=null,athleteName=null){
       <div><div class="page-title" style="margin-bottom:0;">${name}</div><div class="page-sub" style="margin-bottom:0;">Perfil · TSS 2026</div></div>
     </div>
     ${isCoach?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn btn-cyan btn-sm" onclick="openWeeklyReport('${id}','${name}')">📊 Reporte</button>
+      <button class="btn btn-cyan btn-sm" onclick="openAthleteAnalytics('${id}','${name}')">📈 Analytics</button>
+      <button class="btn btn-sm" style="background:rgba(0,201,232,.08);color:var(--cyan);border:1px solid rgba(0,201,232,.2);" onclick="openWeeklyReport('${id}','${name}')">📊 Semana</button>
       <button class="btn btn-purple btn-sm" onclick="genPDF('${id}','${name}')">📄 PDF</button>
       <button class="btn btn-sm" style="background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);" onclick="openEditBio('${id}')">✏️ Bio</button>
       <button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="confirmDeactivate('${id}','${name}')">🗑 Desactivar</button>
@@ -4414,6 +4416,405 @@ async function genMonthlyPDF(athleteIdOrTeam){
   } catch(e){ toast('Error al generar reporte: '+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
+
+async function openAthleteAnalytics(athleteId, athleteName){
+  // Show modal with loading
+  let m = document.getElementById('analyticsModal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.className = 'modal-overlay';
+  m.id = 'analyticsModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;padding:0;">
+    <div style="position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px solid rgba(255,255,255,.08);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:16px;font-weight:800;">📈 Analytics</div>
+        <div style="font-size:11px;color:var(--cyan);">${athleteName}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="genAnalyticsPDF('${athleteId}','${athleteName}')" style="background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📄 PDF</button>
+        <button class="btn-icon" onclick="closeModal('analyticsModal')">✕</button>
+      </div>
+    </div>
+    <div id="analyticsContent" style="padding:16px;">
+      <div style="text-align:center;padding:40px;color:var(--grey);font-size:12px;">Cargando datos...</div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('analyticsModal'); };
+
+  try {
+    // Date ranges
+    const today = todayStr();
+    const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-29);
+    const from30 = d30ago.toISOString().split('T')[0];
+    const d7ago = new Date(); d7ago.setDate(d7ago.getDate()-6);
+    const from7 = d7ago.toISOString().split('T')[0];
+
+    // Fetch all data in parallel
+    const [{data:checkins},{data:evals},{data:compEvals},{data:sessions}] = await Promise.all([
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',from30).order('date',{ascending:true}),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
+      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
+      db.from('tss_presencial_sessions').select('*').order('date',{ascending:false}).limit(50),
+    ]);
+
+    const cis = checkins || [];
+    const evs = evals || [];
+    const comps = compEvals || [];
+    
+    // Attendance from sessions
+    const myAttendance = (sessions||[]).filter(s=>{
+      try{ const ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]'); return ids.includes(athleteId); }catch(e){ return false; }
+    });
+
+    // ── CALCULATE STATS ──────────────────────────────────────
+    const avgCompliance = cis.length ? Math.round(cis.reduce((s,c)=>s+(c.progress_pct||0),0)/cis.length) : 0;
+    const totalSurfH = cis.reduce((s,c)=>s+(c.surf_hours||0),0);
+    const week7 = cis.filter(c=>c.date>=from7);
+    const weekCompliance = week7.length ? Math.round(week7.reduce((s,c)=>s+(c.progress_pct||0),0)/week7.length) : 0;
+    const weekSurfH = week7.reduce((s,c)=>s+(c.surf_hours||0),0);
+    const avgEnergy = cis.filter(c=>c.energy_level>0).length ? (cis.filter(c=>c.energy_level>0).reduce((s,c)=>s+(c.energy_level||0),0)/cis.filter(c=>c.energy_level>0).length).toFixed(1) : '—';
+    const avgFocus = cis.filter(c=>c.focus_level>0).length ? (cis.filter(c=>c.focus_level>0).reduce((s,c)=>s+(c.focus_level||0),0)/cis.filter(c=>c.focus_level>0).length).toFixed(1) : '—';
+    const avgWater = cis.filter(c=>c.water_glasses>0).length ? (cis.filter(c=>c.water_glasses>0).reduce((s,c)=>s+(c.water_glasses||0),0)/cis.filter(c=>c.water_glasses>0).length).toFixed(1) : '—';
+    
+    // Eval index history
+    const evalHistory = evs.slice(0,10).reverse().map(e=>({
+      date: e.date,
+      avg: ((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4
+    }));
+    const currentIndex = evalHistory.length ? evalHistory[evalHistory.length-1].avg.toFixed(1) : '—';
+
+    // Compliance last 14 days for chart
+    const last14 = [];
+    for(let i=13;i>=0;i--){
+      const d=new Date(); d.setDate(d.getDate()-i);
+      const ds=d.toISOString().split('T')[0];
+      const ci=cis.find(c=>c.date===ds);
+      last14.push({date:ds, pct:ci?.progress_pct||0, label:d.toLocaleDateString('es',{weekday:'short',day:'numeric'})});
+    }
+
+    // ── RENDER HTML ──────────────────────────────────────────
+    document.getElementById('analyticsContent').innerHTML = `
+      <!-- KPI ROW -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+        <div style="background:linear-gradient(135deg,rgba(0,201,232,.15),rgba(0,201,232,.05));border:1px solid rgba(0,201,232,.25);border-radius:12px;padding:12px;text-align:center;">
+          <div style="font-size:26px;font-weight:900;color:var(--cyan);">${weekCompliance}%</div>
+          <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:2px;">CUMPL. SEMANA</div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(168,85,247,.04));border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:12px;text-align:center;">
+          <div style="font-size:26px;font-weight:900;color:var(--purple);">${currentIndex}</div>
+          <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:2px;">ÍNDICE ACTUAL</div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.04));border:1px solid rgba(34,197,94,.2);border-radius:12px;padding:12px;text-align:center;">
+          <div style="font-size:26px;font-weight:900;color:var(--green);">${weekSurfH.toFixed(1)}h</div>
+          <div style="font-size:9px;color:var(--grey);letter-spacing:1px;margin-top:2px;">HORAS SEMANA</div>
+        </div>
+      </div>
+
+      <!-- CUMPLIMIENTO 14 DÍAS -->
+      <div style="background:var(--bg2);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:12px;">📋 CUMPLIMIENTO DEL PLAN — ÚLTIMOS 14 DÍAS</div>
+        <canvas id="complianceChart" height="120"></canvas>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;">
+          <span style="font-size:10px;color:var(--grey);">Promedio 30d: <b style="color:var(--white);">${avgCompliance}%</b></span>
+          <span style="font-size:10px;color:var(--grey);">Check-ins: <b style="color:var(--white);">${cis.length}</b></span>
+        </div>
+      </div>
+
+      <!-- WELLNESS -->
+      <div style="background:var(--bg2);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:12px;">⚡ WELLNESS — ÚLTIMOS 30 DÍAS</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+          <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px;text-align:center;">
+            <div style="font-size:22px;font-weight:900;color:var(--cyan);">${avgWater}</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:2px;">💧 Agua prom.</div>
+          </div>
+          <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px;text-align:center;">
+            <div style="font-size:22px;font-weight:900;color:${parseFloat(avgEnergy)>=4?'var(--green)':parseFloat(avgEnergy)>=2.5?'var(--amber)':'var(--red)'};">${avgEnergy}</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:2px;">⚡ Energía prom.</div>
+          </div>
+          <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:10px;text-align:center;">
+            <div style="font-size:22px;font-weight:900;color:${parseFloat(avgFocus)>=4?'var(--cyan)':parseFloat(avgFocus)>=2.5?'var(--amber)':'var(--red)'};">${avgFocus}</div>
+            <div style="font-size:9px;color:var(--grey);margin-top:2px;">🎯 Enfoque prom.</div>
+          </div>
+        </div>
+        <canvas id="wellnessChart" height="100"></canvas>
+      </div>
+
+      <!-- HORAS EN EL AGUA -->
+      <div style="background:var(--bg2);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:12px;">🌊 HORAS EN EL AGUA</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+          <div style="text-align:center;background:rgba(0,0,0,.2);padding:10px;border-radius:10px;">
+            <div style="font-size:22px;font-weight:900;color:var(--cyan);">${weekSurfH.toFixed(1)}</div>
+            <div style="font-size:9px;color:var(--grey);">Esta semana</div>
+          </div>
+          <div style="text-align:center;background:rgba(0,0,0,.2);padding:10px;border-radius:10px;">
+            <div style="font-size:22px;font-weight:900;color:var(--green);">${totalSurfH.toFixed(1)}</div>
+            <div style="font-size:9px;color:var(--grey);">Últimos 30d</div>
+          </div>
+          <div style="text-align:center;background:rgba(0,0,0,.2);padding:10px;border-radius:10px;">
+            <div style="font-size:22px;font-weight:900;color:var(--amber);">${myAttendance.length}</div>
+            <div style="font-size:9px;color:var(--grey);">Sesiones</div>
+          </div>
+        </div>
+        <canvas id="surfChart" height="80"></canvas>
+      </div>
+
+      <!-- ÍNDICE HISTÓRICO -->
+      ${evalHistory.length > 1 ? `<div style="background:var(--bg2);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:12px;">⭐ ÍNDICE DE RENDIMIENTO HISTÓRICO</div>
+        <canvas id="indexChart" height="100"></canvas>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px;">
+          ${evs.length ? ['physical','technique','mindset','competitive'].map((k,i)=>{
+            const labels=['💪 Físico','🏄 Técnica','🧠 Mental','⭐ Compet.'];
+            const colors=['var(--cyan)','var(--purple)','var(--green)','var(--amber)'];
+            const avg=(evs.reduce((s,e)=>s+(e[k]||0),0)/evs.length).toFixed(1);
+            return `<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:18px;font-weight:900;color:${colors[i]};">${avg}</div>
+              <div style="font-size:8px;color:var(--grey);">${labels[i]}</div>
+            </div>`;
+          }).join('') : ''}
+        </div>
+      </div>` : ''}
+
+      <!-- COMPETENCIAS -->
+      ${comps.length ? `<div style="background:var(--bg2);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:12px;">🏆 COMPETENCIAS</div>
+        ${comps.slice(0,5).map(co=>`<div style="border-bottom:1px solid rgba(255,255,255,.05);padding:10px 0;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:12px;font-weight:700;">${co.competition_name||'Competencia'}</div>
+            <div style="font-size:10px;color:var(--grey);">${co.date||''}</div>
+          </div>
+          <div style="text-align:right;">
+            ${co.avg_wave_score?`<div style="font-size:16px;font-weight:900;color:var(--cyan);">${parseFloat(co.avg_wave_score).toFixed(2)}</div><div style="font-size:9px;color:var(--grey);">prom. olas</div>`:''}
+            ${co.result?`<div style="font-size:11px;color:var(--amber);margin-top:2px;">${co.result}</div>`:''}
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
+
+      <!-- REGISTRO DIARIO -->
+      <div style="background:var(--bg2);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:20px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:12px;">📅 REGISTRO DIARIO — ÚLTIMOS 30 DÍAS</div>
+        ${cis.length ? cis.slice().reverse().map(ci=>{
+          const pct=ci.progress_pct||0;
+          const pctColor=pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)';
+          return `<div style="border-bottom:1px solid rgba(255,255,255,.04);padding:8px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:11px;font-weight:700;">${ci.date}</span>
+              <span style="font-size:11px;font-weight:700;color:${pctColor};">${pct}%</span>
+            </div>
+            <div style="background:rgba(255,255,255,.05);border-radius:3px;height:3px;margin-bottom:4px;">
+              <div style="width:${pct}%;height:100%;border-radius:3px;background:${pctColor};"></div>
+            </div>
+            <div style="display:flex;gap:10px;font-size:9px;color:var(--grey);">
+              ${ci.water_glasses?`💧${ci.water_glasses}`:''}
+              ${ci.energy_level?`⚡${ci.energy_level}`:''}
+              ${ci.focus_level?`🎯${ci.focus_level}`:''}
+              ${ci.surf_hours?`🌊${ci.surf_hours}h`:''}
+            </div>
+          </div>`;
+        }).join('') : '<div style="text-align:center;padding:20px;color:var(--grey);font-size:12px;">Sin check-ins registrados</div>'}
+      </div>
+    `;
+
+    // ── RENDER CHARTS ─────────────────────────────────────────
+    const chartDefaults = {
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:9}} },
+        y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'rgba(255,255,255,.4)',font:{size:9}} }
+      }
+    };
+
+    // Compliance chart
+    new Chart(document.getElementById('complianceChart'), {
+      type:'bar',
+      data:{
+        labels: last14.map(d=>d.label),
+        datasets:[{
+          data: last14.map(d=>d.pct),
+          backgroundColor: last14.map(d=>d.pct>=80?'rgba(34,197,94,.7)':d.pct>=50?'rgba(245,158,11,.7)':'rgba(239,68,68,.5)'),
+          borderRadius:4,
+          borderSkipped:false
+        }]
+      },
+      options:{...chartDefaults, scales:{...chartDefaults.scales, y:{...chartDefaults.scales.y, min:0,max:100}}}
+    });
+
+    // Wellness chart (energy + focus last 14d)
+    new Chart(document.getElementById('wellnessChart'), {
+      type:'line',
+      data:{
+        labels: last14.map(d=>d.label),
+        datasets:[
+          { label:'Energía', data:last14.map(d=>{ const ci=cis.find(c=>c.date===d.date); return ci?.energy_level||null; }),
+            borderColor:'rgba(245,158,11,.8)', backgroundColor:'rgba(245,158,11,.1)', tension:.4, fill:true, pointRadius:3 },
+          { label:'Enfoque', data:last14.map(d=>{ const ci=cis.find(c=>c.date===d.date); return ci?.focus_level||null; }),
+            borderColor:'rgba(0,201,232,.8)', backgroundColor:'rgba(0,201,232,.1)', tension:.4, fill:true, pointRadius:3 }
+        ]
+      },
+      options:{...chartDefaults,
+        plugins:{legend:{display:true, labels:{color:'rgba(255,255,255,.6)',font:{size:10},boxWidth:12}}},
+        scales:{...chartDefaults.scales, y:{...chartDefaults.scales.y, min:0,max:5}}
+      }
+    });
+
+    // Surf hours chart (last 14d)
+    new Chart(document.getElementById('surfChart'), {
+      type:'bar',
+      data:{
+        labels: last14.map(d=>d.label),
+        datasets:[{
+          data: last14.map(d=>{ const ci=cis.find(c=>c.date===d.date); return ci?.surf_hours||0; }),
+          backgroundColor:'rgba(0,201,232,.5)', borderRadius:4, borderSkipped:false
+        }]
+      },
+      options:{...chartDefaults}
+    });
+
+    // Index history chart
+    if(evalHistory.length > 1){
+      new Chart(document.getElementById('indexChart'), {
+        type:'line',
+        data:{
+          labels: evalHistory.map(e=>e.date),
+          datasets:[{
+            data: evalHistory.map(e=>e.avg),
+            borderColor:'rgba(168,85,247,.8)',
+            backgroundColor:'rgba(168,85,247,.1)',
+            tension:.4, fill:true, pointRadius:4,
+            pointBackgroundColor:'rgba(168,85,247,1)'
+          }]
+        },
+        options:{...chartDefaults, scales:{...chartDefaults.scales, y:{...chartDefaults.scales.y, min:0,max:10}}}
+      });
+    }
+
+  } catch(e){
+    document.getElementById('analyticsContent').innerHTML = '<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando analytics</p>';
+    console.error(e);
+  }
+}
+
+async function genAnalyticsPDF(athleteId, athleteName){
+  toast('Generando PDF...','info');
+  try {
+    const today = todayStr();
+    const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-29);
+    const from30 = d30ago.toISOString().split('T')[0];
+
+    const [{data:checkins},{data:evals},{data:compEvals}] = await Promise.all([
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',from30).order('date',{ascending:true}),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
+      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
+    ]);
+
+    const cis = checkins||[];
+    const evs = evals||[];
+    const comps = compEvals||[];
+
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+    const W=210, M=14;
+    let y=M;
+
+    // Header
+    doc.setFillColor(0,201,232); doc.rect(0,0,W,18,'F');
+    doc.setTextColor(5,10,15); doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('TSS EL SALVADOR — REPORTE INDIVIDUAL',M,12);
+    y=26;
+
+    doc.setTextColor(0,201,232); doc.setFontSize(16); doc.setFont('helvetica','bold');
+    doc.text(athleteName, M, y); y+=8;
+    doc.setTextColor(150,150,150); doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(`Período: ${from30} → ${today}   |   Generado: ${today}`, M, y); y+=10;
+
+    // KPIs
+    const avgC = cis.length ? Math.round(cis.reduce((s,c)=>s+(c.progress_pct||0),0)/cis.length) : 0;
+    const totalH = cis.reduce((s,c)=>s+(c.surf_hours||0),0);
+    const lastIdx = evs.length ? (((evs[0].physical||0)+(evs[0].technique||0)+(evs[0].mindset||0)+(evs[0].competitive||0))/4).toFixed(1) : '—';
+
+    doc.setFillColor(20,30,40); doc.rect(M,y,W-M*2,18,'F');
+    doc.setTextColor(0,201,232); doc.setFontSize(18); doc.setFont('helvetica','bold');
+    doc.text(avgC+'%', M+8, y+12);
+    doc.text(lastIdx, M+70, y+12);
+    doc.text(totalH.toFixed(1)+'h', M+130, y+12);
+    doc.setTextColor(120,140,150); doc.setFontSize(7);
+    doc.text('CUMPLIMIENTO PROM.',M+8,y+17);
+    doc.text('ÍNDICE ACTUAL',M+70,y+17);
+    doc.text('HORAS SURF',M+130,y+17);
+    y+=26;
+
+    // Daily log
+    doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('REGISTRO DIARIO', M, y); y+=6;
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.setTextColor(200,200,200);
+    doc.text('FECHA', M, y);
+    doc.text('CUMPL.', M+30, y);
+    doc.text('AGUA', M+55, y);
+    doc.text('ENERGÍA', M+75, y);
+    doc.text('ENFOQUE', M+100, y);
+    doc.text('HORAS', M+125, y);
+    doc.text('NOTAS', M+145, y);
+    y+=4;
+    doc.setDrawColor(0,201,232); doc.setLineWidth(.3); doc.line(M,y,W-M,y); y+=4;
+
+    cis.forEach(ci => {
+      if(y>270){ doc.addPage(); y=M; }
+      const pct=ci.progress_pct||0;
+      doc.setTextColor(pct>=80?0:pct>=50?200:200, pct>=80?180:pct>=50?150:50, pct>=80?80:50);
+      doc.text(ci.date, M, y);
+      doc.text(pct+'%', M+30, y);
+      doc.setTextColor(200,200,200);
+      doc.text(String(ci.water_glasses||0), M+55, y);
+      doc.text(String(ci.energy_level||0), M+75, y);
+      doc.text(String(ci.focus_level||0), M+100, y);
+      doc.text(String(ci.surf_hours||0)+'h', M+125, y);
+      if(ci.notes) doc.text(ci.notes.substring(0,30), M+145, y);
+      y+=5;
+    });
+
+    // Evaluations
+    if(evs.length){
+      y+=6;
+      if(y>250){ doc.addPage(); y=M; }
+      doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+      doc.text('EVALUACIONES DEL COACH', M, y); y+=6;
+      evs.slice(0,8).forEach(e=>{
+        if(y>270){ doc.addPage(); y=M; }
+        const avg4=((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4;
+        doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
+        doc.text(e.date||'', M, y);
+        doc.text('Índice: '+avg4.toFixed(1), M+30, y);
+        doc.text('F:'+e.physical+' T:'+e.technique+' M:'+e.mindset+' C:'+e.competitive, M+60, y);
+        y+=5;
+      });
+    }
+
+    // Competitions
+    if(comps.length){
+      y+=6;
+      if(y>250){ doc.addPage(); y=M; }
+      doc.setTextColor(0,201,232); doc.setFontSize(10); doc.setFont('helvetica','bold');
+      doc.text('COMPETENCIAS', M, y); y+=6;
+      comps.forEach(co=>{
+        if(y>270){ doc.addPage(); y=M; }
+        doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
+        doc.text(co.date||'', M, y);
+        doc.text(co.competition_name||'', M+30, y);
+        if(co.avg_wave_score) doc.text('Prom: '+parseFloat(co.avg_wave_score).toFixed(2), M+100, y);
+        if(co.result) doc.text(co.result, M+140, y);
+        y+=5;
+      });
+    }
+
+    doc.save(`TSS_${athleteName.replace(/ /g,'_')}_analytics_${today}.pdf`);
+    toast('✅ PDF descargado','success');
+  } catch(e){ toast('Error generando PDF','error'); console.error(e); }
+}
+
 
 async function genWeeklyPDF(athleteId, athleteName, mon, sun){
   try {
