@@ -3200,36 +3200,56 @@ async function vPanel(){
               :pct>0?`<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(245,158,11,.12);color:var(--amber);">⚡ ${pct}%</span>`:''}
           </div>
         </div>
-        ${ci?`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-            <div style="font-size:17px;font-weight:900;color:${waterColor};">${ci.water_glasses??'—'}</div>
-            <div style="font-size:8px;color:var(--grey);margin-top:1px;">💧 Agua</div>
+        ${ci?`<div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:5px;">
+            <div style="background:${ci.water_glasses>=6?'rgba(34,197,94,.15)':ci.water_glasses>=4?'rgba(245,158,11,.1)':'rgba(239,68,68,.1)'};border:1px solid ${ci.water_glasses>=6?'rgba(34,197,94,.35)':ci.water_glasses>=4?'rgba(245,158,11,.3)':'rgba(239,68,68,.25)'};border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:20px;font-weight:900;color:${waterColor};">${ci.water_glasses??'—'}</div>
+              <div style="font-size:8px;color:var(--grey);margin-top:2px;">💧 Agua</div>
+            </div>
+            <div style="background:${ci.energy_level>=4?'rgba(34,197,94,.12)':ci.energy_level>=2?'rgba(245,158,11,.08)':'rgba(239,68,68,.1)'};border:1px solid ${ci.energy_level>=4?'rgba(34,197,94,.3)':ci.energy_level>=2?'rgba(245,158,11,.25)':'rgba(239,68,68,.25)'};border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:20px;font-weight:900;color:${energyColor};">${ci.energy_level??'—'}</div>
+              <div style="font-size:8px;color:var(--grey);margin-top:2px;">⚡ Energía</div>
+            </div>
+            <div style="background:rgba(0,201,232,.06);border:1px solid rgba(0,201,232,.15);border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:20px;font-weight:900;color:${ci.surf_hours?'var(--cyan)':'var(--grey)'};">${ci.surf_hours??0}h</div>
+              <div style="font-size:8px;color:var(--grey);margin-top:2px;">🌊 H.Agua</div>
+            </div>
+            <div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.18);border-radius:8px;padding:8px;text-align:center;">
+              <div style="font-size:20px;font-weight:900;color:var(--purple);">${ws}</div>
+              <div style="font-size:8px;color:var(--grey);margin-top:2px;">⭐ Índice</div>
+            </div>
           </div>
-          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-            <div style="font-size:17px;font-weight:900;color:${energyColor};">${ci.energy_level??'—'}</div>
-            <div style="font-size:8px;color:var(--grey);margin-top:1px;">⚡ Energía</div>
-          </div>
-          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-            <div style="font-size:17px;font-weight:900;color:${focusColor};">${ci.focus_level??'—'}</div>
-            <div style="font-size:8px;color:var(--grey);margin-top:1px;">🎯 Enfoque</div>
-          </div>
-          <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px;text-align:center;">
-            <div style="font-size:17px;font-weight:900;color:var(--purple);">${ws}</div>
-            <div style="font-size:8px;color:var(--grey);margin-top:1px;">⭐ Índice</div>
-          </div>
-        </div>
-        ${pct!==null?`<div style="margin-top:8px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:9px;color:var(--grey);">Plan del día</span>
-            <span style="font-size:9px;font-weight:700;color:${pctColor};">${pct}%</span>
-          </div>
-          <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;">
-            <div style="width:${pct}%;height:100%;border-radius:4px;background:linear-gradient(90deg,${pctColor},var(--cyan));"></div>
-          </div>
-        </div>`:''}
-        ${ci?.notes?`<div style="margin-top:8px;border-left:2px solid var(--cyan);padding-left:8px;">
-          <span style="font-size:10px;color:rgba(255,255,255,.45);font-style:italic;">💬 ${ci.notes.substring(0,65)}${ci.notes.length>65?'…':''}</span>
-        </div>`:''}`:''
+          ${(function(){
+            var sr={}; try{sr=ci.sesion_result?JSON.parse(ci.sesion_result):{};}catch(e){}
+            var sKeys=Object.keys(sr);
+            var objRes=sKeys.length?sr[sKeys[0]]:null;
+            var focusVal=ci.focus_level||0;
+            if(!ci.surf_hours && !objRes) return '';
+            var focusColor2=focusVal>=4?'var(--cyan)':focusVal>=3?'var(--amber)':'var(--red)';
+            var objIcon=objRes==='Si'?'✅':objRes==='Parcial'?'⚡':objRes==='No'?'❌':'—';
+            var objColor=objRes==='Si'?'var(--green)':objRes==='Parcial'?'var(--amber)':objRes==='No'?'var(--red)':'var(--grey)';
+            return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px;">'
+              +'<div style="background:rgba(0,201,232,.06);border:1px solid rgba(0,201,232,.2);border-radius:8px;padding:8px;display:flex;align-items:center;gap:8px;">'
+              +'<div style="font-size:18px;font-weight:900;color:'+(focusVal?focusColor2:'var(--grey)')+';">'+(focusVal||'—')+'/5</div>'
+              +'<div style="font-size:9px;color:var(--grey);line-height:1.4;">🎯 Enfoque<br>en el agua</div></div>'
+              +'<div style="background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:8px;display:flex;align-items:center;gap:8px;">'
+              +'<div style="font-size:20px;">'+objIcon+'</div>'
+              +'<div><div style="font-size:10px;color:var(--grey);">Objetivo</div>'
+              +'<div style="font-size:11px;font-weight:700;color:'+objColor+';">'+(objRes||'Sin registrar')+'</div></div></div>'
+              +'</div>';
+          })()}
+          ${pct!==null?`<div style="margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span style="font-size:9px;color:var(--grey);">Plan del día</span>
+              <span style="font-size:9px;font-weight:700;color:${pctColor};">${pct}%</span>
+            </div>
+            <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;">
+              <div style="width:${pct}%;height:100%;border-radius:4px;background:linear-gradient(90deg,${pctColor},var(--cyan));"></div>
+            </div>
+          </div>`:''}
+          ${ci?.notes?`<div style="margin-top:8px;border-left:2px solid var(--cyan);padding-left:8px;">
+            <span style="font-size:10px;color:rgba(255,255,255,.45);font-style:italic;">💬 ${ci.notes.substring(0,65)}${ci.notes.length>65?'…':''}</span>
+          </div>`:''}`:''
         }
       </div>`;
     }).join('')}
