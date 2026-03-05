@@ -1463,13 +1463,17 @@ async function reloadPlansSection(date, compState){
     try{ allBlocks = JSON.parse(sessionStorage.getItem(cacheKey)||'[]'); }catch(e2){}
   }
 
-  // Count real totals for accurate progress
+  // Count real totals — exclude sesion and presencial blocks from progress calculation
   const regularBlocks = allBlocks.filter(b=>!b._isPresencial && b.work_type!=='sesion');
+  const regularBlockIds = new Set(regularBlocks.map(b=>String(b.id)));
   let realTotalTasks=0, realTotalBlocks=regularBlocks.length;
   regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); realTotalTasks+=t.length; }catch(e){} });
+  // Count done — only from regular blocks (exclude sesion/presencial)
+  const realDoneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]&&regularBlockIds.has(k.replace('_block',''))).length;
+  const realDoneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]&&regularBlockIds.has(k.split('_task_')[0])).length;
   // Re-save progress with correct totals if compState has data
   if(Object.keys(compState).length>0){
-    await saveProgressToDb(date, compState, realTotalTasks||null, realTotalBlocks||null);
+    await saveProgressToDb(date, compState, realTotalTasks||null, realTotalBlocks||null, realDoneBlocks, realDoneTasks);
   }
   const plansEl = document.getElementById('plansSection');
   if(plansEl && allBlocks.length) {
@@ -1604,11 +1608,11 @@ function buildPlansHtml(plans, compState, date){
  * ║  tasks_completed, progress_pct, comp_state.                     ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
-async function saveProgressToDb(date, compState, realTotalTasks=null, realTotalBlocks=null){
+async function saveProgressToDb(date, compState, realTotalTasks=null, realTotalBlocks=null, realDoneBlocks=null, realDoneTasks=null){
   try {
-    const doneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]).length;
+    const doneBlocks = realDoneBlocks ?? Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]).length;
     const totalBlocks = realTotalBlocks ?? Object.keys(compState).filter(k=>k.endsWith('_block')).length;
-    const doneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]).length;
+    const doneTasks = realDoneTasks ?? Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]).length;
     const totalTasks = realTotalTasks ?? Object.keys(compState).filter(k=>k.includes('_task_')).length;
     // Use real totals — never jump to 100 unless everything is truly done
     const pct = totalTasks>0
