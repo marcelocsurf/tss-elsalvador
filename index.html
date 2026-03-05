@@ -1401,8 +1401,8 @@ async function toggleBlock(planId, date){
   try{ compState=JSON.parse(localStorage.getItem(compKey)||'{}'); }catch(e){}
   compState[planId+'_block'] = !compState[planId+'_block'];
   localStorage.setItem(compKey, JSON.stringify(compState));
-  await saveProgressToDb(date, compState);
-  // Only reload plans section - don't touch checkin form
+  // NOTE: saveProgressToDb is called inside reloadPlansSection with correct real totals
+  // Calling it here first (without real totals) causes false 100% progress bug
   await reloadPlansSection(date, compState);
 }
 
@@ -1413,8 +1413,8 @@ async function toggleTask(planId, taskIdx, date){
   const key = planId+'_task_'+taskIdx;
   compState[key] = !compState[key];
   localStorage.setItem(compKey, JSON.stringify(compState));
-  await saveProgressToDb(date, compState);
-  // Only reload plans section - don't touch checkin form
+  // NOTE: saveProgressToDb is called inside reloadPlansSection with correct real totals
+  // Calling it here first (without real totals) causes false 100% progress bug
   await reloadPlansSection(date, compState);
 }
 
