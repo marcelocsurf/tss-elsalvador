@@ -1028,6 +1028,10 @@ async function deleteSp(sessionId){
 /* ============================================================
    BOOT
 ============================================================ */
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: INICIALIZACIÓN Y NAVEGACIÓN
+   bootApp, buildNav, switchView, updateHeaderAvatar
+   ════════════════════════════════════════════════════════════════════ */
 async function bootApp(){
   try {
     const{data:aths}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active').eq('role','athlete').neq('active',false).order('name');
@@ -1086,6 +1090,10 @@ function switchView(view){
 /* ============================================================
    HOY — VISTA ATLETA
 ============================================================ */
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: HOY — Vista diaria del atleta
+   vHoy, loadHoy, buildPlansHtml, buildCheckinForm
+   ════════════════════════════════════════════════════════════════════ */
 async function vHoy(){
   const today=todayStr();
   render(`<div class="page-title">Mi Día</div><div class="page-sub">${fmtDate(today)}</div>
@@ -1395,6 +1403,12 @@ async function loadHoy(date){
 }
 
 /* ── COMPLETION TRACKING — saved to Supabase ── */
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: PROGRESO Y TAREAS
+   ⚠️  REGLA: Solo reloadPlansSection() llama saveProgressToDb()
+   toggleBlock, toggleTask, reloadPlansSection, saveProgressToDb,
+   loadCompStateFromDb
+   ════════════════════════════════════════════════════════════════════ */
 async function toggleBlock(planId, date){
   const compKey = `tss_comp_${S.user.id}_${date}`;
   let compState = {};
@@ -1569,6 +1583,27 @@ function buildPlansHtml(plans, compState, date){
   return html;
 }
 
+/*
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  REGLA CRÍTICA — saveProgressToDb                               ║
+ * ║                                                                  ║
+ * ║  ÚNICA función autorizada a llamar esto: reloadPlansSection()   ║
+ * ║                                                                  ║
+ * ║  ❌ NO llamar desde: toggleBlock, toggleTask, loadHoy,          ║
+ * ║     saveCheckin, ni ninguna otra función                         ║
+ * ║                                                                  ║
+ * ║  ¿POR QUÉ? Sin realTotalTasks/realTotalBlocks correctos,        ║
+ * ║  el cálculo usa solo las keys del compState actual →            ║
+ * ║  1 bloque completado de 1 conocido = 100% FALSO.               ║
+ * ║                                                                  ║
+ * ║  reloadPlansSection() primero carga TODOS los bloques del día   ║
+ * ║  desde DB, luego llama esta función con los totales reales.     ║
+ * ║                                                                  ║
+ * ║  ESTA FUNCIÓN NUNCA escribe: water_glasses, energy_level,       ║
+ * ║  focus_level, nutrition. Solo toca: blocks_completed,           ║
+ * ║  tasks_completed, progress_pct, comp_state.                     ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ */
 async function saveProgressToDb(date, compState, realTotalTasks=null, realTotalBlocks=null){
   try {
     const doneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]).length;
@@ -1622,6 +1657,22 @@ function pickOpt(hiddenId,btn,val,onClass){
   document.getElementById(hiddenId).value=val;
 }
 
+/*
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  REGLA CRÍTICA — saveCheckin                                    ║
+ * ║                                                                  ║
+ * ║  ÚNICA función autorizada a escribir wellness data:             ║
+ * ║  water_glasses, energy_level, focus_level, nutrition,           ║
+ * ║  goal_achieved, surf_hours, sesion_result, notes                ║
+ * ║                                                                  ║
+ * ║  ❌ NO escribir esas columnas desde: saveProgressToDb,          ║
+ * ║     toggleBlock, toggleTask, ni ninguna otra función            ║
+ * ║                                                                  ║
+ * ║  ¿POR QUÉ? Si otra función hace upsert/insert en               ║
+ * ║  tss_daily_checkins tocando esas columnas, sobreescribe         ║
+ * ║  los valores del atleta con 0 o null → bug de wellness reset.  ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ */
 async function saveCheckin(date){
   const water=parseInt(gv('ci-water')||0);
   const energy=parseInt(gv('sc-ci-energy')||0);
@@ -1675,6 +1726,10 @@ async function getPlanForAthlete(athleteId, date){
 /* ============================================================
    SEMANA — VISTA ATLETA
 ============================================================ */
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: SEMANA — Vista semanal del atleta
+   vSemana, showDayDetail
+   ════════════════════════════════════════════════════════════════════ */
 async function vSemana(weekOffset=0){
   const todaySV = new Date(new Date().toLocaleString('en-US', {timeZone:'America/El_Salvador'}));
   const today = todaySV;
@@ -1904,6 +1959,11 @@ async function loadSesHist(athleteId=null,containerId='sesTab'){
    PLANEACION — HEAD COACH
 ============================================================ */
 let planOffset=0;
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: PLANEACIÓN — Coach crea bloques y tareas
+   vPlaneacion, loadPlanDay, renderPlanDias, switchScope,
+   openSaveTemplate, openApplyTemplate, applyTemplate
+   ════════════════════════════════════════════════════════════════════ */
 function vPlaneacion(){
   render(`<div class="page-title">Planeación</div><div class="page-sub">Planes diarios del equipo</div>
     <div class="inner-tabs">
@@ -3105,6 +3165,10 @@ async function openDayReport(athleteId, athleteName){
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: PANEL DEL COACH — Dashboard y gestión de atletas
+   vPanel, vPanelAthlete, openEditBio, saveEval, vPresencial
+   ════════════════════════════════════════════════════════════════════ */
 async function vPanel(){
   render(`<div class="page-title">Coach Panel</div><div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando...</div>`);
   try {
@@ -3339,6 +3403,10 @@ async function confirmDeactivate(athleteId, athleteName){
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: PERFIL DEL ATLETA — Historial, estadísticas, PDF individual
+   vPerfil, genAthletePDF
+   ════════════════════════════════════════════════════════════════════ */
 async function vPerfil(athleteId=null,athleteName=null){
   const id=athleteId||S.user.id; const name=athleteName||S.user.name;
   const isCoach=S.user.role==='coach'||S.user.role==='acoach';
@@ -4206,6 +4274,10 @@ function openMonthlyAthleteSelect(){
   m.onclick=e=>{if(e.target===m)closeModal('monthlyAthModal');};
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: REPORTES PDF — Mensual equipo e individual (federación)
+   genMonthlyPDF, openMonthlyAthleteSelect, genWeeklyPDF
+   ════════════════════════════════════════════════════════════════════ */
 async function genMonthlyPDF(athleteIdOrTeam){
   try {
     showLoad(true);
