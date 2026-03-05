@@ -3255,13 +3255,13 @@ async function vPanel(){
       const stateBorder=ci?'rgba(0,201,232,.18)':'rgba(255,255,255,.06)';
       return `<div onclick="openDayReport('${a.id}','${a.name}')"
         style="background:${stateColor};border:1px solid ${stateBorder};border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${ci?'10px':'0'};">
-          <div style="font-size:15px;font-weight:800;color:var(--white);">${a.name}</div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
-            ${ci?'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);">✅ Check-in</span>'
-               :'<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--grey);">Sin check-in</span>'}
-            ${pct===100?'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);">🏆 100%</span>'
-              :pct>0?`<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(245,158,11,.12);color:var(--amber);">⚡ ${pct}%</span>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:15px;font-weight:800;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;">${a.name}</div>
+          <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+            ${ci?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);white-space:nowrap;">✅ Check-in</span>'
+               :'<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--grey);white-space:nowrap;">Sin check-in</span>'}
+            ${pct===100?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);white-space:nowrap;">🏆 100%</span>'
+              :pct>0?`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(245,158,11,.12);color:var(--amber);white-space:nowrap;">⚡ ${pct}%</span>`:''}
           </div>
         </div>
         <div style="margin-top:10px;">
