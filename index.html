@@ -1127,10 +1127,6 @@ async function loadHoy(date){
       localStorage.setItem(compKey, JSON.stringify(compState));
     }
 
-    // Cache plans + presencial blocks for quick re-render on toggle
-    const cacheKey = `tss_plans_cache_${date}`;
-    try{ sessionStorage.setItem(cacheKey, JSON.stringify(allBlocks||[])); }catch(e){}
-
     // Build presencial session blocks to include in plan
     const presBlocks = myPresSessions.map(ps=>({
       _isPresencial: true,
@@ -1147,6 +1143,9 @@ async function loadHoy(date){
     }));
 
     const allBlocks = [...presBlocks, ...(plans||[])];
+    // Cache plans AFTER allBlocks is defined (not before)
+    const cacheKey = `tss_plans_cache_${date}`;
+    try{ sessionStorage.setItem(cacheKey, JSON.stringify(allBlocks)); }catch(e){}
     const hasSesion = allBlocks.some(b=>b.work_type==='sesion'||b._isPresencial);
 
     let planHtml='';
