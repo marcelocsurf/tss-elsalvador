@@ -626,7 +626,7 @@ function renderSpCard(s, isToday){
 
     ${canExecute && !isDone ? `<div style="display:flex;gap:8px;margin-top:12px;">
       ${!isLive ? `<button class="btn btn-green btn-sm" onclick="startSp('${s.id}')">▶ Iniciar Sesión</button>` : 
-        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}',decodeURIComponent('${encodeURIComponent(s.title||'')}'),JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(cardAthIds))}')))">✅ Finalizar y Registrar</button>`}
+        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}',decodeURIComponent('${encodeURIComponent(s.title||'')}'),JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(cardAthIds))}')))" >✅ Finalizar y Registrar</button>`}
     </div>` : ''}
 
     ${isDone && s.coach_notes ? `<div class="drill-block" style="margin-top:10px;border-left:3px solid var(--cyan);">
@@ -3473,7 +3473,7 @@ async function confirmDeactivate(athleteId, athleteName){
     const {error} = await db.from('tss_profiles').update({active: false}).eq('id', athleteId);
     if(error) throw error;
     S.athletes = S.athletes.filter(a=>a.id!==athleteId);
-    toast('✅ ' + athleteName + ' desactivado','success');
+    toast('' + athleteName + ' desactivado','success');
     vAtletas();
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
 }
@@ -4913,10 +4913,10 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
   const statW=pw/4;
   const avgIdx = evals.length?(evals.reduce((s,e)=>s+((e.physical+e.technique+e.mindset+e.competitive)/4),0)/evals.length).toFixed(1):null;
   const stats=[
-    ['🏄 '+totalSurf.toFixed(1)+'h','Horas Surf'],
-    ['⚡ '+avgEnergy+'/5','Energía'],
-    ['🎯 '+avgFocus+'/5','Enfoque'],
-    ['✅ '+goals+'/'+checkins.length,'Objetivos'],
+    [''+totalSurf.toFixed(1)+'h','Horas Surf'],
+    [''+avgEnergy+'/5','Energía'],
+    [''+avgFocus+'/5','Enfoque'],
+    [''+goals+'/'+checkins.length,'Objetivos'],
   ];
   stats.forEach((st,i)=>{
     const x=M+i*statW;
@@ -4946,8 +4946,8 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
       doc.text(ci.date,M+3,y+6);
       doc.setFont('helvetica','normal'); doc.setTextColor(107,138,154);
       let sesResLine='';
-      if(ci.sesion_result){try{const sr=JSON.parse(ci.sesion_result);const vals=Object.values(sr);if(vals.length){sesResLine='  🌊'+(vals.includes('Si')?'✅':vals.includes('Parcial')?'⚡':'❌');}}catch(e){}}
-      const line='💧'+ci.water_glasses+'v  ⚡'+ci.energy_level+'/5  🎯'+(ci.focus_level||'—')+'/5  🥗'+(ci.nutrition||'—')+'  ✅'+(ci.goal_achieved||'—')+(ci.surf_hours?'  🏄'+ci.surf_hours+'h':'')+sesResLine+(ci.progress_pct?'  📋'+ci.progress_pct+'%':'');
+      if(ci.sesion_result){try{const sr=JSON.parse(ci.sesion_result);const vals=Object.values(sr);if(vals.length){sesResLine='  Sesion: '+(vals.includes('Si')?'OK':vals.includes('Parcial')?'Parcial':'No');}}catch(e){}}
+      const line='Agua: '+ci.water_glasses+'v  Energia: '+ci.energy_level+'/5  Enfoque: '+(ci.focus_level||'-')+'/5  Nutricion: '+(ci.nutrition||'-')+'  Objetivo: '+(ci.goal_achieved||'-')+(ci.surf_hours?'  Surf: '+ci.surf_hours+'h':'')+sesResLine+(ci.progress_pct?'  Plan: '+ci.progress_pct+'%':'');
       doc.text(line,M+28,y+6);
       y+=12;
       if(ci.notes){ doc.setTextColor(107,138,154); doc.setFontSize(7); const lines=doc.splitTextToSize('Nota: '+ci.notes,pw-30); doc.text(lines,M+3,y); y+=lines.length*4; }
@@ -4969,7 +4969,7 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
       doc.setFont('helvetica','normal'); doc.setTextColor(0,201,232);
       doc.text(s.title||(s.pilar||'Sesión'),M+30,y+5);
       doc.setTextColor(107,138,154);
-      doc.text(s.status==='done'?'✅ Completada':s.status==='live'?'En curso':'Planificada',M+130,y+5);
+      doc.text(s.status==='done'?'Completada':s.status==='live'?'En curso':'Planificada',M+130,y+5);
       y+=10;
     });
     y+=4;
