@@ -3015,9 +3015,9 @@ async function loadEvalHist(){
         <div class="eval-score-item"><div class="eval-score-val">${ev.mindset}</div><div class="eval-score-name">Mentalidad</div></div>
         <div class="eval-score-item"><div class="eval-score-val" style="color:var(--cyan);">${ev.competitive}</div><div class="eval-score-name">Competitivo ⭐</div></div>
       </div>
-      ${ev.strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;">💪 ${ev.strengths}</p>`:''}
-      ${ev.limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;">⚠️ ${ev.limitations}</p>`:''}
-      ${ev.recommendations?`<p style="font-size:12px;color:var(--grey);margin-top:4px;">📋 ${ev.recommendations}</p>`:''}
+      ${ev.strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;"><strong>Fortalezas:</strong> ${ev.strengths}</p>`:''}
+      ${ev.limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;"><strong>Limitaciones:</strong> ${ev.limitations}</p>`:''}
+      ${ev.recommendations?`<p style="font-size:12px;color:var(--white);margin-top:4px;"><strong>Recomendaciones:</strong> ${ev.recommendations}</p>`:''}
     </div>`).join('');
   } catch(e){el.innerHTML='<p style="padding:16px;text-align:center;color:var(--red);font-size:12px;">Error</p>';}
 }
@@ -3766,9 +3766,9 @@ async function vPerfil(athleteId=null,athleteName=null){
             <div class="eval-score-item"><div class="eval-score-val">${evals[0].mindset}</div><div class="eval-score-name">Mentalidad</div></div>
             <div class="eval-score-item"><div class="eval-score-val" style="color:var(--cyan);">${evals[0].competitive}</div><div class="eval-score-name">Competitivo ⭐</div></div>
           </div>
-          ${evals[0].strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;">💪 ${evals[0].strengths}</p>`:''}
-          ${evals[0].limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;">⚠️ ${evals[0].limitations}</p>`:''}
-          ${evals[0].recommendations?`<p style="font-size:12px;color:var(--grey);margin-top:4px;">📋 ${evals[0].recommendations}</p>`:''}
+          ${evals[0].strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;"><strong>Fortalezas:</strong> ${evals[0].strengths}</p>`:''}
+          ${evals[0].limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;"><strong>Limitaciones:</strong> ${evals[0].limitations}</p>`:''}
+          ${evals[0].recommendations?`<p style="font-size:12px;color:var(--white);margin-top:4px;"><strong>Recomendaciones:</strong> ${evals[0].recommendations}</p>`:''}
         </div>`:''}
       ${athleteId?`<button class="btn btn-ghost" style="margin-top:12px;" onclick="switchView('${S.user.role==='coach'||S.user.role==='acoach'?'panel':'semana'}')">← Volver</button>`:''}
       <div id="compEvalProfileSection" style="margin-top:14px;"></div>
@@ -3889,9 +3889,9 @@ async function genPDF(athleteId, athleteName){
         doc.text(`Promedio: ${avg}/10`,M+40,y); y+=5;
         doc.setFont('helvetica','normal'); doc.setTextColor(107,138,154);
         doc.text(`Físico: ${ev.physical}  Técnica: ${ev.technique}  Mentalidad: ${ev.mindset}  Competitivo: ${ev.competitive}`,M+4,y); y+=4;
-        if(ev.strengths){ const lines=doc.splitTextToSize(`💪 ${ev.strengths}`,W-M*2-8); doc.setTextColor(34,197,94); doc.text(lines,M+4,y); y+=lines.length*4; }
-        if(ev.limitations){ const lines=doc.splitTextToSize(`⚠️ ${ev.limitations}`,W-M*2-8); doc.setTextColor(239,68,68); doc.text(lines,M+4,y); y+=lines.length*4; }
-        if(ev.recommendations){ const lines=doc.splitTextToSize(`📋 ${ev.recommendations}`,W-M*2-8); doc.setTextColor(107,138,154); doc.text(lines,M+4,y); y+=lines.length*4; }
+        if(ev.strengths){ const lines=doc.splitTextToSize("Fortalezas: "+ev.strengths,W-M*2-8); doc.setTextColor(34,197,94); doc.text(lines,M+4,y); y+=lines.length*4; }
+        if(ev.limitations){ const lines=doc.splitTextToSize("Limitaciones: "+ev.limitations,W-M*2-8); doc.setTextColor(239,68,68); doc.text(lines,M+4,y); y+=lines.length*4; }
+        if(ev.recommendations){ const lines=doc.splitTextToSize("Recomendaciones: "+ev.recommendations,W-M*2-8); doc.setTextColor(232,240,245); doc.text(lines,M+4,y); y+=lines.length*4; }
         y+=4;
       });
     }
@@ -3931,7 +3931,7 @@ async function genPDF(athleteId, athleteName){
         doc.setFontSize(8); doc.setTextColor(232,240,245);
         doc.text(`${fmtDate(c.date)}`,M,y);
         doc.setTextColor(107,138,154);
-        doc.text(`💧${c.water_glasses}v  ⚡${c.energy_level}/5  🥗${c.nutrition}  🎯${c.focus_level}/5  ✅${c.goal_achieved}`,M+28,y); y+=5;
+        doc.text(`Agua:${c.water_glasses}v  Energia:${c.energy_level}/5  Nutricion:${c.nutrition}  Enfoque:${c.focus_level}/5  Obj:${c.goal_achieved}`,M+28,y); y+=5;
       });
     }
 
@@ -4479,7 +4479,7 @@ async function genMonthlyPDF(athleteIdOrTeam){
           doc.text(sLine,M+3,y+6);
           const statusColor = s.status==='done'?[34,197,94]:[245,158,11];
           doc.setTextColor(...statusColor);
-          doc.text(s.status==='done'?'✓ Completada':'Programada',M+pw-3,y+6,{align:'right'});
+          doc.text(s.status==='done'?'Completada':'Programada',M+pw-3,y+6,{align:'right'});
           y+=13;
         });
         y+=4;
@@ -4683,7 +4683,7 @@ async function genAnalyticsPDF(athleteId, athleteName){
     if(ath.stance) bioItems.push(`Surf: ${ath.stance}`);
     if(ath.score_capacity) bioItems.push(`Score Cap: ${ath.score_capacity}/10`);
     txt(bioItems.join('   '),M,y,8,grey);
-    txt(`Período: ${from30} → ${today}`,M,y+6,8,grey);
+    txt(`Periodo: ${from30} al ${today}`,M,y+6,8,grey);
     y+=18;
 
     // Injury alert
