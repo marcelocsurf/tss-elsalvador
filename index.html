@@ -1809,7 +1809,7 @@ async function vSemana(weekOffset=0){
         const pct=ci?.progress_pct||0;
         const hasPlans=dayPlans.length>0||presessions.length>0;
         const hasPresencial=presessions.length>0;
-        html+=`<button onclick="showDayDetail('${date}')" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;
+        html+=`<button onclick="showDayDetail('${date}',_plansByDate,_ciByDate,_myGroups)" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;
           border-radius:10px;border:1px solid ${isToday?'var(--cyan)':hasPlans?'rgba(255,255,255,.12)':'rgba(255,255,255,.04)'};
           background:${isToday?'rgba(0,201,232,.12)':isPast?'rgba(255,255,255,.01)':'rgba(255,255,255,.02)'};cursor:pointer;position:relative;">
           <span style="font-size:9px;font-weight:700;color:${isToday?'var(--cyan)':isPast?'#3a4a54':'var(--grey)'};">${dayNames[i]}</span>
@@ -1822,6 +1822,8 @@ async function vSemana(weekOffset=0){
     });
 
     html+=`<div id="weekDayDetail"></div>`;
+    // Expose for day button clicks
+    window._plansByDate=plansByDate; window._ciByDate=ciByDate; window._myGroups=myGroups;
     el.innerHTML=html;
     // Auto-show today or first day of range
     const autoDay = days.includes(todayStr2)?todayStr2:days[0];
@@ -1853,7 +1855,7 @@ async function showDayDetail(date, plansByDateArg, ciByDateArg, myGroupsArg){
     if(!plansByDate){
       const today = new Date(new Date().toLocaleString('en-US', {timeZone:'America/El_Salvador'})); const dayOfWeek=today.getDay()||7;
       const monday=new Date(today); monday.setDate(today.getDate()-(dayOfWeek-1));
-      const days=[]; for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);days.push(d.toISOString().split('T')[0]);}
+      const days=[]; for(let i=0;i<14;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);days.push(d.toISOString().split('T')[0]);}
       const[{data:plans},{data:memberships},{data:checkins}]=await Promise.all([
         db.from('tss_daily_plans').select('*').gte('date',days[0]).lte('date',days[6]).order('created_at'),
         db.from('tss_group_members').select('group_id').eq('athlete_id',S.user.id),
