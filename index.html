@@ -626,7 +626,7 @@ function renderSpCard(s, isToday){
 
     ${canExecute && !isDone ? `<div style="display:flex;gap:8px;margin-top:12px;">
       ${!isLive ? `<button class="btn btn-green btn-sm" onclick="startSp('${s.id}')">▶ Iniciar Sesión</button>` : 
-        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}',decodeURIComponent('${encodeURIComponent(s.title||'')}'),JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(cardAthIds))}')))" >✅ Finalizar y Registrar</button>`}
+        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}',${JSON.stringify(s.title)},${JSON.stringify(cardAthIds)})">✅ Finalizar y Registrar</button>`}
     </div>` : ''}
 
     ${isDone && s.coach_notes ? `<div class="drill-block" style="margin-top:10px;border-left:3px solid var(--cyan);">
@@ -1466,13 +1466,29 @@ async function reloadPlansSection(date, compState){
   const regularBlocks = allBlocks.filter(b=>!b._isPresencial && b.work_type!=='sesion');
   const regularBlockIds = new Set(regularBlocks.map(b=>String(b.id)));
   let realTotalTasks=0, realTotalBlocks=regularBlocks.length;
-  regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); realTotalTasks+=t.length; }catch(e){} });
+  const taskCountPerBlock = {};
+  regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); taskCountPerBlock[String(b.id)]=t.length; realTotalTasks+=t.length; }catch(e){ taskCountPerBlock[String(b.id)]=0; } });
   // Count done — only from regular blocks (exclude sesion/presencial)
   const realDoneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]&&regularBlockIds.has(k.replace('_block',''))).length;
-  const realDoneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]&&regularBlockIds.has(k.split('_task_')[0])).length;
+  // FIX: When a block is marked done, count ALL its tasks as done (not just individually checked tasks)
+  let realDoneTasks = 0;
+  regularBlocks.forEach(b=>{
+    const bid = String(b.id);
+    const blockDone = !!compState[bid+'_block'];
+    const taskCount = taskCountPerBlock[bid]||0;
+    if(blockDone){
+      // Block is checked → all its tasks count as done
+      realDoneTasks += taskCount;
+    } else {
+      // Block not checked → count only individually checked tasks
+      for(let i=0;i<taskCount;i++){
+        if(compState[bid+'_task_'+i]) realDoneTasks++;
+      }
+    }
+  });
   // Re-save progress with correct totals if compState has data
   if(Object.keys(compState).length>0){
-    await saveProgressToDb(date, compState, realTotalTasks||null, realTotalBlocks||null, realDoneBlocks, realDoneTasks);
+    await saveProgressToDb(date, compState, realTotalTasks, realTotalBlocks, realDoneBlocks, realDoneTasks);
   }
   const plansEl = document.getElementById('plansSection');
   if(plansEl && allBlocks.length) {
@@ -1809,7 +1825,7 @@ async function vSemana(weekOffset=0){
         const pct=ci?.progress_pct||0;
         const hasPlans=dayPlans.length>0||presessions.length>0;
         const hasPresencial=presessions.length>0;
-        html+=`<button onclick="showDayDetail('${date}',_plansByDate,_ciByDate,_myGroups)" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;
+        html+=`<button onclick="showDayDetail('${date}')" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;
           border-radius:10px;border:1px solid ${isToday?'var(--cyan)':hasPlans?'rgba(255,255,255,.12)':'rgba(255,255,255,.04)'};
           background:${isToday?'rgba(0,201,232,.12)':isPast?'rgba(255,255,255,.01)':'rgba(255,255,255,.02)'};cursor:pointer;position:relative;">
           <span style="font-size:9px;font-weight:700;color:${isToday?'var(--cyan)':isPast?'#3a4a54':'var(--grey)'};">${dayNames[i]}</span>
@@ -1822,8 +1838,6 @@ async function vSemana(weekOffset=0){
     });
 
     html+=`<div id="weekDayDetail"></div>`;
-    // Expose for day button clicks
-    window._plansByDate=plansByDate; window._ciByDate=ciByDate; window._myGroups=myGroups;
     el.innerHTML=html;
     // Auto-show today or first day of range
     const autoDay = days.includes(todayStr2)?todayStr2:days[0];
@@ -1855,7 +1869,7 @@ async function showDayDetail(date, plansByDateArg, ciByDateArg, myGroupsArg){
     if(!plansByDate){
       const today = new Date(new Date().toLocaleString('en-US', {timeZone:'America/El_Salvador'})); const dayOfWeek=today.getDay()||7;
       const monday=new Date(today); monday.setDate(today.getDate()-(dayOfWeek-1));
-      const days=[]; for(let i=0;i<14;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);days.push(d.toISOString().split('T')[0]);}
+      const days=[]; for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);days.push(d.toISOString().split('T')[0]);}
       const[{data:plans},{data:memberships},{data:checkins}]=await Promise.all([
         db.from('tss_daily_plans').select('*').gte('date',days[0]).lte('date',days[6]).order('created_at'),
         db.from('tss_group_members').select('group_id').eq('athlete_id',S.user.id),
@@ -3017,9 +3031,9 @@ async function loadEvalHist(){
         <div class="eval-score-item"><div class="eval-score-val">${ev.mindset}</div><div class="eval-score-name">Mentalidad</div></div>
         <div class="eval-score-item"><div class="eval-score-val" style="color:var(--cyan);">${ev.competitive}</div><div class="eval-score-name">Competitivo ⭐</div></div>
       </div>
-      ${ev.strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;"><strong>Fortalezas:</strong> ${ev.strengths}</p>`:''}
-      ${ev.limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;"><strong>Limitaciones:</strong> ${ev.limitations}</p>`:''}
-      ${ev.recommendations?`<p style="font-size:12px;color:var(--white);margin-top:4px;"><strong>Recomendaciones:</strong> ${ev.recommendations}</p>`:''}
+      ${ev.strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;">💪 ${ev.strengths}</p>`:''}
+      ${ev.limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;">⚠️ ${ev.limitations}</p>`:''}
+      ${ev.recommendations?`<p style="font-size:12px;color:var(--grey);margin-top:4px;">📋 ${ev.recommendations}</p>`:''}
     </div>`).join('');
   } catch(e){el.innerHTML='<p style="padding:16px;text-align:center;color:var(--red);font-size:12px;">Error</p>';}
 }
@@ -3146,7 +3160,14 @@ async function openDayReport(athleteId, athleteName){
     const waterColor = water>=8?'var(--green)':water>=4?'var(--amber)':'var(--red)';
     const goalIcon = ci?.goal_achieved==='Si'?'✅ Sí':ci?.goal_achieved==='Parcial'?'⚡ Parcial':ci?.goal_achieved==='No'?'❌ No':'—';
     const goalColor = ci?.goal_achieved==='Si'?'var(--green)':ci?.goal_achieved==='Parcial'?'var(--amber)':ci?.goal_achieved==='No'?'var(--red)':'var(--grey)';
-    const pct = ci?.progress_pct??0;
+    // Recalculate progress locally from comp_state + plans (don't rely solely on DB progress_pct)
+    let reportDoneBlocks = 0, reportTotalBlocks = 0;
+    if(plans.length){
+      const regPlans = plans.filter(p=>p.work_type!=='sesion');
+      reportTotalBlocks = regPlans.length;
+      reportDoneBlocks = regPlans.filter(p=>!!compState[p.id+'_block']).length;
+    }
+    const pct = reportTotalBlocks>0 ? Math.round((reportDoneBlocks/reportTotalBlocks)*100) : (ci?.progress_pct??0);
     const pctColor = pct>=80?'var(--green)':pct>=40?'var(--amber)':'var(--red)';
     const evalIdx = lastEval ? (((lastEval.physical||0)+(lastEval.technique||0)+(lastEval.mindset||0)+(lastEval.competitive||0))/4).toFixed(1) : null;
 
@@ -3475,7 +3496,7 @@ async function confirmDeactivate(athleteId, athleteName){
     const {error} = await db.from('tss_profiles').update({active: false}).eq('id', athleteId);
     if(error) throw error;
     S.athletes = S.athletes.filter(a=>a.id!==athleteId);
-    toast('' + athleteName + ' desactivado','success');
+    toast('✅ ' + athleteName + ' desactivado','success');
     vAtletas();
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
 }
@@ -3768,9 +3789,9 @@ async function vPerfil(athleteId=null,athleteName=null){
             <div class="eval-score-item"><div class="eval-score-val">${evals[0].mindset}</div><div class="eval-score-name">Mentalidad</div></div>
             <div class="eval-score-item"><div class="eval-score-val" style="color:var(--cyan);">${evals[0].competitive}</div><div class="eval-score-name">Competitivo ⭐</div></div>
           </div>
-          ${evals[0].strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;"><strong>Fortalezas:</strong> ${evals[0].strengths}</p>`:''}
-          ${evals[0].limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;"><strong>Limitaciones:</strong> ${evals[0].limitations}</p>`:''}
-          ${evals[0].recommendations?`<p style="font-size:12px;color:var(--white);margin-top:4px;"><strong>Recomendaciones:</strong> ${evals[0].recommendations}</p>`:''}
+          ${evals[0].strengths?`<p style="font-size:12px;color:var(--green);margin-top:8px;">💪 ${evals[0].strengths}</p>`:''}
+          ${evals[0].limitations?`<p style="font-size:12px;color:var(--red);margin-top:4px;">⚠️ ${evals[0].limitations}</p>`:''}
+          ${evals[0].recommendations?`<p style="font-size:12px;color:var(--grey);margin-top:4px;">📋 ${evals[0].recommendations}</p>`:''}
         </div>`:''}
       ${athleteId?`<button class="btn btn-ghost" style="margin-top:12px;" onclick="switchView('${S.user.role==='coach'||S.user.role==='acoach'?'panel':'semana'}')">← Volver</button>`:''}
       <div id="compEvalProfileSection" style="margin-top:14px;"></div>
@@ -3891,9 +3912,9 @@ async function genPDF(athleteId, athleteName){
         doc.text(`Promedio: ${avg}/10`,M+40,y); y+=5;
         doc.setFont('helvetica','normal'); doc.setTextColor(107,138,154);
         doc.text(`Físico: ${ev.physical}  Técnica: ${ev.technique}  Mentalidad: ${ev.mindset}  Competitivo: ${ev.competitive}`,M+4,y); y+=4;
-        if(ev.strengths){ const lines=doc.splitTextToSize("Fortalezas: "+ev.strengths,W-M*2-8); doc.setTextColor(34,197,94); doc.text(lines,M+4,y); y+=lines.length*4; }
-        if(ev.limitations){ const lines=doc.splitTextToSize("Limitaciones: "+ev.limitations,W-M*2-8); doc.setTextColor(239,68,68); doc.text(lines,M+4,y); y+=lines.length*4; }
-        if(ev.recommendations){ const lines=doc.splitTextToSize("Recomendaciones: "+ev.recommendations,W-M*2-8); doc.setTextColor(232,240,245); doc.text(lines,M+4,y); y+=lines.length*4; }
+        if(ev.strengths){ const lines=doc.splitTextToSize(`💪 ${ev.strengths}`,W-M*2-8); doc.setTextColor(34,197,94); doc.text(lines,M+4,y); y+=lines.length*4; }
+        if(ev.limitations){ const lines=doc.splitTextToSize(`⚠️ ${ev.limitations}`,W-M*2-8); doc.setTextColor(239,68,68); doc.text(lines,M+4,y); y+=lines.length*4; }
+        if(ev.recommendations){ const lines=doc.splitTextToSize(`📋 ${ev.recommendations}`,W-M*2-8); doc.setTextColor(107,138,154); doc.text(lines,M+4,y); y+=lines.length*4; }
         y+=4;
       });
     }
@@ -3933,7 +3954,7 @@ async function genPDF(athleteId, athleteName){
         doc.setFontSize(8); doc.setTextColor(232,240,245);
         doc.text(`${fmtDate(c.date)}`,M,y);
         doc.setTextColor(107,138,154);
-        doc.text(`Agua:${c.water_glasses}v  Energia:${c.energy_level}/5  Nutricion:${c.nutrition}  Enfoque:${c.focus_level}/5  Obj:${c.goal_achieved}`,M+28,y); y+=5;
+        doc.text(`💧${c.water_glasses}v  ⚡${c.energy_level}/5  🥗${c.nutrition}  🎯${c.focus_level}/5  ✅${c.goal_achieved}`,M+28,y); y+=5;
       });
     }
 
@@ -4481,7 +4502,7 @@ async function genMonthlyPDF(athleteIdOrTeam){
           doc.text(sLine,M+3,y+6);
           const statusColor = s.status==='done'?[34,197,94]:[245,158,11];
           doc.setTextColor(...statusColor);
-          doc.text(s.status==='done'?'Completada':'Programada',M+pw-3,y+6,{align:'right'});
+          doc.text(s.status==='done'?'✓ Completada':'Programada',M+pw-3,y+6,{align:'right'});
           y+=13;
         });
         y+=4;
@@ -4685,7 +4706,7 @@ async function genAnalyticsPDF(athleteId, athleteName){
     if(ath.stance) bioItems.push(`Surf: ${ath.stance}`);
     if(ath.score_capacity) bioItems.push(`Score Cap: ${ath.score_capacity}/10`);
     txt(bioItems.join('   '),M,y,8,grey);
-    txt(`Periodo: ${from30} al ${today}`,M,y+6,8,grey);
+    txt(`Período: ${from30} → ${today}`,M,y+6,8,grey);
     y+=18;
 
     // Injury alert
@@ -4915,10 +4936,10 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
   const statW=pw/4;
   const avgIdx = evals.length?(evals.reduce((s,e)=>s+((e.physical+e.technique+e.mindset+e.competitive)/4),0)/evals.length).toFixed(1):null;
   const stats=[
-    [''+totalSurf.toFixed(1)+'h','Horas Surf'],
-    [''+avgEnergy+'/5','Energía'],
-    [''+avgFocus+'/5','Enfoque'],
-    [''+goals+'/'+checkins.length,'Objetivos'],
+    ['🏄 '+totalSurf.toFixed(1)+'h','Horas Surf'],
+    ['⚡ '+avgEnergy+'/5','Energía'],
+    ['🎯 '+avgFocus+'/5','Enfoque'],
+    ['✅ '+goals+'/'+checkins.length,'Objetivos'],
   ];
   stats.forEach((st,i)=>{
     const x=M+i*statW;
@@ -4948,8 +4969,8 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
       doc.text(ci.date,M+3,y+6);
       doc.setFont('helvetica','normal'); doc.setTextColor(107,138,154);
       let sesResLine='';
-      if(ci.sesion_result){try{const sr=JSON.parse(ci.sesion_result);const vals=Object.values(sr);if(vals.length){sesResLine='  Sesion: '+(vals.includes('Si')?'OK':vals.includes('Parcial')?'Parcial':'No');}}catch(e){}}
-      const line='Agua: '+ci.water_glasses+'v  Energia: '+ci.energy_level+'/5  Enfoque: '+(ci.focus_level||'-')+'/5  Nutricion: '+(ci.nutrition||'-')+'  Objetivo: '+(ci.goal_achieved||'-')+(ci.surf_hours?'  Surf: '+ci.surf_hours+'h':'')+sesResLine+(ci.progress_pct?'  Plan: '+ci.progress_pct+'%':'');
+      if(ci.sesion_result){try{const sr=JSON.parse(ci.sesion_result);const vals=Object.values(sr);if(vals.length){sesResLine='  🌊'+(vals.includes('Si')?'✅':vals.includes('Parcial')?'⚡':'❌');}}catch(e){}}
+      const line='💧'+ci.water_glasses+'v  ⚡'+ci.energy_level+'/5  🎯'+(ci.focus_level||'—')+'/5  🥗'+(ci.nutrition||'—')+'  ✅'+(ci.goal_achieved||'—')+(ci.surf_hours?'  🏄'+ci.surf_hours+'h':'')+sesResLine+(ci.progress_pct?'  📋'+ci.progress_pct+'%':'');
       doc.text(line,M+28,y+6);
       y+=12;
       if(ci.notes){ doc.setTextColor(107,138,154); doc.setFontSize(7); const lines=doc.splitTextToSize('Nota: '+ci.notes,pw-30); doc.text(lines,M+3,y); y+=lines.length*4; }
@@ -4971,7 +4992,7 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
       doc.setFont('helvetica','normal'); doc.setTextColor(0,201,232);
       doc.text(s.title||(s.pilar||'Sesión'),M+30,y+5);
       doc.setTextColor(107,138,154);
-      doc.text(s.status==='done'?'Completada':s.status==='live'?'En curso':'Planificada',M+130,y+5);
+      doc.text(s.status==='done'?'✅ Completada':s.status==='live'?'En curso':'Planificada',M+130,y+5);
       y+=10;
     });
     y+=4;
