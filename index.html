@@ -1127,6 +1127,10 @@ async function loadHoy(date){
       localStorage.setItem(compKey, JSON.stringify(compState));
     }
 
+    // Cache plans + presencial blocks for quick re-render on toggle
+    const cacheKey = `tss_plans_cache_${date}`;
+    try{ sessionStorage.setItem(cacheKey, JSON.stringify(allBlocks||[])); }catch(e){}
+
     // Build presencial session blocks to include in plan
     const presBlocks = myPresSessions.map(ps=>({
       _isPresencial: true,
@@ -1143,9 +1147,6 @@ async function loadHoy(date){
     }));
 
     const allBlocks = [...presBlocks, ...(plans||[])];
-    // Cache plans AFTER allBlocks is defined (not before)
-    const cacheKey = `tss_plans_cache_${date}`;
-    try{ sessionStorage.setItem(cacheKey, JSON.stringify(allBlocks)); }catch(e){}
     const hasSesion = allBlocks.some(b=>b.work_type==='sesion'||b._isPresencial);
 
     let planHtml='';
@@ -1466,29 +1467,13 @@ async function reloadPlansSection(date, compState){
   const regularBlocks = allBlocks.filter(b=>!b._isPresencial && b.work_type!=='sesion');
   const regularBlockIds = new Set(regularBlocks.map(b=>String(b.id)));
   let realTotalTasks=0, realTotalBlocks=regularBlocks.length;
-  const taskCountPerBlock = {};
-  regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); taskCountPerBlock[String(b.id)]=t.length; realTotalTasks+=t.length; }catch(e){ taskCountPerBlock[String(b.id)]=0; } });
+  regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); realTotalTasks+=t.length; }catch(e){} });
   // Count done — only from regular blocks (exclude sesion/presencial)
   const realDoneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]&&regularBlockIds.has(k.replace('_block',''))).length;
-  // FIX: When a block is marked done, count ALL its tasks as done (not just individually checked tasks)
-  let realDoneTasks = 0;
-  regularBlocks.forEach(b=>{
-    const bid = String(b.id);
-    const blockDone = !!compState[bid+'_block'];
-    const taskCount = taskCountPerBlock[bid]||0;
-    if(blockDone){
-      // Block is checked → all its tasks count as done
-      realDoneTasks += taskCount;
-    } else {
-      // Block not checked → count only individually checked tasks
-      for(let i=0;i<taskCount;i++){
-        if(compState[bid+'_task_'+i]) realDoneTasks++;
-      }
-    }
-  });
+  const realDoneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]&&regularBlockIds.has(k.split('_task_')[0])).length;
   // Re-save progress with correct totals if compState has data
   if(Object.keys(compState).length>0){
-    await saveProgressToDb(date, compState, realTotalTasks, realTotalBlocks, realDoneBlocks, realDoneTasks);
+    await saveProgressToDb(date, compState, realTotalTasks||null, realTotalBlocks||null, realDoneBlocks, realDoneTasks);
   }
   const plansEl = document.getElementById('plansSection');
   if(plansEl && allBlocks.length) {
@@ -3160,14 +3145,7 @@ async function openDayReport(athleteId, athleteName){
     const waterColor = water>=8?'var(--green)':water>=4?'var(--amber)':'var(--red)';
     const goalIcon = ci?.goal_achieved==='Si'?'✅ Sí':ci?.goal_achieved==='Parcial'?'⚡ Parcial':ci?.goal_achieved==='No'?'❌ No':'—';
     const goalColor = ci?.goal_achieved==='Si'?'var(--green)':ci?.goal_achieved==='Parcial'?'var(--amber)':ci?.goal_achieved==='No'?'var(--red)':'var(--grey)';
-    // Recalculate progress locally from comp_state + plans (don't rely solely on DB progress_pct)
-    let reportDoneBlocks = 0, reportTotalBlocks = 0;
-    if(plans.length){
-      const regPlans = plans.filter(p=>p.work_type!=='sesion');
-      reportTotalBlocks = regPlans.length;
-      reportDoneBlocks = regPlans.filter(p=>!!compState[p.id+'_block']).length;
-    }
-    const pct = reportTotalBlocks>0 ? Math.round((reportDoneBlocks/reportTotalBlocks)*100) : (ci?.progress_pct??0);
+    const pct = ci?.progress_pct??0;
     const pctColor = pct>=80?'var(--green)':pct>=40?'var(--amber)':'var(--red)';
     const evalIdx = lastEval ? (((lastEval.physical||0)+(lastEval.technique||0)+(lastEval.mindset||0)+(lastEval.competitive||0))/4).toFixed(1) : null;
 
@@ -3575,6 +3553,8 @@ async function vPerfil(athleteId=null,athleteName=null){
     const pct=waveScore/10*100;
     const avgEnergy=checkins?.length?(checkins.reduce((s,c)=>s+(c.energy_level||0),0)/checkins.length).toFixed(1):'—';
     const avgFocus=checkins?.length?(checkins.reduce((s,c)=>s+(c.focus_level||0),0)/checkins.length).toFixed(1):'—';
+    const checkinDaysWithPlan=(checkins||[]).filter(c=>c.progress_pct!=null&&c.progress_pct>0);
+    const avgPlan=checkinDaysWithPlan.length?Math.round(checkinDaysWithPlan.reduce((s,c)=>s+(c.progress_pct||0),0)/checkinDaysWithPlan.length):0;
     // Surf hours stats
     const totalSurfHours=(checkins||[]).reduce((s,c)=>s+(c.surf_hours||0),0);
     const today7=new Date(); today7.setDate(today7.getDate()-7);
@@ -3761,11 +3741,21 @@ async function vPerfil(athleteId=null,athleteName=null){
       ${checkins?.length?`
       <div class="card" style="margin-bottom:10px;">
         <div class="sec-title">Promedios Check-in (últimos ${checkins.length} días)</div>
-        <div class="stat-grid" style="margin-bottom:0;">
+        <div class="stat-grid" style="margin-bottom:10px;">
           <div class="stat-box"><div class="stat-n" style="font-size:20px;">${avgEnergy}</div><div class="stat-l">⚡ Energía</div></div>
           <div class="stat-box"><div class="stat-n" style="font-size:20px;">${avgFocus}</div><div class="stat-l">🎯 Enfoque</div></div>
           <div class="stat-box"><div class="stat-n" style="font-size:20px;">${checkins.filter(c=>c.goal_achieved==='Si').length}</div><div class="stat-l">✅ Logros</div></div>
         </div>
+        ${avgPlan>0?`<div style="margin-top:4px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:11px;font-weight:700;color:var(--white);letter-spacing:.5px;">📋 Cumplimiento del Plan</span>
+            <span style="font-size:14px;font-weight:900;color:${avgPlan>=80?'var(--green)':avgPlan>=50?'var(--amber)':'var(--red)'};font-family:'Space Mono',monospace;">${avgPlan}%</span>
+          </div>
+          <div style="height:10px;background:rgba(255,255,255,.06);border-radius:8px;overflow:hidden;">
+            <div style="height:100%;width:${avgPlan}%;background:${avgPlan>=80?'var(--green)':avgPlan>=50?'var(--amber)':'var(--red)'};border-radius:8px;transition:width .6s;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--grey);margin-top:5px;">${avgPlan>=80?'🏆 Excelente adherencia al plan':avgPlan>=50?'⚠️ Adherencia moderada — hay margen de mejora':'🔴 Baja adherencia — revisar con el atleta'}</div>
+        </div>`:''}
       </div>`:''}
       <div class="sec-title" style="margin-top:14px;">Sesiones Recientes</div>
       ${(sessions||[]).length?sessions.map(s=>`
