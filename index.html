@@ -646,7 +646,7 @@ function renderSpCard(s, isToday){
 
     ${isDone && s.coach_notes ? `<div class="drill-block" style="margin-top:10px;border-left:3px solid var(--cyan);">
       <div class="drill-label">📝 Notas del Coach Post-Sesión</div>
-      <div class="drill-val">${s.coach_notes}</div>
+      <div class="drill-val">${esc(s.coach_notes)}</div>
     </div>` : ''}
 
     ${isDone ? `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="viewSpFeedbacks('${s.id}')">📊 Ver Feedback de Atletas</button>` : ''}
@@ -1826,7 +1826,7 @@ async function saveCheckin(date){
   const hasFocusField = !!document.getElementById('sc-ci-focus');
   const hasGoalField = document.getElementById('ci-goal')?.value !== undefined;
   if(hasFocusField && focus===0){toast('Indica tu nivel de enfoque','error');return;}
-  if(hasGoalField && !goal && document.querySelector('[data-ci-goal]')){toast('Indica si lograste tu objetivo','error');return;}
+  if(hasGoalField && !goal){toast('Indica si lograste tu objetivo','error');return;}
   showLoad(true);
   try {
     const surfHours = parseFloat(document.getElementById('ci-surf-hours')?.value||0)||null;
@@ -2482,6 +2482,7 @@ function renderPlanTaskList(){
 function switchScope(scope, btn){
   document.querySelectorAll('.scope-tab').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  else { const match=document.querySelector(`.scope-tab[onclick*="'${scope}'"]`); if(match) match.classList.add('active'); }
   document.getElementById('blockScopeVal').value = scope;
   document.getElementById('scopeGroupRow').style.display = scope==='group'?'block':'none';
   document.getElementById('scopeAthRow').style.display = scope==='individual'?'block':'none';
