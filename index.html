@@ -373,7 +373,7 @@ let spSelectedAthletes = []; // athletes selected for presencial session
 
 /* UTILS */
 function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function escAttr(s){ return esc(s); }
+function escAttr(s){ if(!s) return ''; return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function showLoad(v){ document.getElementById('loading').style.display=v?'flex':'none'; }
 let _toggleLock=false; // debounce for toggleBlock/toggleTask
 let _tt;
@@ -576,8 +576,8 @@ function renderSpCard(s, isToday){
   return `<div class="sp-card ${isLive ? 'session-live' : ''} anim-up" id="spc-${s.id}">
     <div class="sp-header">
       <div>
-        <div class="sp-title">${s.title}</div>
-        <div class="sp-meta">${fmtDate(s.date)} ${s.time_start ? '· '+s.time_start : ''} ${s.location ? '· 📍'+s.location : ''}</div>
+        <div class="sp-title">${esc(s.title)}</div>
+        <div class="sp-meta">${fmtDate(s.date)} ${s.time_start ? '· '+esc(s.time_start) : ''} ${s.location ? '· 📍'+esc(s.location) : ''}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
         <span class="status-badge ${statusMap[s.status]||'sb-planned'}">${statusLbl[s.status]||'Planificada'}</span>
@@ -590,20 +590,20 @@ function renderSpCard(s, isToday){
 
     ${s.mission ? `<div class="drill-block" style="border-left:3px solid var(--cyan);">
       <div class="drill-label">🎯 Misión de la Sesión</div>
-      <div class="drill-val">${s.mission}</div>
+      <div class="drill-val">${esc(s.mission)}</div>
     </div>` : ''}
 
     ${(()=>{
       if(!cardAthIds.length) return '';
       const names = cardAthIds.map(id => { const a = S.athletes.find(x=>x.id===id); return a?a.name:'?'; }).filter(Boolean);
       if(!names.length) return '';
-      return '<div style="margin-bottom:8px;"><div class="drill-label" style="margin-bottom:6px;">👥 Atletas ('+names.length+')</div><div style="display:flex;flex-wrap:wrap;gap:5px;">'+names.map(n=>'<span class="chip" style="background:var(--cyan3);color:var(--cyan);border:1px solid var(--border);">'+n+'</span>').join('')+'</div></div>';
+      return '<div style="margin-bottom:8px;"><div class="drill-label" style="margin-bottom:6px;">👥 Atletas ('+names.length+')</div><div style="display:flex;flex-wrap:wrap;gap:5px;">'+names.map(n=>'<span class="chip" style="background:var(--cyan3);color:var(--cyan);border:1px solid var(--border);">'+esc(n)+'</span>').join('')+'</div></div>';
     })()}
 
     <div class="drill-row">
-      ${s.reps ? `<div class="drill-stat"><div class="drill-stat-n">${s.reps}</div><div class="drill-stat-l">Tiempo / Reps</div></div>` : ''}
+      ${s.reps ? `<div class="drill-stat"><div class="drill-stat-n">${esc(s.reps)}</div><div class="drill-stat-l">Tiempo / Reps</div></div>` : ''}
       ${s.duration_min ? `<div class="drill-stat"><div class="drill-stat-n">${s.duration_min}'</div><div class="drill-stat-l">Duración</div></div>` : ''}
-      ${s.conditions ? `<div class="drill-stat"><div class="drill-stat-n" style="font-size:13px;">🌊</div><div class="drill-stat-l">${s.conditions}</div></div>` : ''}
+      ${s.conditions ? `<div class="drill-stat"><div class="drill-stat-n" style="font-size:13px;">🌊</div><div class="drill-stat-l">${esc(s.conditions)}</div></div>` : ''}
     </div>
 
     ${drills.length ? `<div style="margin-bottom:8px;">
@@ -611,37 +611,37 @@ function renderSpCard(s, isToday){
       ${drills.map((d,i)=>`<div class="drill-block" style="margin-bottom:6px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
           <div>
-            <div style="font-size:12px;font-weight:700;color:var(--white);">${i+1}. ${d.name}</div>
-            ${d.desc ? `<div style="font-size:11px;color:var(--grey);margin-top:3px;line-height:1.5;">${d.desc}</div>` : ''}
-            ${d.time || d.reps ? `<div style="font-size:11px;color:var(--cyan);margin-top:4px;">${d.time ? d.time+' min' : ''}${d.time && d.reps ? ' · ' : ''}${d.reps ? d.reps+' reps' : ''}</div>` : ''}
+            <div style="font-size:12px;font-weight:700;color:var(--white);">${i+1}. ${esc(d.name)}</div>
+            ${d.desc ? `<div style="font-size:11px;color:var(--grey);margin-top:3px;line-height:1.5;">${esc(d.desc)}</div>` : ''}
+            ${d.time || d.reps ? `<div style="font-size:11px;color:var(--cyan);margin-top:4px;">${d.time ? esc(d.time)+' min' : ''}${d.time && d.reps ? ' · ' : ''}${d.reps ? esc(d.reps)+' reps' : ''}</div>` : ''}
           </div>
-          ${d.video ? `<a href="${d.video}" target="_blank" style="flex-shrink:0;"><span class="chip chip-red" style="cursor:pointer;">▶ Ver</span></a>` : ''}
+          ${d.video ? `<a href="${esc(d.video)}" target="_blank" style="flex-shrink:0;"><span class="chip chip-red" style="cursor:pointer;">▶ Ver</span></a>` : ''}
         </div>
       </div>`).join('')}
     </div>` : ''}
 
     ${s.warmup ? `<div class="drill-block" style="border-left:3px solid var(--green);">
       <div class="drill-label">🔥 Calentamiento</div>
-      <div class="drill-val">${s.warmup}</div>
+      <div class="drill-val">${esc(s.warmup)}</div>
     </div>` : ''}
 
     ${s.simulation ? `<div class="drill-block" style="border-left:3px solid var(--amber);">
       <div class="drill-label">🎭 Simulación</div>
-      <div class="drill-val">${s.simulation}</div>
+      <div class="drill-val">${esc(s.simulation)}</div>
     </div>` : ''}
 
     ${s.mental_hack ? `<div class="drill-block" style="border-left:3px solid var(--purple);">
       <div class="drill-label">🧠 Mental Hack</div>
-      <div class="drill-val">${s.mental_hack}</div>
+      <div class="drill-val">${esc(s.mental_hack)}</div>
     </div>` : ''}
 
     ${vid ? `<div class="yt-embed"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>` : ''}
 
-    ${s.notes ? `<p style="font-size:12px;color:rgba(232,240,245,.5);margin-top:8px;line-height:1.6;">${s.notes}</p>` : ''}
+    ${s.notes ? `<p style="font-size:12px;color:rgba(232,240,245,.5);margin-top:8px;line-height:1.6;">${esc(s.notes)}</p>` : ''}
 
     ${canExecute && !isDone ? `<div style="display:flex;gap:8px;margin-top:12px;">
       ${!isLive ? `<button class="btn btn-green btn-sm" onclick="startSp('${s.id}')">▶ Iniciar Sesión</button>` : 
-        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}',${JSON.stringify(s.title)},${JSON.stringify(cardAthIds)})">✅ Finalizar y Registrar</button>`}
+        `<button class="btn btn-amber btn-sm" onclick="openSpFeedback('${s.id}',${JSON.stringify(s.title).replace(/"/g,'&quot;')},${JSON.stringify(cardAthIds).replace(/"/g,'&quot;')})">✅ Finalizar y Registrar</button>`}
     </div>` : ''}
 
     ${isDone && s.coach_notes ? `<div class="drill-block" style="margin-top:10px;border-left:3px solid var(--cyan);">
@@ -2611,7 +2611,7 @@ async function saveSesionResult(planId, result, date){
     if(error) throw error;
     // Update UI
     document.querySelectorAll(`[data-sesion-plan="${planId}"]`).forEach(btn=>{
-      btn.classList.remove('sesion-lograste','sesion-parcial','sesion-no');
+      btn.classList.remove('sesion-Si','sesion-Parcial','sesion-No');
       btn.style.opacity='0.4';
     });
     const active = document.querySelector(`[data-sesion-plan="${planId}"][data-sesion-val="${result}"]`);
