@@ -1139,8 +1139,97 @@ function switchView(view){
 async function vHoy(){
   const today=todayStr();
   render(`<div class="page-title">Mi Día</div><div class="page-sub">${fmtDate(today)}</div>
+    <div id="groupRankingSection"></div>
     <div id="hoyContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
   await loadHoy(today);
+  loadGroupRanking(today);
+}
+
+async function loadGroupRanking(date){
+  const el=document.getElementById('groupRankingSection'); if(!el) return;
+  try {
+    // Find athlete's groups
+    const{data:myMem}=await db.from('tss_group_members').select('group_id').eq('athlete_id',S.user.id);
+    if(!myMem||!myMem.length){ el.innerHTML=''; return; }
+    const myGroupIds=myMem.map(m=>m.group_id);
+
+    // Get all members of these groups
+    const{data:allMem}=await db.from('tss_group_members').select('group_id,athlete_id').in('group_id',myGroupIds);
+    if(!allMem||!allMem.length){ el.innerHTML=''; return; }
+    const allAthIds=[...new Set(allMem.map(m=>m.athlete_id))];
+
+    // Get last 7 days of checkins for all group members
+    const d7=new Date(); d7.setDate(d7.getDate()-7);
+    const date7=d7.toISOString().split('T')[0];
+    const floorDate=date7>OFFICIAL_START?date7:OFFICIAL_START;
+    const{data:allCI}=await db.from('tss_daily_checkins')
+      .select('athlete_id,date,progress_pct,energy_level,surf_hours,goal_achieved')
+      .in('athlete_id',allAthIds).gte('date',floorDate).order('date');
+
+    // Calculate compliance score per athlete (last 7 days)
+    const scores={};
+    allAthIds.forEach(aid=>{
+      const ci=(allCI||[]).filter(c=>c.athlete_id===aid);
+      const days=ci.length;
+      const avgPct=days?Math.round(ci.reduce((s,c)=>s+(c.progress_pct||0),0)/days):0;
+      const avgEnergy=days?(ci.reduce((s,c)=>s+(c.energy_level||0),0)/days).toFixed(1):0;
+      const surfH=ci.reduce((s,c)=>s+(parseFloat(c.surf_hours)||0),0);
+      const goals=ci.filter(c=>c.goal_achieved==='Si').length;
+      // Composite score: 40% plan compliance + 20% check-in days + 20% goals + 20% surf hours
+      const compScore=Math.round(avgPct*0.4 + Math.min(days/7*100,100)*0.2 + (days?goals/days*100:0)*0.2 + Math.min(surfH/10*100,100)*0.2);
+      scores[aid]={compScore,avgPct,days,avgEnergy,surfH,goals};
+    });
+
+    // Group by group and build rankings
+    let html='';
+    myGroupIds.forEach(gid=>{
+      const grp=S.groups.find(g=>g.id===gid);
+      if(!grp) return;
+      const members=allMem.filter(m=>m.group_id===gid).map(m=>m.athlete_id);
+      if(members.length<2) return; // no ranking for solo groups
+
+      // Sort by composite score
+      const ranked=[...members].sort((a,b)=>(scores[b]?.compScore||0)-(scores[a]?.compScore||0));
+      const myPos=ranked.indexOf(S.user.id)+1;
+      const medals=['🥇','🥈','🥉'];
+
+      html+=`<div class="card" style="margin-bottom:12px;border:1px solid rgba(245,158,11,.2);background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(0,201,232,.04));">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <div style="font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.5px;">🏆 RANKING · ${esc(grp.name)}</div>
+            <div style="font-size:9px;color:var(--grey);">Cumplimiento últimos 7 días</div>
+          </div>
+          <div style="background:${myPos<=3?'rgba(245,158,11,.15)':'rgba(0,201,232,.1)'};padding:4px 10px;border-radius:20px;">
+            <span style="font-size:11px;font-weight:900;color:${myPos===1?'var(--amber)':myPos<=3?'var(--green)':'var(--cyan)'};">${myPos<=3?medals[myPos-1]:''} #${myPos}/${ranked.length}</span>
+          </div>
+        </div>`;
+
+      ranked.forEach((aid,i)=>{
+        const ath=S.athletes.find(a=>a.id===aid);
+        const sc=scores[aid]||{};
+        const isMe=aid===S.user.id;
+        const medal=i<3?medals[i]:'';
+        const bgMe=isMe?'background:rgba(0,201,232,.08);border:1px solid rgba(0,201,232,.25);':'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);';
+        html+=`<div style="${bgMe}border-radius:10px;padding:8px 12px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:${i<3?'16':'13'}px;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};width:24px;text-align:center;">${medal||'#'+(i+1)}</span>
+            <div>
+              <div style="font-size:12px;font-weight:${isMe?'800':'600'};color:${isMe?'var(--cyan)':'var(--white)'};">${ath?.name||'Atleta'}${isMe?' (Tú)':''}</div>
+              <div style="font-size:9px;color:var(--grey);">${sc.days||0} días · ${sc.surfH?.toFixed(1)||0}h surf · ${sc.goals||0} obj.</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:18px;font-weight:900;color:${sc.compScore>=80?'var(--green)':sc.compScore>=50?'var(--amber)':'var(--red)'};font-family:'Space Mono',monospace;">${sc.compScore||0}%</div>
+            <div style="font-size:8px;color:var(--grey);">Score</div>
+          </div>
+        </div>`;
+      });
+
+      html+=`</div>`;
+    });
+
+    el.innerHTML=html;
+  } catch(e){ console.error('Ranking error',e); el.innerHTML=''; }
 }
 
 async function loadHoy(date){
@@ -3687,13 +3776,88 @@ async function vPanel(){
       </div>`;
     }).join('')}
 
+    <!-- RANKING POR GRUPO -->
+    <div id="coachGroupRanking" style="margin-top:16px;"></div>
+
     <!-- BOTONES PDF -->
     <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
       <button class="btn btn-cyan" style="flex:1;min-width:140px;" onclick="genMonthlyPDF('team')">📊 Reporte Mes Equipo</button>
       <button class="btn" style="flex:1;min-width:140px;background:var(--purple);" onclick="openMonthlyAthleteSelect()">📄 Reporte Mes Atleta</button>
     </div>
     `);
+    loadCoachGroupRanking();
   } catch(e){ render('<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando panel</p>'); console.error(e); }
+}
+
+async function loadCoachGroupRanking(){
+  const el=document.getElementById('coachGroupRanking'); if(!el||!S.groups.length) return;
+  try {
+    // Get all group members
+    const{data:allMem}=await db.from('tss_group_members').select('group_id,athlete_id');
+    if(!allMem||!allMem.length){ el.innerHTML=''; return; }
+    const allAthIds=[...new Set(allMem.map(m=>m.athlete_id))];
+
+    // Last 7 days checkins
+    const d7=new Date(); d7.setDate(d7.getDate()-7);
+    const date7=d7.toISOString().split('T')[0];
+    const floorDate=date7>OFFICIAL_START?date7:OFFICIAL_START;
+    const{data:allCI}=await db.from('tss_daily_checkins')
+      .select('athlete_id,date,progress_pct,energy_level,surf_hours,goal_achieved')
+      .in('athlete_id',allAthIds).gte('date',floorDate);
+
+    // Score per athlete
+    const scores={};
+    allAthIds.forEach(aid=>{
+      const ci=(allCI||[]).filter(c=>c.athlete_id===aid);
+      const days=ci.length;
+      const avgPct=days?Math.round(ci.reduce((s,c)=>s+(c.progress_pct||0),0)/days):0;
+      const surfH=ci.reduce((s,c)=>s+(parseFloat(c.surf_hours)||0),0);
+      const goals=ci.filter(c=>c.goal_achieved==='Si').length;
+      const compScore=Math.round(avgPct*0.4+Math.min(days/7*100,100)*0.2+(days?goals/days*100:0)*0.2+Math.min(surfH/10*100,100)*0.2);
+      scores[aid]={compScore,avgPct,days,surfH,goals};
+    });
+
+    let html='<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--amber);margin-bottom:10px;">🏆 RANKING POR GRUPO · ÚLTIMOS 7 DÍAS</div>';
+    const medals=['🥇','🥈','🥉'];
+
+    S.groups.forEach(grp=>{
+      const members=allMem.filter(m=>m.group_id===grp.id).map(m=>m.athlete_id);
+      if(members.length<2) return;
+
+      const ranked=[...members].sort((a,b)=>(scores[b]?.compScore||0)-(scores[a]?.compScore||0));
+      const groupAvg=members.length?Math.round(members.reduce((s,id)=>s+(scores[id]?.compScore||0),0)/members.length):0;
+
+      html+=`<div class="card" style="margin-bottom:10px;border:1px solid rgba(245,158,11,.15);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:800;color:var(--amber);">🏆 ${esc(grp.name)}</div>
+          <span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(245,158,11,.1);color:var(--amber);font-weight:700;">Prom: ${groupAvg}%</span>
+        </div>`;
+
+      ranked.forEach((aid,i)=>{
+        const ath=S.athletes.find(a=>a.id===aid);
+        const sc=scores[aid]||{};
+        const medal=i<3?medals[i]:'';
+        const barColor=sc.compScore>=80?'var(--green)':sc.compScore>=50?'var(--amber)':'var(--red)';
+        html+=`<div onclick="openAthProfile('${aid}','${esc(ath?.name||'')}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:8px;cursor:pointer;background:${i===0?'rgba(245,158,11,.06)':'rgba(255,255,255,.02)'};">
+          <span style="font-size:${i<3?'15':'12'}px;width:22px;text-align:center;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};">${medal||'#'+(i+1)}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ath?.name||'Atleta'}</div>
+            <div style="height:4px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:3px;">
+              <div style="height:100%;width:${sc.compScore||0}%;border-radius:3px;background:${barColor};transition:width .5s;"></div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:16px;font-weight:900;color:${barColor};font-family:'Space Mono',monospace;">${sc.compScore||0}%</div>
+            <div style="font-size:8px;color:var(--grey);">${sc.days||0}d · ${sc.surfH?.toFixed(1)||0}h</div>
+          </div>
+        </div>`;
+      });
+
+      html+=`</div>`;
+    });
+
+    el.innerHTML=html;
+  } catch(e){ console.error('Coach ranking error',e); }
 }
 
 function openEditBio(athleteId){
