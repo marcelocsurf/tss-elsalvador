@@ -367,6 +367,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* OFFICIAL DATA START — Todo antes de esta fecha = historial de prueba */
+const OFFICIAL_START = '2026-03-23';
+let showOfficialOnly = true;
+
 /* STATE */
 let S = { user:null, pin:'', loginRole:'', athletes:[], groups:[], view:null, selDate:null };
 let spSelectedAthletes = []; // athletes selected for presencial session
@@ -3409,11 +3413,14 @@ async function vPanel(){
     const today = todayStr();
     // Also load last 7 days of check-ins for fatigue index
     const d7=new Date(); d7.setDate(d7.getDate()-7); const date7=d7.toISOString().split('T')[0];
+    const offFloor = showOfficialOnly ? OFFICIAL_START : '2000-01-01';
+    let qSess = db.from('tss_presencial_sessions').select('athlete_ids,date').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false});
+    let qEvals = db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive,date').gte('date',offFloor).order('date',{ascending:false}).limit(300);
+    let qWeek = db.from('tss_daily_checkins').select('athlete_id,energy_level,focus_level,nutrition,surf_hours,water_glasses,goal_achieved').gte('date',date7>offFloor?date7:offFloor).order('date',{ascending:false});
     const [{data:sessions},{data:evals},{data:checkins},{data:weekCheckins},{data:presFeedbacks}] = await Promise.all([
-      db.from('tss_presencial_sessions').select('athlete_ids,date').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false}),
-      db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive').order('date',{ascending:false}).limit(300),
+      qSess, qEvals,
       db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes,sesion_result').eq('date',today),
-      db.from('tss_daily_checkins').select('athlete_id,energy_level,focus_level,nutrition,surf_hours,water_glasses,goal_achieved').gte('date',date7).order('date',{ascending:false}),
+      qWeek,
       db.from('tss_presencial_feedbacks').select('athlete_id,frustration_rating,focus_rating').order('id',{ascending:false}).limit(100),
     ]);
 
@@ -3509,8 +3516,13 @@ async function vPanel(){
     });
 
     render(`
-    <div class="page-title">Coach Panel</div>
-    <div class="page-sub">TSS El Salvador · ${today}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div><div class="page-title">Coach Panel</div><div class="page-sub">TSS El Salvador · ${today}</div></div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:rgba(0,201,232,.08);border:1px solid rgba(0,201,232,.2);border-radius:10px;padding:6px 10px;">
+        <input type="checkbox" ${showOfficialOnly?'checked':''} onchange="showOfficialOnly=this.checked;vPanel();" style="accent-color:var(--cyan);">
+        <span style="font-size:9px;color:var(--cyan);font-weight:700;letter-spacing:.5px;">OFICIAL</span>
+      </label>
+    </div>
 
     <!-- RESUMEN DEL DÍA -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
@@ -3628,7 +3640,7 @@ async function vPanel(){
             var objRes=sKeys.length?sr[sKeys[0]]:null;
             var focusVal=ci.focus_level||0;
             if(!ci.surf_hours && !objRes) return '';
-            var focusColor2=focusVal>=4?'var(--cyan)':focusVal>=3?'var(--amber)':'var(--red)';
+            var focusColor2=focusVal>=4?'var(--cyan)':focusVal>=2?'var(--amber)':'var(--grey)';
             var objIcon=objRes==='Si'?'✅':objRes==='Parcial'?'⚡':objRes==='No'?'❌':'—';
             var objColor=objRes==='Si'?'var(--green)':objRes==='Parcial'?'var(--amber)':objRes==='No'?'var(--red)':'var(--grey)';
             return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">'
@@ -3806,14 +3818,15 @@ async function vPerfil(athleteId=null,athleteName=null){
   const {data:freshAth} = await db.from('tss_profiles').select('*').eq('id',id).maybeSingle();
   if(freshAth){ const ai=S.athletes.findIndex(a=>a.id===id); if(ai>=0) S.athletes[ai]={...S.athletes[ai],...freshAth}; }
   const athBio = freshAth || S.athletes.find(a=>a.id===id) || {};
+  const profFloor = showOfficialOnly ? OFFICIAL_START : '2000-01-01';
   const[{data:evals},{data:checkins}]=await Promise.all([
-      db.from('tss_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(20),
-      db.from('tss_daily_checkins').select('*').eq('athlete_id',id).order('date',{ascending:false}).limit(14),
+      db.from('tss_evaluations').select('*').eq('athlete_id',id).gte('date',profFloor).order('date',{ascending:false}).limit(20),
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',id).gte('date',profFloor).order('date',{ascending:false}).limit(14),
     ]);
     // Load presencial sessions where this athlete participated
     let sessions = [];
     try {
-      const{data:allPres}=await db.from('tss_presencial_sessions').select('*').order('date',{ascending:false}).limit(50);
+      const{data:allPres}=await db.from('tss_presencial_sessions').select('*').gte('date',profFloor).order('date',{ascending:false}).limit(50);
       sessions = (allPres||[]).filter(s => {
         try { const ids = s.athlete_ids ? (Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]')) : []; return ids.includes(id); } catch(e){ return false; }
       }).slice(0,10);
@@ -3821,7 +3834,7 @@ async function vPerfil(athleteId=null,athleteName=null){
     // Load presencial feedbacks for this athlete
     let presFeedbacks = [];
     try {
-      const{data:fb}=await db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date,pilar)').eq('athlete_id',id).order('id',{ascending:false}).limit(20);
+      const{data:fb}=await db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date,pilar)').eq('athlete_id',id).gte('date',profFloor).order('id',{ascending:false}).limit(20);
       presFeedbacks = fb || [];
     } catch(e){}
     const scores=(evals||[]).map(e=>((e.physical||0)+(e.technique||0)+(e.mindset||0)+(e.competitive||0))/4).filter(Boolean);
@@ -3837,7 +3850,7 @@ async function vPerfil(athleteId=null,athleteName=null){
     const firstCheckinDate=(checkins||[]).length?checkins[checkins.length-1].date:null;
 
     // Load comp evals for surf score stats
-    const{data:compEvals}=await db.from('tss_comp_evaluations').select('*').eq('athlete_id',id).order('date',{ascending:false});
+    const{data:compEvals}=await db.from('tss_comp_evaluations').select('*').eq('athlete_id',id).gte('date',profFloor).order('date',{ascending:false});
     const allWaveScores=(compEvals||[]).filter(e=>e.avg_wave_score).map(e=>e.avg_wave_score);
     const allHighest=(compEvals||[]).filter(e=>e.highest_wave).map(e=>e.highest_wave);
     const avgSurfScore=allWaveScores.length?(allWaveScores.reduce((a,b)=>a+b,0)/allWaveScores.length).toFixed(2):null;
@@ -4145,15 +4158,15 @@ async function genPDF(athleteId, athleteName){
   toast('Generando PDF...','info');
   try {
     const[{data:evals},{data:checkins},{data:compEvalsPdf},{data:presFbPdf}]=await Promise.all([
-      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
-      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
-      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
-      db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date,pilar)').eq('athlete_id',athleteId).order('id',{ascending:false}),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}),
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}),
+      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}),
+      db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date,pilar)').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('id',{ascending:false}),
     ]);
     // Load presencial sessions for this athlete
     let sessions = [];
     try {
-      const{data:allPres}=await db.from('tss_presencial_sessions').select('*').order('date',{ascending:false}).limit(50);
+      const{data:allPres}=await db.from('tss_presencial_sessions').select('*').gte('date',OFFICIAL_START).order('date',{ascending:false}).limit(50);
       sessions = (allPres||[]).filter(s => {
         try { const ids = s.athlete_ids ? (Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]')) : []; return ids.includes(athleteId); } catch(e){ return false; }
       });
@@ -4827,13 +4840,14 @@ async function genMonthlyPDF(athleteIdOrTeam){
       if(ai>0) doc.addPage();
       let y=M;
 
-      // Load data for this athlete
+      // Load data for this athlete (floor to OFFICIAL_START for clean reports)
+      const moFloor = mon > OFFICIAL_START ? mon : OFFICIAL_START;
       const [ciRes,evalRes,sessRes,compEvRes,fbRes] = await Promise.all([
-        db.from('tss_daily_checkins').select('*').eq('athlete_id',ath.id).gte('date',mon).lte('date',sun).order('date'),
-        db.from('tss_evaluations').select('*').eq('athlete_id',ath.id).gte('date',mon).lte('date',sun).order('date'),
-        db.from('tss_presencial_sessions').select('*').gte('date',mon).lte('date',sun).order('date'),
-        db.from('tss_comp_evaluations').select('*').eq('athlete_id',ath.id).gte('date',mon).lte('date',sun).order('date'),
-        db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date)').eq('athlete_id',ath.id).order('id',{ascending:false}),
+        db.from('tss_daily_checkins').select('*').eq('athlete_id',ath.id).gte('date',moFloor).lte('date',sun).order('date'),
+        db.from('tss_evaluations').select('*').eq('athlete_id',ath.id).gte('date',moFloor).lte('date',sun).order('date'),
+        db.from('tss_presencial_sessions').select('*').gte('date',moFloor).lte('date',sun).order('date'),
+        db.from('tss_comp_evaluations').select('*').eq('athlete_id',ath.id).gte('date',moFloor).lte('date',sun).order('date'),
+        db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date)').eq('athlete_id',ath.id).gte('date',OFFICIAL_START).order('id',{ascending:false}),
       ]);
       const compEvalsMo = compEvRes.data||[];
       const presFbMo = (fbRes.data||[]).filter(fb=>fb.tss_presencial_sessions?.date>=mon && fb.tss_presencial_sessions?.date<=sun);
@@ -5100,11 +5114,12 @@ async function genAnalyticsPDF(athleteId, athleteName){
     const from30 = d30ago.toISOString().split('T')[0];
 
     // Fetch all data
+    const anaFloor = from30 > OFFICIAL_START ? from30 : OFFICIAL_START;
     const [{data:checkins},{data:evals},{data:compEvals},{data:sessions},{data:profile}] = await Promise.all([
-      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',from30).order('date',{ascending:true}),
-      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(20),
-      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}),
-      db.from('tss_presencial_sessions').select('id,date,title,athlete_ids').gte('date',from30).order('date',{ascending:false}),
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',anaFloor).order('date',{ascending:true}),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}).limit(20),
+      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}),
+      db.from('tss_presencial_sessions').select('id,date,title,athlete_ids').gte('date',anaFloor).order('date',{ascending:false}),
       db.from('tss_profiles').select('*').eq('id',athleteId).maybeSingle(),
     ]);
 
@@ -5371,15 +5386,16 @@ async function genAnalyticsPDF(athleteId, athleteName){
 async function genWeeklyPDF(athleteId, athleteName, mon, sun){
   try {
   showLoad(true);
-  // Load all data for the week
+  // Load all data for the week (floor to OFFICIAL_START)
+  const wkFloor = mon > OFFICIAL_START ? mon : OFFICIAL_START;
   const [ciRes, plansRes, sessRes, evalRes, membRes, compEvRes, fbRes] = await Promise.all([
-    db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',mon).lte('date',sun).order('date'),
-    db.from('tss_daily_plans').select('*').gte('date',mon).lte('date',sun).order('date'),
-    db.from('tss_presencial_sessions').select('*').gte('date',mon).lte('date',sun).order('date'),
-    db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',mon).lte('date',sun).order('date'),
+    db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',wkFloor).lte('date',sun).order('date'),
+    db.from('tss_daily_plans').select('*').gte('date',wkFloor).lte('date',sun).order('date'),
+    db.from('tss_presencial_sessions').select('*').gte('date',wkFloor).lte('date',sun).order('date'),
+    db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',wkFloor).lte('date',sun).order('date'),
     db.from('tss_group_members').select('group_id').eq('athlete_id',athleteId),
-    db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',mon).lte('date',sun).order('date'),
-    db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date)').eq('athlete_id',athleteId).order('id',{ascending:false}),
+    db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',wkFloor).lte('date',sun).order('date'),
+    db.from('tss_presencial_feedbacks').select('*,tss_presencial_sessions(title,date)').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('id',{ascending:false}),
   ]);
   const compEvalsWk = compEvRes.data||[];
   const presFbWk = (fbRes.data||[]).filter(fb=>fb.tss_presencial_sessions?.date>=mon && fb.tss_presencial_sessions?.date<=sun);
