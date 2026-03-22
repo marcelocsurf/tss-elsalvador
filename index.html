@@ -5911,7 +5911,11 @@ async function loadCompetencias(athleteId){
 /* ════════════════════════════════════════════════════════════════════
    MÓDULO: MODO COMPETENCIA — Preparación paso a paso + Heat Tracker
    ════════════════════════════════════════════════════════════════════ */
+// Temp state for comp mode
+let _cm={compId:null,athId:null,athName:'',eventName:''};
+
 function openCompMode(compId, athleteId, athleteName){
+  _cm={compId,athId:athleteId,athName:athleteName,eventName:''};
   let m=document.getElementById('compModeModal'); if(m) m.remove();
   m=document.createElement('div'); m.className='modal-overlay'; m.id='compModeModal';
   m.style.cssText='z-index:9999;overflow-y:auto;';
@@ -5932,6 +5936,7 @@ async function loadCompMode(compId, athleteId, athleteName){
   try {
     const{data:comp}=await db.from('tss_competitions').select('*').eq('id',compId).single();
     if(!comp){ el.innerHTML='<p style="color:var(--red);">Competencia no encontrada</p>'; return; }
+    _cm.eventName=comp.name;
 
     // Load existing heat data from comp_evaluations
     const{data:existingEvals}=await db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).eq('event_name',comp.name).order('date',{ascending:true});
@@ -6069,13 +6074,13 @@ async function loadCompMode(compId, athleteId, athleteName){
     </div>
 
     <!-- SAVE PREP BUTTON -->
-    <button class="btn btn-cyan" style="width:100%;margin-bottom:16px;" onclick="saveCompPrep('${compId}','${athleteId}','${esc(comp.name)}')">💾 Guardar Preparación</button>
+    <button class="btn btn-cyan" style="width:100%;margin-bottom:16px;" onclick="saveCompPrep()">💾 Guardar Preparación</button>
 
     <!-- STEP 5: HEAT TRACKER -->
     <div style="border-top:2px solid rgba(245,158,11,.3);padding-top:14px;margin-top:6px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-size:14px;font-weight:900;color:var(--amber);">🔥 HEATS EN VIVO</div>
-        ${isCoach?`<button class="btn btn-xs btn-amber" onclick="addHeatEntry('${compId}','${athleteId}','${esc(athleteName)}','${esc(comp.name)}')">+ Agregar Heat</button>`:''}
+        ${isCoach?`<button class="btn btn-xs btn-amber" onclick="addHeatEntry()">+ Agregar Heat</button>`:''}
       </div>
       <div id="heatsList">
         ${heats.length?heats.map((h,i)=>{
@@ -6137,7 +6142,7 @@ async function loadCompMode(compId, athleteId, athleteName){
         <textarea class="ta" id="cm-what-failed" placeholder="Selección de ola, timing, nervios...">${stepStates.what_failed||''}</textarea>
         <label class="inp-label">¿Qué entrenar para la próxima?</label>
         <textarea class="ta" id="cm-next-train" placeholder="Maniobras a mejorar, mentalidad, condición física...">${stepStates.next_train||''}</textarea>
-        <button class="btn" style="width:100%;background:var(--purple);margin-top:8px;" onclick="saveCompPrep('${compId}','${athleteId}','${esc(comp.name)}')">💾 Guardar Evaluación</button>
+        <button class="btn" style="width:100%;background:var(--purple);margin-top:8px;" onclick="saveCompPrep()">💾 Guardar Evaluación</button>
       </div>
     </div>`:''}
     `;
@@ -6149,7 +6154,8 @@ function toggleCompStep(id){
   el.style.display=el.style.display==='none'?'block':'none';
 }
 
-async function saveCompPrep(compId, athleteId, eventName){
+async function saveCompPrep(){
+  const {compId,athId:athleteId,eventName}=_cm;
   showLoad(true);
   try {
     const prep={
@@ -6178,14 +6184,23 @@ async function saveCompPrep(compId, athleteId, eventName){
       athlete_id:athleteId, date:todayStr(), event_name:eventName,
       round_reached:'__PREP__', notes:JSON.stringify(prep), created_by:S.user.id
     };
-    if(existing){ await db.from('tss_comp_evaluations').update(payload).eq('id',existing.id); }
-    else { await db.from('tss_comp_evaluations').insert(payload); }
+    let res;
+    if(existing){ res=await db.from('tss_comp_evaluations').update(payload).eq('id',existing.id); }
+    else { res=await db.from('tss_comp_evaluations').insert(payload); }
+    if(res.error){
+      // Retry without created_by in case column doesn't exist
+      delete payload.created_by;
+      if(existing){ res=await db.from('tss_comp_evaluations').update(payload).eq('id',existing.id); }
+      else { res=await db.from('tss_comp_evaluations').insert(payload); }
+      if(res.error) throw res.error;
+    }
     toast('✅ Preparación guardada','success');
-  } catch(e){ toast('Error al guardar','error'); console.error(e); }
+  } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
-function addHeatEntry(compId, athleteId, athleteName, eventName){
+function addHeatEntry(){
+  const {compId,athId:athleteId,athName:athleteName,eventName}=_cm;
   let m=document.getElementById('heatEntryModal'); if(m) m.remove();
   m=document.createElement('div'); m.className='modal-overlay'; m.id='heatEntryModal';
   m.style.cssText='z-index:10000;';
@@ -6209,13 +6224,14 @@ function addHeatEntry(compId, athleteId, athleteName, eventName){
     <input type="hidden" id="ht-result" value="">
     <label class="inp-label">Notas del heat (opcional)</label>
     <textarea class="ta" id="ht-notes" placeholder="Prioridad, decisiones, condiciones..."></textarea>
-    <button class="btn btn-amber" style="width:100%;margin-top:10px;" onclick="saveHeatEntry('${compId}','${athleteId}','${esc(athleteName)}','${esc(eventName)}')">💾 Guardar Heat</button>
+    <button class="btn btn-amber" style="width:100%;margin-top:10px;" onclick="saveHeatEntry()">💾 Guardar Heat</button>
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{if(e.target===m)closeModal('heatEntryModal');};
 }
 
-async function saveHeatEntry(compId, athleteId, athleteName, eventName){
+async function saveHeatEntry(){
+  const {compId,athId:athleteId,athName:athleteName,eventName}=_cm;
   const round=gv('ht-round');
   const wavesStr=gv('ht-waves');
   const result=gv('ht-result');
@@ -6233,13 +6249,20 @@ async function saveHeatEntry(compId, athleteId, athleteName, eventName){
 
   showLoad(true);
   try {
-    await db.from('tss_comp_evaluations').insert({
+    let heatPayload={
       athlete_id:athleteId, date:todayStr(), event_name:eventName,
       category:gv('ht-notes'), round_reached:round,
       avg_wave_score:best1, highest_wave:best2, heat_total:total,
       final_ranking:result, notes:JSON.stringify(waves),
       created_by:S.user.id
-    });
+    };
+    let res=await db.from('tss_comp_evaluations').insert(heatPayload);
+    if(res.error){
+      // Retry without created_by
+      delete heatPayload.created_by;
+      res=await db.from('tss_comp_evaluations').insert(heatPayload);
+      if(res.error) throw res.error;
+    }
     toast('✅ Heat guardado','success');
     closeModal('heatEntryModal');
     loadCompMode(compId, athleteId, athleteName);
