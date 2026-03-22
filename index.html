@@ -281,6 +281,11 @@ header{padding:10px 16px;display:flex;align-items:center;justify-content:space-b
 .fb-n{width:30px;height:30px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--grey);font-size:12px;font-weight:700;cursor:pointer;transition:all .12s;font-family:'Space Mono',monospace;display:flex;align-items:center;justify-content:center;}
 .fb-n:hover{border-color:var(--cyan);color:var(--cyan);}
 .fb-n.on{background:var(--cyan);border-color:var(--cyan);color:#050A0F;}
+.pill{padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--grey);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+.pill:hover{border-color:var(--cyan);color:var(--cyan);}
+.pill-on,.pill.pill-on{background:var(--cyan);border-color:var(--cyan);color:#050A0F;font-weight:700;}
+.btn-amber{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid rgba(245,158,11,.3);}
+.btn-amber:hover{background:rgba(245,158,11,.25);}
 </style>
 </head>
 <body>
@@ -5865,6 +5870,7 @@ async function loadCompetencias(athleteId){
               ${c.category?`<div style="margin-top:5px;"><span class="chip chip-amber">${c.category}</span></div>`:''}
               <div style="font-size:11px;color:var(--cyan);margin-top:5px;font-weight:700;">En ${daysLeft} día${daysLeft!==1?'s':''}</div>
               ${c.notes?`<p style="font-size:11px;color:rgba(232,240,245,.4);margin-top:4px;">${c.notes}</p>`:''}
+              <button class="btn btn-xs btn-amber" style="margin-top:6px;" onclick="openCompMode('${c.id}','${athleteId}','${esc(S.athletes.find(a=>a.id===athleteId)?.name||'')}')">🏆 Modo Competencia</button>
             </div>
             ${isCoach?`<div style="display:flex;flex-direction:column;gap:4px;">
               <button class="btn btn-xs btn-outline" onclick="openCompModal('${athleteId}','${c.id}')">✏️</button>
@@ -5887,6 +5893,7 @@ async function loadCompetencias(athleteId){
               <div style="font-size:13px;font-weight:600;">${c.name}</div>
               ${c.place?`<div style="font-size:11px;color:var(--grey);">📍 ${c.place}</div>`:''}
               ${c.category?`<span class="chip chip-grey" style="margin-top:4px;">${c.category}</span>`:''}
+              <button class="btn btn-xs" style="margin-top:4px;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.25);font-size:9px;" onclick="openCompMode('${c.id}','${athleteId}','${esc(S.athletes.find(a=>a.id===athleteId)?.name||'')}')">🏆 Ver Competencia</button>
             </div>
             ${isCoach?`<div style="display:flex;flex-direction:column;gap:4px;">
               <button class="btn btn-xs btn-outline" onclick="openCompModal('${athleteId}','${c.id}')">✏️</button>
@@ -5898,6 +5905,346 @@ async function loadCompetencias(athleteId){
     }
     el.innerHTML=html;
   } catch(e){ el.innerHTML='<p style="font-size:12px;color:var(--red);padding:8px;">Error cargando competencias</p>'; console.error(e); }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: MODO COMPETENCIA — Preparación paso a paso + Heat Tracker
+   ════════════════════════════════════════════════════════════════════ */
+function openCompMode(compId, athleteId, athleteName){
+  let m=document.getElementById('compModeModal'); if(m) m.remove();
+  m=document.createElement('div'); m.className='modal-overlay'; m.id='compModeModal';
+  m.style.cssText='z-index:9999;overflow-y:auto;';
+  m.innerHTML=`<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;padding-bottom:30px;">
+    <div class="modal-head" style="position:sticky;top:0;background:var(--bg2);z-index:10;padding-bottom:8px;">
+      <div><div class="modal-title">🏆 Modo Competencia</div><div style="font-size:11px;color:var(--grey);">${esc(athleteName)}</div></div>
+      <button class="modal-close" onclick="closeModal('compModeModal')">✕</button>
+    </div>
+    <div id="compModeContent"><p style="text-align:center;padding:20px;color:var(--grey);">Cargando...</p></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{if(e.target===m)closeModal('compModeModal');};
+  loadCompMode(compId, athleteId, athleteName);
+}
+
+async function loadCompMode(compId, athleteId, athleteName){
+  const el=document.getElementById('compModeContent'); if(!el) return;
+  try {
+    const{data:comp}=await db.from('tss_competitions').select('*').eq('id',compId).single();
+    if(!comp){ el.innerHTML='<p style="color:var(--red);">Competencia no encontrada</p>'; return; }
+
+    // Load existing heat data from comp_evaluations
+    const{data:existingEvals}=await db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).eq('event_name',comp.name).order('date',{ascending:true});
+
+    // Load athlete profile for score capacity
+    const ath=S.athletes.find(a=>a.id===athleteId)||{};
+    const scoreCap=ath.score_capacity||5;
+
+    // Parse heats from existing evals or start fresh
+    let heats=[];
+    let prepData={};
+    if(existingEvals&&existingEvals.length){
+      existingEvals.forEach(ev=>{
+        if(ev.round_reached==='__PREP__'){
+          try{ prepData=JSON.parse(ev.notes||'{}'); }catch(e){}
+        } else {
+          heats.push(ev);
+        }
+      });
+    }
+
+    const isCoach=S.user.role==='coach'||S.user.role==='acoach';
+    const stepStates=prepData;
+
+    el.innerHTML=`
+    <!-- STEP 1: VENUE ANALYSIS -->
+    <div class="card" style="margin-bottom:10px;border-left:3px solid var(--cyan);">
+      <div onclick="toggleCompStep('step1')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;font-weight:800;color:var(--cyan);">📍 PASO 1 — Análisis del Venue</div>
+        <span style="font-size:10px;color:${stepStates.step1_done?'var(--green)':'var(--grey)'};">${stepStates.step1_done?'✅ Listo':'Pendiente'}</span>
+      </div>
+      <div id="step1" style="display:none;margin-top:10px;">
+        <label class="inp-label">Tipo de ola</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['Beach break','Point break','Reef break','River mouth'].map(t=>`<button class="pill ${stepStates.wave_type===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-wave-type').value='${t}'">${t}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-wave-type" value="${stepStates.wave_type||''}">
+        <label class="inp-label">Dirección de la ola</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['Derecha','Izquierda','Ambas','Pico'].map(t=>`<button class="pill ${stepStates.wave_dir===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-wave-dir').value='${t}'">${t}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-wave-dir" value="${stepStates.wave_dir||''}">
+        <label class="inp-label">Tamaño estimado (pies)</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['1-2','2-3','3-4','4-6','6-8','8+'].map(t=>`<button class="pill ${stepStates.wave_size===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-wave-size').value='${t}'">${t}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-wave-size" value="${stepStates.wave_size||''}">
+        <label class="inp-label">Corrientes / Peligros</label>
+        <textarea class="ta" id="cm-hazards" placeholder="Corrientes laterales, rocas, crowd...">${stepStates.hazards||''}</textarea>
+        <label class="inp-label">Zona de take-off ideal</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['Punta','Centro','Inside','Outside'].map(t=>`<button class="pill ${stepStates.takeoff_zone===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-takeoff').value='${t}'">${t}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-takeoff" value="${stepStates.takeoff_zone||''}">
+      </div>
+    </div>
+
+    <!-- STEP 2: PRE-COMP ROUTINE -->
+    <div class="card" style="margin-bottom:10px;border-left:3px solid var(--purple);">
+      <div onclick="toggleCompStep('step2')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;font-weight:800;color:var(--purple);">🧘 PASO 2 — Rutina Pre-Competencia</div>
+        <span style="font-size:10px;color:${stepStates.step2_done?'var(--green)':'var(--grey)'};">${stepStates.step2_done?'✅ Listo':'Pendiente'}</span>
+      </div>
+      <div id="step2" style="display:none;margin-top:10px;">
+        <div style="font-size:11px;color:var(--grey);margin-bottom:8px;line-height:1.5;">Checklist mental y físico antes de entrar al agua</div>
+        ${[
+          {id:'warmup',lbl:'🏃 Calentamiento físico (10-15 min)',tip:'Movilidad articular, activación muscular'},
+          {id:'stretch',lbl:'🤸 Estiramiento dinámico',tip:'Hombros, cadera, tobillos'},
+          {id:'breath',lbl:'🫁 Ejercicio de respiración',tip:'4-7-8 o box breathing, 3-5 minutos'},
+          {id:'visual',lbl:'👁️ Visualización',tip:'Visualiza tus maniobras clave, siente el take-off'},
+          {id:'focus',lbl:'🎯 Palabra clave / Mantra',tip:'Una palabra que te centre: FLOW, ATAQUE, CONFIANZA'},
+          {id:'hydrate',lbl:'💧 Hidratación y nutrición',tip:'Agua, electrolitos, snack ligero 30 min antes'},
+        ].map(item=>`
+          <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:${stepStates['pre_'+item.id]?'rgba(34,197,94,.08)':'rgba(255,255,255,.03)'};border:1px solid ${stepStates['pre_'+item.id]?'rgba(34,197,94,.25)':'rgba(255,255,255,.06)'};border-radius:8px;margin-bottom:4px;cursor:pointer;" onclick="this.querySelector('input').checked=!this.querySelector('input').checked;this.style.background=this.querySelector('input').checked?'rgba(34,197,94,.08)':'rgba(255,255,255,.03)';this.style.borderColor=this.querySelector('input').checked?'rgba(34,197,94,.25)':'rgba(255,255,255,.06)';">
+            <input type="checkbox" id="cm-pre-${item.id}" ${stepStates['pre_'+item.id]?'checked':''} style="accent-color:var(--green);margin-top:2px;" onclick="event.stopPropagation();">
+            <div><div style="font-size:12px;font-weight:700;color:var(--white);">${item.lbl}</div>
+            <div style="font-size:10px;color:var(--grey);">${item.tip}</div></div>
+          </div>
+        `).join('')}
+        <label class="inp-label" style="margin-top:8px;">Palabra clave para este evento</label>
+        <input class="inp" type="text" id="cm-mantra" placeholder="Ej: FLOW, ATAQUE, CONFIANZA..." value="${stepStates.mantra||''}">
+      </div>
+    </div>
+
+    <!-- STEP 3: GAME PLAN & STRATEGY -->
+    <div class="card" style="margin-bottom:10px;border-left:3px solid var(--amber);">
+      <div onclick="toggleCompStep('step3')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;font-weight:800;color:var(--amber);">⚡ PASO 3 — Plan de Juego</div>
+        <span style="font-size:10px;color:${stepStates.step3_done?'var(--green)':'var(--grey)'};">${stepStates.step3_done?'✅ Listo':'Pendiente'}</span>
+      </div>
+      <div id="step3" style="display:none;margin-top:10px;">
+        <div class="card" style="background:rgba(0,201,232,.06);border:1px solid rgba(0,201,232,.2);margin-bottom:10px;">
+          <div style="font-size:10px;color:var(--cyan);font-weight:700;margin-bottom:4px;">🎯 TU CAPACIDAD DE SCORE</div>
+          <div style="font-size:28px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;">${scoreCap}/10</div>
+          <div style="font-size:10px;color:var(--grey);">Basado en tu evaluación del coach</div>
+        </div>
+        <label class="inp-label">¿Qué es una buena ola HOY? (basado en condiciones)</label>
+        <textarea class="ta" id="cm-good-wave" placeholder="Ej: Ola de derecha, que rompa desde la punta, 3-4 pies, con sección para maniobra...">${stepStates.good_wave||''}</textarea>
+        <label class="inp-label">Score objetivo por ola</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['3-4','4-5','5-6','6-7','7-8','8+'].map(t=>`<button class="pill ${stepStates.target_score===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-target-score').value='${t}'">${t}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-target-score" value="${stepStates.target_score||''}">
+        <label class="inp-label">Maniobras clave a ejecutar</label>
+        <textarea class="ta" id="cm-key-moves" placeholder="Ej: Bottom turn potente → snap en la sección → floater de cierre">${stepStates.key_moves||''}</textarea>
+        <label class="inp-label">¿Dónde empiezo el heat?</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['Esperar y seleccionar','Atacar la primera','Posición punta','Posición inside','Jugar prioridad'].map(t=>`<button class="pill ${stepStates.heat_start===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-heat-start').value='${t}'">${t}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-heat-start" value="${stepStates.heat_start||''}">
+        <label class="inp-label">Estrategia general</label>
+        <textarea class="ta" id="cm-strategy" placeholder="Ej: Primeros 5 min asegurar una ola backup, luego buscar la ola grande...">${stepStates.strategy||''}</textarea>
+      </div>
+    </div>
+
+    <!-- STEP 4: ENTER THE ZONE -->
+    <div class="card" style="margin-bottom:10px;border-left:3px solid var(--green);">
+      <div onclick="toggleCompStep('step4')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;font-weight:800;color:var(--green);">🧠 PASO 4 — Entrar en la Zona</div>
+        <span style="font-size:10px;color:${stepStates.step4_done?'var(--green)':'var(--grey)'};">${stepStates.step4_done?'✅ Listo':'Pendiente'}</span>
+      </div>
+      <div id="step4" style="display:none;margin-top:10px;">
+        <div style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(0,201,232,.06));border:1px solid rgba(34,197,94,.2);border-radius:12px;padding:16px;text-align:center;margin-bottom:10px;">
+          <div style="font-size:36px;margin-bottom:6px;">🌊</div>
+          <div style="font-size:16px;font-weight:900;color:var(--green);margin-bottom:4px;">ENTRA EN LA ZONA</div>
+          <div style="font-size:12px;color:var(--grey);line-height:1.6;">Cierra los ojos. 3 respiraciones profundas.<br>Visualiza tu mejor ola.<br>Repite tu palabra clave.<br>Confía en tu entrenamiento.</div>
+          ${stepStates.mantra?`<div style="margin-top:12px;font-size:24px;font-weight:900;color:var(--cyan);letter-spacing:3px;text-transform:uppercase;">"${esc(stepStates.mantra)}"</div>`:''}
+        </div>
+        <label class="inp-label">Nivel de confianza (1-10)</label>
+        <div style="display:flex;gap:4px;margin-bottom:8px;">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pill ${stepStates.confidence==n?'pill-on':''}" style="flex:1;padding:8px 0;font-size:13px;font-weight:900;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-confidence').value='${n}'">${n}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-confidence" value="${stepStates.confidence||''}">
+      </div>
+    </div>
+
+    <!-- SAVE PREP BUTTON -->
+    <button class="btn btn-cyan" style="width:100%;margin-bottom:16px;" onclick="saveCompPrep('${compId}','${athleteId}','${esc(comp.name)}')">💾 Guardar Preparación</button>
+
+    <!-- STEP 5: HEAT TRACKER -->
+    <div style="border-top:2px solid rgba(245,158,11,.3);padding-top:14px;margin-top:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:14px;font-weight:900;color:var(--amber);">🔥 HEATS EN VIVO</div>
+        ${isCoach?`<button class="btn btn-xs btn-amber" onclick="addHeatEntry('${compId}','${athleteId}','${esc(athleteName)}','${esc(comp.name)}')">+ Agregar Heat</button>`:''}
+      </div>
+      <div id="heatsList">
+        ${heats.length?heats.map((h,i)=>{
+          let waves=[]; try{waves=JSON.parse(h.notes||'[]');}catch(e){waves=[];}
+          if(!Array.isArray(waves)) waves=[];
+          const w1=parseFloat(h.avg_wave_score)||0;
+          const w2=parseFloat(h.highest_wave)||0;
+          const total=parseFloat(h.heat_total)||(w1+w2);
+          return `<div class="card" style="margin-bottom:8px;border:1px solid rgba(245,158,11,.2);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <div>
+                <span style="font-size:13px;font-weight:800;color:var(--amber);">${h.round_reached||'Heat '+(i+1)}</span>
+                <span style="font-size:11px;color:var(--grey);margin-left:6px;">${h.category||''}</span>
+              </div>
+              <div style="font-size:20px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;">${total.toFixed(2)}</div>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;">
+              <div style="flex:1;background:var(--bg3);border-radius:8px;padding:6px;text-align:center;">
+                <div style="font-size:16px;font-weight:900;color:var(--green);">${w1.toFixed(2)}</div>
+                <div style="font-size:8px;color:var(--grey);">Mejor Ola 1</div>
+              </div>
+              <div style="flex:1;background:var(--bg3);border-radius:8px;padding:6px;text-align:center;">
+                <div style="font-size:16px;font-weight:900;color:var(--green);">${w2.toFixed(2)}</div>
+                <div style="font-size:8px;color:var(--grey);">Mejor Ola 2</div>
+              </div>
+              ${h.final_ranking?`<div style="flex:1;background:rgba(245,158,11,.1);border-radius:8px;padding:6px;text-align:center;">
+                <div style="font-size:16px;font-weight:800;color:var(--amber);">${h.final_ranking}</div>
+                <div style="font-size:8px;color:var(--grey);">Resultado</div>
+              </div>`:''}
+            </div>
+            ${waves.length?`<div style="display:flex;gap:3px;flex-wrap:wrap;">${waves.map((w,wi)=>`<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${parseFloat(w)>=6?'rgba(34,197,94,.15)':parseFloat(w)>=4?'rgba(245,158,11,.1)':'rgba(255,255,255,.05)'};color:${parseFloat(w)>=6?'var(--green)':parseFloat(w)>=4?'var(--amber)':'var(--grey)'};">Ola ${wi+1}: ${w}</span>`).join('')}</div>`:''}
+          </div>`;
+        }).join(''):`<div style="text-align:center;padding:20px;color:var(--grey);font-size:12px;">Sin heats registrados aún</div>`}
+      </div>
+    </div>
+
+    <!-- STEP 6: POST-COMP EVALUATION -->
+    ${heats.length?`
+    <div style="border-top:2px solid rgba(168,85,247,.3);padding-top:14px;margin-top:14px;">
+      <div style="font-size:14px;font-weight:900;color:var(--purple);margin-bottom:10px;">📋 EVALUACIÓN POST-COMPETENCIA</div>
+      <div class="card" style="border:1px solid rgba(168,85,247,.2);">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+          <div style="text-align:center;background:var(--bg3);padding:10px;border-radius:8px;">
+            <div style="font-size:22px;font-weight:900;color:var(--amber);">${heats.length}</div>
+            <div style="font-size:9px;color:var(--grey);">Heats</div>
+          </div>
+          <div style="text-align:center;background:var(--bg3);padding:10px;border-radius:8px;">
+            <div style="font-size:22px;font-weight:900;color:var(--green);">${heats.length?Math.max(...heats.map(h=>parseFloat(h.highest_wave)||0)).toFixed(1):'—'}</div>
+            <div style="font-size:9px;color:var(--grey);">Mejor Ola</div>
+          </div>
+          <div style="text-align:center;background:var(--bg3);padding:10px;border-radius:8px;">
+            <div style="font-size:22px;font-weight:900;color:var(--cyan);">${heats.length?(heats.reduce((s,h)=>s+(parseFloat(h.heat_total)||0),0)/heats.length).toFixed(1):'—'}</div>
+            <div style="font-size:9px;color:var(--grey);">Prom Heat</div>
+          </div>
+        </div>
+        <label class="inp-label">¿Qué funcionó bien?</label>
+        <textarea class="ta" id="cm-what-worked" placeholder="Maniobras que salieron, decisiones correctas...">${stepStates.what_worked||''}</textarea>
+        <label class="inp-label">¿Qué NO funcionó?</label>
+        <textarea class="ta" id="cm-what-failed" placeholder="Selección de ola, timing, nervios...">${stepStates.what_failed||''}</textarea>
+        <label class="inp-label">¿Qué entrenar para la próxima?</label>
+        <textarea class="ta" id="cm-next-train" placeholder="Maniobras a mejorar, mentalidad, condición física...">${stepStates.next_train||''}</textarea>
+        <button class="btn" style="width:100%;background:var(--purple);margin-top:8px;" onclick="saveCompPrep('${compId}','${athleteId}','${esc(comp.name)}')">💾 Guardar Evaluación</button>
+      </div>
+    </div>`:''}
+    `;
+  } catch(e){ el.innerHTML='<p style="color:var(--red);">Error cargando modo competencia</p>'; console.error(e); }
+}
+
+function toggleCompStep(id){
+  const el=document.getElementById(id); if(!el) return;
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function saveCompPrep(compId, athleteId, eventName){
+  showLoad(true);
+  try {
+    const prep={
+      wave_type:gv('cm-wave-type'), wave_dir:gv('cm-wave-dir'), wave_size:gv('cm-wave-size'),
+      hazards:gv('cm-hazards'), takeoff_zone:gv('cm-takeoff'),
+      mantra:gv('cm-mantra'),
+      pre_warmup:document.getElementById('cm-pre-warmup')?.checked||false,
+      pre_stretch:document.getElementById('cm-pre-stretch')?.checked||false,
+      pre_breath:document.getElementById('cm-pre-breath')?.checked||false,
+      pre_visual:document.getElementById('cm-pre-visual')?.checked||false,
+      pre_focus:document.getElementById('cm-pre-focus')?.checked||false,
+      pre_hydrate:document.getElementById('cm-pre-hydrate')?.checked||false,
+      good_wave:gv('cm-good-wave'), target_score:gv('cm-target-score'),
+      key_moves:gv('cm-key-moves'), heat_start:gv('cm-heat-start'), strategy:gv('cm-strategy'),
+      confidence:gv('cm-confidence'),
+      what_worked:gv('cm-what-worked'), what_failed:gv('cm-what-failed'), next_train:gv('cm-next-train'),
+      step1_done:!!(gv('cm-wave-type')&&gv('cm-wave-dir')),
+      step2_done:!!(document.getElementById('cm-pre-warmup')?.checked),
+      step3_done:!!(gv('cm-good-wave')&&gv('cm-target-score')),
+      step4_done:!!(gv('cm-confidence')),
+    };
+    // Check if prep record exists
+    const{data:existing}=await db.from('tss_comp_evaluations').select('id')
+      .eq('athlete_id',athleteId).eq('event_name',eventName).eq('round_reached','__PREP__').maybeSingle();
+    const payload={
+      athlete_id:athleteId, date:todayStr(), event_name:eventName,
+      round_reached:'__PREP__', notes:JSON.stringify(prep), created_by:S.user.id
+    };
+    if(existing){ await db.from('tss_comp_evaluations').update(payload).eq('id',existing.id); }
+    else { await db.from('tss_comp_evaluations').insert(payload); }
+    toast('✅ Preparación guardada','success');
+  } catch(e){ toast('Error al guardar','error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+function addHeatEntry(compId, athleteId, athleteName, eventName){
+  let m=document.getElementById('heatEntryModal'); if(m) m.remove();
+  m=document.createElement('div'); m.className='modal-overlay'; m.id='heatEntryModal';
+  m.style.cssText='z-index:10000;';
+  m.innerHTML=`<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">🔥 Registrar Heat</div>
+      <button class="modal-close" onclick="closeModal('heatEntryModal')">✕</button>
+    </div>
+    <label class="inp-label">Ronda</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      ${['Round 1','Round 2','Round 3','Cuartos','Semifinal','Final'].map(r=>`<button class="pill" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-round').value='${r}'">${r}</button>`).join('')}
+    </div>
+    <input type="hidden" id="ht-round" value="">
+    <label class="inp-label">Scores de olas (separar con coma)</label>
+    <input class="inp" type="text" id="ht-waves" placeholder="Ej: 4.5, 3.2, 6.7, 2.1, 5.5">
+    <div style="font-size:10px;color:var(--grey);margin-top:-4px;margin-bottom:8px;">Ingresa todas las olas surfeadas, las 2 mejores se calculan automáticamente</div>
+    <label class="inp-label">Resultado del heat</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      ${['1° Avanzó','2° Avanzó','3° Eliminado','4° Eliminado','Ganó Final','2° Final','3° Final'].map(r=>`<button class="pill" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-result').value='${r}'">${r}</button>`).join('')}
+    </div>
+    <input type="hidden" id="ht-result" value="">
+    <label class="inp-label">Notas del heat (opcional)</label>
+    <textarea class="ta" id="ht-notes" placeholder="Prioridad, decisiones, condiciones..."></textarea>
+    <button class="btn btn-amber" style="width:100%;margin-top:10px;" onclick="saveHeatEntry('${compId}','${athleteId}','${esc(athleteName)}','${esc(eventName)}')">💾 Guardar Heat</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{if(e.target===m)closeModal('heatEntryModal');};
+}
+
+async function saveHeatEntry(compId, athleteId, athleteName, eventName){
+  const round=gv('ht-round');
+  const wavesStr=gv('ht-waves');
+  const result=gv('ht-result');
+  if(!round){toast('Selecciona la ronda','error');return;}
+  if(!wavesStr){toast('Ingresa los scores de olas','error');return;}
+
+  const waves=wavesStr.split(',').map(w=>parseFloat(w.trim())).filter(w=>!isNaN(w));
+  if(waves.length<1){toast('Ingresa al menos 1 score','error');return;}
+
+  // Calculate best 2 waves
+  const sorted=[...waves].sort((a,b)=>b-a);
+  const best1=sorted[0]||0;
+  const best2=sorted[1]||0;
+  const total=best1+best2;
+
+  showLoad(true);
+  try {
+    await db.from('tss_comp_evaluations').insert({
+      athlete_id:athleteId, date:todayStr(), event_name:eventName,
+      category:gv('ht-notes'), round_reached:round,
+      avg_wave_score:best1, highest_wave:best2, heat_total:total,
+      final_ranking:result, notes:JSON.stringify(waves),
+      created_by:S.user.id
+    });
+    toast('✅ Heat guardado','success');
+    closeModal('heatEntryModal');
+    loadCompMode(compId, athleteId, athleteName);
+  } catch(e){ toast('Error al guardar heat','error'); console.error(e); }
+  finally { showLoad(false); }
 }
 
 
