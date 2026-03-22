@@ -2752,7 +2752,7 @@ function openAddBlockModal(date, existData=null){
       <input type="hidden" id="ctTargetScore" value="${ct.target_score||''}">
       <label class="inp-label">🏆 Incluir preparación pre-heat para el atleta</label>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <button class="pill${ct.include_prep?.' pill-on':''}" id="ctPrepOn" onclick="document.getElementById('ctIncludePrep').value='1';this.classList.add('pill-on');document.getElementById('ctPrepOff').classList.remove('pill-on');" style="flex:1;">✅ Sí — Incluir todo el proceso</button>
+        <button class="pill${ct.include_prep?' pill-on':''}" id="ctPrepOn" onclick="document.getElementById('ctIncludePrep').value='1';this.classList.add('pill-on');document.getElementById('ctPrepOff').classList.remove('pill-on');" style="flex:1;">✅ Sí — Incluir todo el proceso</button>
         <button class="pill${!ct.include_prep?' pill-on':''}" id="ctPrepOff" onclick="document.getElementById('ctIncludePrep').value='0';this.classList.add('pill-on');document.getElementById('ctPrepOn').classList.remove('pill-on');" style="flex:1;">❌ No — Solo la misión</button>
       </div>
       <input type="hidden" id="ctIncludePrep" value="${ct.include_prep?'1':'0'}">
