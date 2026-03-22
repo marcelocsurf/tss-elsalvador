@@ -6003,12 +6003,13 @@ async function loadCompMode(compId, athleteId, athleteName){
       <div id="step2" style="display:none;margin-top:10px;">
         <div style="font-size:11px;color:var(--grey);margin-bottom:8px;line-height:1.5;">Checklist mental y físico antes de entrar al agua</div>
         ${[
-          {id:'warmup',lbl:'🏃 Calentamiento físico (10-15 min)',tip:'Movilidad articular, activación muscular'},
-          {id:'stretch',lbl:'🤸 Estiramiento dinámico',tip:'Hombros, cadera, tobillos'},
+          {id:'warmup',lbl:'🏃 Calentamiento (10-15 min)',tip:'Movilidad articular, activación muscular, estiramiento'},
+          {id:'simul',lbl:'🏄 Simulación pre-heat',tip:'Pop-ups, giros en seco, simular maniobras en la arena'},
           {id:'breath',lbl:'🫁 Ejercicio de respiración',tip:'4-7-8 o box breathing, 3-5 minutos'},
           {id:'visual',lbl:'👁️ Visualización',tip:'Visualiza tus maniobras clave, siente el take-off'},
           {id:'focus',lbl:'🎯 Palabra clave / Mantra',tip:'Una palabra que te centre: FLOW, ATAQUE, CONFIANZA'},
           {id:'hydrate',lbl:'💧 Hidratación y nutrición',tip:'Agua, electrolitos, snack ligero 30 min antes'},
+          {id:'board',lbl:'🏄‍♂️ Tabla lista y revisada',tip:'Quillas, leash, wax, sin golpes'},
         ].map(item=>`
           <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:${stepStates['pre_'+item.id]?'rgba(34,197,94,.08)':'rgba(255,255,255,.03)'};border:1px solid ${stepStates['pre_'+item.id]?'rgba(34,197,94,.25)':'rgba(255,255,255,.06)'};border-radius:8px;margin-bottom:4px;cursor:pointer;" onclick="this.querySelector('input').checked=!this.querySelector('input').checked;this.style.background=this.querySelector('input').checked?'rgba(34,197,94,.08)':'rgba(255,255,255,.03)';this.style.borderColor=this.querySelector('input').checked?'rgba(34,197,94,.25)':'rgba(255,255,255,.06)';">
             <input type="checkbox" id="cm-pre-${item.id}" ${stepStates['pre_'+item.id]?'checked':''} style="accent-color:var(--green);margin-top:2px;" onclick="event.stopPropagation();">
@@ -6016,6 +6017,21 @@ async function loadCompMode(compId, athleteId, athleteName){
             <div style="font-size:10px;color:var(--grey);">${item.tip}</div></div>
           </div>
         `).join('')}
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);">
+          <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:6px;">🏄‍♂️ INFO DE LA TABLA</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <div><label class="inp-label">Medida</label>
+            <input class="inp" type="text" id="cm-board-size" placeholder="Ej: 5'10, 6'2..." value="${stepStates.board_size||''}"></div>
+            <div><label class="inp-label">Litros</label>
+            <input class="inp" type="text" id="cm-board-liters" placeholder="Ej: 28.5L" value="${stepStates.board_liters||''}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <div><label class="inp-label">Modelo / Shaper</label>
+            <input class="inp" type="text" id="cm-board-model" placeholder="Ej: Channel Islands..." value="${stepStates.board_model||''}"></div>
+            <div><label class="inp-label">Quillas</label>
+            <input class="inp" type="text" id="cm-board-fins" placeholder="Ej: Thruster, Quad..." value="${stepStates.board_fins||''}"></div>
+          </div>
+        </div>
         <label class="inp-label" style="margin-top:8px;">Palabra clave para este evento</label>
         <input class="inp" type="text" id="cm-mantra" placeholder="Ej: FLOW, ATAQUE, CONFIANZA..." value="${stepStates.mantra||''}">
       </div>
@@ -6047,8 +6063,13 @@ async function loadCompMode(compId, athleteId, athleteName){
           ${['Esperar y seleccionar','Atacar la primera','Posición punta','Posición inside','Jugar prioridad'].map(t=>`<button class="pill ${stepStates.heat_start===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-heat-start').value='${t}'">${t}</button>`).join('')}
         </div>
         <input type="hidden" id="cm-heat-start" value="${stepStates.heat_start||''}">
-        <label class="inp-label">Estrategia general</label>
-        <textarea class="ta" id="cm-strategy" placeholder="Ej: Primeros 5 min asegurar una ola backup, luego buscar la ola grande...">${stepStates.strategy||''}</textarea>
+        <label class="inp-label">Estrategia de inicio</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['Comienzo rápido','Construcción de puntos','Selección de olas','Esperar la buena','Backup primero'].map(t=>`<button class="pill ${stepStates.heat_strategy===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-heat-strategy').value='${t}'">${t}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cm-heat-strategy" value="${stepStates.heat_strategy||''}">
+        <label class="inp-label">Notas de estrategia</label>
+        <textarea class="ta" id="cm-strategy" placeholder="Ej: Primeros 5 min asegurar backup, luego buscar la ola grande...">${stepStates.strategy||''}</textarea>
       </div>
     </div>
 
@@ -6163,17 +6184,21 @@ async function saveCompPrep(){
       hazards:gv('cm-hazards'), takeoff_zone:gv('cm-takeoff'),
       mantra:gv('cm-mantra'),
       pre_warmup:document.getElementById('cm-pre-warmup')?.checked||false,
-      pre_stretch:document.getElementById('cm-pre-stretch')?.checked||false,
+      pre_simul:document.getElementById('cm-pre-simul')?.checked||false,
       pre_breath:document.getElementById('cm-pre-breath')?.checked||false,
       pre_visual:document.getElementById('cm-pre-visual')?.checked||false,
       pre_focus:document.getElementById('cm-pre-focus')?.checked||false,
       pre_hydrate:document.getElementById('cm-pre-hydrate')?.checked||false,
+      pre_board:document.getElementById('cm-pre-board')?.checked||false,
+      board_size:gv('cm-board-size'), board_liters:gv('cm-board-liters'),
+      board_model:gv('cm-board-model'), board_fins:gv('cm-board-fins'),
       good_wave:gv('cm-good-wave'), target_score:gv('cm-target-score'),
-      key_moves:gv('cm-key-moves'), heat_start:gv('cm-heat-start'), strategy:gv('cm-strategy'),
+      key_moves:gv('cm-key-moves'), heat_start:gv('cm-heat-start'),
+      heat_strategy:gv('cm-heat-strategy'), strategy:gv('cm-strategy'),
       confidence:gv('cm-confidence'),
       what_worked:gv('cm-what-worked'), what_failed:gv('cm-what-failed'), next_train:gv('cm-next-train'),
       step1_done:!!(gv('cm-wave-type')&&gv('cm-wave-dir')),
-      step2_done:!!(document.getElementById('cm-pre-warmup')?.checked),
+      step2_done:!!(document.getElementById('cm-pre-warmup')?.checked||document.getElementById('cm-pre-simul')?.checked),
       step3_done:!!(gv('cm-good-wave')&&gv('cm-target-score')),
       step4_done:!!(gv('cm-confidence')),
     };
