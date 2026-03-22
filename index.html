@@ -1288,7 +1288,7 @@ async function loadHoy(date){
     let planHtml='';
     if(allBlocks.length){
       // Progress summary
-      const trackableBlocks=allBlocks.filter(p=>!p._isPresencial && p.work_type!=='sesion');
+      const trackableBlocks=allBlocks.filter(p=>!p._isPresencial && p.work_type!=='sesion'&&p.work_type!=='comp_training');
       let totalBlocks=trackableBlocks.length;
       let doneBlocks=trackableBlocks.filter(p=>compState[p.id+'_block']).length;
       let pct=totalBlocks>0?Math.round((doneBlocks/totalBlocks)*100):0;
@@ -1612,7 +1612,7 @@ async function reloadPlansSection(date, compState){
   }
 
   // Count real totals — exclude sesion and presencial blocks from progress calculation
-  const regularBlocks = allBlocks.filter(b=>!b._isPresencial && b.work_type!=='sesion');
+  const regularBlocks = allBlocks.filter(b=>!b._isPresencial && b.work_type!=='sesion' && b.work_type!=='comp_training');
   const regularBlockIds = new Set(regularBlocks.map(b=>String(b.id)));
   let realTotalTasks=0, realTotalBlocks=regularBlocks.length;
   regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); realTotalTasks+=t.length; }catch(e){} });
@@ -1652,7 +1652,7 @@ async function reloadPlansOnly(date, compState){
 function buildPlansHtml(plans, compState, date, sesionResults){
   if(!plans||!plans.length) return '';
   sesionResults = sesionResults || {};
-  const trackable=plans.filter(p=>!p._isPresencial && p.work_type!=='sesion');
+  const trackable=plans.filter(p=>!p._isPresencial && p.work_type!=='sesion'&&p.work_type!=='comp_training');
   let totalBlocks=trackable.length;
   let doneBlocks=trackable.filter(p=>compState[p.id+'_block']).length;
   let pct=totalBlocks>0?Math.round((doneBlocks/totalBlocks)*100):0;
@@ -1692,6 +1692,97 @@ function buildPlansHtml(plans, compState, date, sesionResults){
           <div style="font-size:10px;color:var(--grey);margin-bottom:3px;letter-spacing:.8px;">MISIÓN</div>
           <div style="font-size:13px;line-height:1.6;">${plan.mission}</div>
         </div>`:''}
+      </div>`;
+      return;
+    }
+    // ENTRENO DE COMPETENCIA BLOCK
+    if(plan.work_type==='comp_training'){
+      let ctData={}; try{ctData=JSON.parse(plan.notes||'{}');}catch(e){}
+      const vid=ytId(plan.video_url);
+      const sesRes=sesionResults[plan.id]||null;
+      const isaLabel=(s)=>s>=8?'Excelente':s>=6?'Bueno':s>=4?'Promedio':s>=2?'Regular':'Pobre';
+      const isaColor=(s)=>s>=8?'var(--green)':s>=6?'var(--cyan)':s>=4?'var(--amber)':s>=2?'var(--red)':'var(--grey)';
+      // Parse athlete response if exists
+      let athResp={}; try{const sr=sesionResults[plan.id]; if(sr&&typeof sr==='object') athResp=sr; }catch(e){}
+
+      html+=`<div class="card anim-up" style="margin-bottom:10px;border:2px solid rgba(245,158,11,.5);background:linear-gradient(135deg,rgba(245,158,11,.08) 0%,rgba(180,100,0,.1) 100%);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:26px;">🏆</span>
+            <div>
+              <div style="font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:2px;">Entreno de Competencia</div>
+              <div style="font-size:14px;font-weight:700;">${plan.objective||'Simulación de Heat'}</div>
+            </div>
+          </div>
+          ${ctData.target_score?`<div style="background:rgba(245,158,11,.15);padding:4px 10px;border-radius:12px;">
+            <span style="font-size:14px;font-weight:900;color:var(--amber);font-family:'Space Mono',monospace;">${ctData.target_score}/10</span>
+            <div style="font-size:8px;color:var(--grey);">Objetivo</div>
+          </div>`:''}
+        </div>
+        ${ctData.spot?`<div style="background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
+          <span style="font-size:10px;color:var(--grey);">📍 Spot:</span>
+          <span style="font-size:12px;font-weight:600;color:var(--white);margin-left:4px;">${esc(ctData.spot)}</span>
+        </div>`:''}
+        ${ctData.instructions?`<div style="font-size:12px;color:rgba(232,240,245,.7);line-height:1.5;margin-bottom:8px;">📋 ${esc(ctData.instructions)}</div>`:''}
+        ${vid?`<div style="border-radius:10px;overflow:hidden;margin-bottom:10px;position:relative;padding-bottom:56.25%;height:0;">
+          <iframe src="https://www.youtube.com/embed/${vid}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
+        </div>`:''}
+        ${ctData.include_prep?`
+        <div style="border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:10px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:6px;">🧘 PREPARACIÓN PRE-HEAT</div>
+          <div id="ctPrep_${plan.id}" style="display:none;">
+            <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">
+              ${['Venue Analysis','Calentamiento','Simulación','Respiración','Visualización','Mantra','Tabla lista'].map((item,i)=>`
+              <label style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:6px;cursor:pointer;font-size:11px;color:var(--white);">
+                <input type="checkbox" class="ct-prep-check" data-plan="${plan.id}" style="accent-color:var(--green);"> ${item}
+              </label>`).join('')}
+            </div>
+            <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">📍 Tipo de ola</label>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+              ${['Beach break','Point break','Reef break'].map(t=>`<button class="pill" style="font-size:10px;padding:4px 8px;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');">${t}</button>`).join('')}
+            </div>
+            <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">📍 Posición en lineup</label>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+              ${['A-Peak','B-Inside','C-Outside','D-Dinámica'].map(t=>`<button class="pill" style="font-size:10px;padding:4px 8px;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');">${t}</button>`).join('')}
+            </div>
+            <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">⚡ Estrategia</label>
+            <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px;">
+              ${['Backup primero','Construcción de puntos','Atacar primera ola','Solo 2 olas (selectivo)','Bloquear rival','Comienzo explosivo'].map(t=>`<button class="pill" style="font-size:10px;padding:4px 8px;text-align:left;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');">${t}</button>`).join('')}
+            </div>
+            <input class="inp" type="text" placeholder="Palabra clave / Mantra..." style="margin-bottom:6px;font-size:11px;">
+            <div style="text-align:center;background:rgba(34,197,94,.06);border-radius:8px;padding:10px;margin-bottom:4px;">
+              <div style="font-size:11px;color:var(--green);font-weight:700;">🌊 ENTRA EN LA ZONA</div>
+              <div style="font-size:10px;color:var(--grey);">3 respiraciones. Visualiza. Confía.</div>
+            </div>
+          </div>
+          <button class="btn btn-xs" style="width:100%;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2);" onclick="const el=document.getElementById('ctPrep_${plan.id}');el.style.display=el.style.display==='none'?'block':'none';this.textContent=el.style.display==='none'?'📋 Abrir preparación pre-heat':'📋 Cerrar preparación';">📋 Abrir preparación pre-heat</button>
+        </div>`:''}
+
+        <div style="border-top:1px solid rgba(245,158,11,.15);padding-top:10px;margin-top:6px;">
+          <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px;">📊 RESULTADOS</div>
+          <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">🌊 Scores de olas (1-10)</label>
+          <input class="inp" type="text" id="ctWaves_${plan.id}" placeholder="Ej: 4.5, 3.2, 6.7, 5.1" style="margin-bottom:4px;font-size:12px;" oninput="renderCtWavePreview('${plan.id}')">
+          <div id="ctWavePreview_${plan.id}" style="margin-bottom:8px;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+            <div>
+              <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">✅ ¿Cumplió la misión?</label>
+              <div style="display:flex;gap:4px;">
+                ${['Si','Parcial','No'].map(v=>`<button class="pill ct-mission-btn" data-plan="${plan.id}" style="flex:1;font-size:11px;padding:6px 0;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ctMission_${plan.id}').value='${v}'">${v==='Si'?'✅ Sí':v==='Parcial'?'⚡ Parcial':'❌ No'}</button>`).join('')}
+              </div>
+              <input type="hidden" id="ctMission_${plan.id}" value="">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">🎯 Enfoque (1-5)</label>
+              <div style="display:flex;gap:3px;">
+                ${[1,2,3,4,5].map(n=>`<button class="pill" style="flex:1;font-size:12px;font-weight:800;padding:6px 0;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ctFocus_${plan.id}').value='${n}'">${n}</button>`).join('')}
+              </div>
+              <input type="hidden" id="ctFocus_${plan.id}" value="">
+            </div>
+          </div>
+          <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">💬 Comentarios</label>
+          <textarea class="ta" id="ctComments_${plan.id}" placeholder="¿Cómo te sentiste? ¿Qué maniobras salieron?" style="min-height:50px;font-size:11px;"></textarea>
+          <button class="btn btn-amber" style="width:100%;margin-top:8px;" onclick="saveCompTrainResult('${plan.id}','${date}')">💾 Guardar Resultados</button>
+        </div>
       </div>`;
       return;
     }
@@ -2341,6 +2432,7 @@ const BLOCK_TYPES = [
   {id:'tactico',   emoji:'🎯', label:'Táctico',          color:'amber'},
   {id:'mental',    emoji:'🧠', label:'Mental',           color:'purple'},
   {id:'recovery',  emoji:'🛁', label:'Recovery',         color:'green'},
+  {id:'comp_training',emoji:'🏆',label:'Entreno Competencia',color:'amber', isCompTrain:true},
   {id:'otro',      emoji:'📋', label:'Otro',             color:'grey'},
 ];
 
@@ -2649,6 +2741,23 @@ function openAddBlockModal(date, existData=null){
       <label class="inp-label">🔁 Repeticiones / Series</label>
       <input type="text" class="inp" id="blockSesionReps" value="${existData?existData.sesion_reps||'':''}" placeholder="Ej: 3 series de 15 min">
     </div>
+    <div id="compTrainFields" style="display:${existData&&existData.work_type==='comp_training'?'block':'none'};">
+      ${(()=>{let ct={}; try{if(existData&&existData.work_type==='comp_training')ct=JSON.parse(existData.notes||'{}');}catch(e){} return `
+      <label class="inp-label">📍 Spot / Condiciones</label>
+      <input type="text" class="inp" id="ctSpot" value="${ct.spot||''}" placeholder="Ej: Playa El Tunco, 3-4 pies, derecha">
+      <label class="inp-label">⚡ Score objetivo (1-10)</label>
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="pill${ct.target_score==n?' pill-on':''}" style="flex:1;padding:6px 0;font-size:12px;font-weight:800;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ctTargetScore').value='${n}'">${n}</button>`).join('')}
+      </div>
+      <input type="hidden" id="ctTargetScore" value="${ct.target_score||''}">
+      <label class="inp-label">🏆 Incluir preparación pre-heat para el atleta</label>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="pill${ct.include_prep?.' pill-on':''}" id="ctPrepOn" onclick="document.getElementById('ctIncludePrep').value='1';this.classList.add('pill-on');document.getElementById('ctPrepOff').classList.remove('pill-on');" style="flex:1;">✅ Sí — Incluir todo el proceso</button>
+        <button class="pill${!ct.include_prep?' pill-on':''}" id="ctPrepOff" onclick="document.getElementById('ctIncludePrep').value='0';this.classList.add('pill-on');document.getElementById('ctPrepOn').classList.remove('pill-on');" style="flex:1;">❌ No — Solo la misión</button>
+      </div>
+      <input type="hidden" id="ctIncludePrep" value="${ct.include_prep?'1':'0'}">
+      `;})()}
+    </div>
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;margin-bottom:8px;">
       <label class="inp-label" style="margin:0;">Tareas específicas</label>
@@ -2683,6 +2792,8 @@ function selectBlockType(id, btn){
 
   const sf=document.getElementById('sesionExtraFields');
   if(sf) sf.style.display = id==='sesion'?'block':'none';
+  const ct=document.getElementById('compTrainFields');
+  if(ct) ct.style.display = id==='comp_training'?'block':'none';
 }
 
 async function openEditBlockModal(planId, date){
@@ -2694,6 +2805,58 @@ async function openEditBlockModal(planId, date){
     data.id=planId;
     openAddBlockModal(date, data);
   } catch(e){ toast('Error','error'); console.error(e); } finally { showLoad(false); }
+}
+
+function renderCtWavePreview(planId){
+  const el=document.getElementById('ctWavePreview_'+planId); if(!el) return;
+  const raw=gv('ctWaves_'+planId);
+  if(!raw){el.innerHTML='';return;}
+  const waves=raw.split(',').map(w=>parseFloat(w.trim())).filter(w=>!isNaN(w)&&w>=0&&w<=10);
+  if(!waves.length){el.innerHTML='';return;}
+  const sorted=[...waves].sort((a,b)=>b-a);
+  const best1=sorted[0]||0, best2=sorted[1]||0, total=best1+best2;
+  const isaLabel=(s)=>s>=8?'Excelente':s>=6?'Bueno':s>=4?'Promedio':s>=2?'Regular':'Pobre';
+  const isaColor=(s)=>s>=8?'var(--green)':s>=6?'var(--cyan)':s>=4?'var(--amber)':s>=2?'var(--red)':'var(--grey)';
+  el.innerHTML=`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px;">${waves.map((w,i)=>`<span style="font-size:9px;padding:3px 6px;border-radius:4px;background:rgba(255,255,255,.05);border:1px solid ${isaColor(w)};color:${isaColor(w)};">Ola ${i+1}: ${w} · ${isaLabel(w)}</span>`).join('')}</div>
+  <div style="display:flex;gap:8px;">
+    <div style="background:var(--bg3);border-radius:8px;padding:6px 10px;text-align:center;flex:1;">
+      <div style="font-size:16px;font-weight:900;color:${isaColor(best1)};">${best1.toFixed(1)}</div>
+      <div style="font-size:8px;color:var(--grey);">Mejor 1 · ${isaLabel(best1)}</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:6px 10px;text-align:center;flex:1;">
+      <div style="font-size:16px;font-weight:900;color:${isaColor(best2)};">${best2.toFixed(1)}</div>
+      <div style="font-size:8px;color:var(--grey);">Mejor 2 · ${isaLabel(best2)}</div>
+    </div>
+    <div style="background:rgba(245,158,11,.1);border-radius:8px;padding:6px 10px;text-align:center;flex:1;">
+      <div style="font-size:16px;font-weight:900;color:var(--amber);">${total.toFixed(2)}</div>
+      <div style="font-size:8px;color:var(--grey);">Total Heat</div>
+    </div>
+  </div>`;
+}
+
+async function saveCompTrainResult(planId, date){
+  const wavesStr=gv('ctWaves_'+planId);
+  const mission=gv('ctMission_'+planId);
+  const focus=gv('ctFocus_'+planId);
+  const comments=gv('ctComments_'+planId);
+  const waves=wavesStr?wavesStr.split(',').map(w=>parseFloat(w.trim())).filter(w=>!isNaN(w)&&w>=0&&w<=10):[];
+  const sorted=[...waves].sort((a,b)=>b-a);
+  const best1=sorted[0]||0, best2=sorted[1]||0, total=best1+best2;
+  const result={waves,best1,best2,total,mission,focus:parseInt(focus)||0,comments};
+  // Save via sesion_result mechanism (same as sesion blocks)
+  try {
+    const existing=(await db.from('tss_daily_checkins').select('*').eq('athlete_id',S.user.id).eq('date',date).maybeSingle()).data;
+    const prevSR=existing?.sesion_result?JSON.parse(existing.sesion_result):{};
+    const newSR=JSON.stringify(Object.assign(prevSR,{[planId]:result}));
+    let error;
+    if(existing){
+      ({error}=await db.from('tss_daily_checkins').update({sesion_result:newSR}).eq('athlete_id',S.user.id).eq('date',date));
+    } else {
+      ({error}=await db.from('tss_daily_checkins').insert({athlete_id:S.user.id,date,sesion_result:newSR}));
+    }
+    if(error) throw error;
+    toast('✅ Resultados de competencia guardados','success');
+  } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); }
 }
 
 async function saveSesionResult(planId, result, date){
@@ -2729,11 +2892,21 @@ async function saveBlock(date, existId){
 
   if((scope==='group'||scope==='individual')&&!target_id){ toast('Selecciona el destino','error'); return; }
   const isSesionBlock = work_type === 'sesion';
+  const isCompTrain = work_type === 'comp_training';
+  let notesVal = gv('blockNotes');
+  if(isCompTrain){
+    const ctData={
+      spot:gv('ctSpot'), target_score:gv('ctTargetScore'),
+      include_prep:gv('ctIncludePrep')==='1',
+      instructions:gv('blockNotes'),
+    };
+    notesVal=JSON.stringify(ctData);
+  }
   const payload = {
     date, scope, target_id,
     work_type,
     objective: gv('blockObj'),
-    notes: gv('blockNotes'),
+    notes: notesVal,
     exercises: JSON.stringify(_planTasks.filter(t=>t.name.trim())),
     video_url: gv('blockVideo')||null,
     created_by: S.user.id,
