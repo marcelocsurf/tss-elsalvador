@@ -5870,7 +5870,7 @@ async function loadCompetencias(athleteId){
               ${c.category?`<div style="margin-top:5px;"><span class="chip chip-amber">${c.category}</span></div>`:''}
               <div style="font-size:11px;color:var(--cyan);margin-top:5px;font-weight:700;">En ${daysLeft} día${daysLeft!==1?'s':''}</div>
               ${c.notes?`<p style="font-size:11px;color:rgba(232,240,245,.4);margin-top:4px;">${c.notes}</p>`:''}
-              <button class="btn btn-xs btn-amber" style="margin-top:6px;" onclick="openCompMode('${c.id}','${athleteId}','${esc(S.athletes.find(a=>a.id===athleteId)?.name||'')}')">🏆 Modo Competencia</button>
+              <button class="btn btn-xs btn-amber" style="margin-top:6px;" onclick="openCompMode('${c.id}','${athleteId}','${escAttr(S.athletes.find(a=>a.id===athleteId)?.name||'')}')">🏆 Modo Competencia</button>
             </div>
             ${isCoach?`<div style="display:flex;flex-direction:column;gap:4px;">
               <button class="btn btn-xs btn-outline" onclick="openCompModal('${athleteId}','${c.id}')">✏️</button>
@@ -5893,7 +5893,7 @@ async function loadCompetencias(athleteId){
               <div style="font-size:13px;font-weight:600;">${c.name}</div>
               ${c.place?`<div style="font-size:11px;color:var(--grey);">📍 ${c.place}</div>`:''}
               ${c.category?`<span class="chip chip-grey" style="margin-top:4px;">${c.category}</span>`:''}
-              <button class="btn btn-xs" style="margin-top:4px;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.25);font-size:9px;" onclick="openCompMode('${c.id}','${athleteId}','${esc(S.athletes.find(a=>a.id===athleteId)?.name||'')}')">🏆 Ver Competencia</button>
+              <button class="btn btn-xs" style="margin-top:4px;background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.25);font-size:9px;" onclick="openCompMode('${c.id}','${athleteId}','${escAttr(S.athletes.find(a=>a.id===athleteId)?.name||'')}')">🏆 Ver Competencia</button>
             </div>
             ${isCoach?`<div style="display:flex;flex-direction:column;gap:4px;">
               <button class="btn btn-xs btn-outline" onclick="openCompModal('${athleteId}','${c.id}')">✏️</button>
@@ -6125,7 +6125,17 @@ async function loadCompMode(compId, athleteId, athleteName){
       </div>
       <div id="heatsList">
         ${heats.length?heats.map((h,i)=>{
-          let waves=[]; try{waves=JSON.parse(h.notes||'[]');}catch(e){waves=[];}
+          let waves=[]; let heatNote='';
+          try{
+            const rawNotes=h.notes||'';
+            if(rawNotes.includes(' | Olas: ')){
+              const parts=rawNotes.split(' | Olas: ');
+              heatNote=parts[0];
+              waves=JSON.parse(parts[1]||'[]');
+            } else {
+              waves=JSON.parse(rawNotes||'[]');
+            }
+          }catch(e){waves=[];}
           if(!Array.isArray(waves)) waves=[];
           const w1=parseFloat(h.avg_wave_score)||0;
           const w2=parseFloat(h.highest_wave)||0;
@@ -6134,7 +6144,7 @@ async function loadCompMode(compId, athleteId, athleteName){
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <div>
                 <span style="font-size:13px;font-weight:800;color:var(--amber);">${h.round_reached||'Heat '+(i+1)}</span>
-                <span style="font-size:11px;color:var(--grey);margin-left:6px;">${h.category||''}</span>
+                ${heatNote?`<span style="font-size:11px;color:var(--grey);margin-left:6px;">${esc(heatNote)}</span>`:''}
               </div>
               <div style="font-size:20px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;">${total.toFixed(2)}</div>
             </div>
@@ -6264,7 +6274,7 @@ function addHeatEntry(){
     <div style="font-size:10px;color:var(--grey);margin-top:-4px;margin-bottom:8px;">Ingresa todas las olas surfeadas, las 2 mejores se calculan automáticamente</div>
     <label class="inp-label">Resultado del heat</label>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-      ${['1° Avanzó','2° Avanzó','3° Eliminado','4° Eliminado','Ganó Final','2° Final','3° Final'].map(r=>`<button class="pill" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-result').value='${r}'">${r}</button>`).join('')}
+      ${['1ro Avanzo','2do Avanzo','3ro Eliminado','4to Eliminado','Gano Final','2do Final','3ro Final'].map(r=>`<button class="pill" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-result').value='${r}'">${r}</button>`).join('')}
     </div>
     <input type="hidden" id="ht-result" value="">
     <label class="inp-label">Notas del heat (opcional)</label>
@@ -6294,11 +6304,14 @@ async function saveHeatEntry(){
 
   showLoad(true);
   try {
+    const heatNotes=gv('ht-notes');
+    const waveJson=JSON.stringify(waves);
     let heatPayload={
       athlete_id:athleteId, date:todayStr(), event_name:eventName,
-      category:gv('ht-notes'), round_reached:round,
+      round_reached:round,
       avg_wave_score:best1, highest_wave:best2, heat_total:total,
-      final_ranking:result, notes:JSON.stringify(waves),
+      final_ranking:result,
+      notes:heatNotes?heatNotes+' | Olas: '+waveJson:waveJson,
       created_by:S.user.id
     };
     let res=await db.from('tss_comp_evaluations').insert(heatPayload);
