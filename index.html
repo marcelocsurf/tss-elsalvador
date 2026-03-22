@@ -6058,18 +6058,38 @@ async function loadCompMode(compId, athleteId, athleteName){
         <input type="hidden" id="cm-target-score" value="${stepStates.target_score||''}">
         <label class="inp-label">Maniobras clave a ejecutar</label>
         <textarea class="ta" id="cm-key-moves" placeholder="Ej: Bottom turn potente → snap en la sección → floater de cierre">${stepStates.key_moves||''}</textarea>
-        <label class="inp-label">¿Dónde empiezo el heat?</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-          ${['Esperar y seleccionar','Atacar la primera','Posición punta','Posición inside','Jugar prioridad'].map(t=>`<button class="pill ${stepStates.heat_start===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-heat-start').value='${t}'">${t}</button>`).join('')}
+        <div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:6px;margin-top:4px;">📍 POSICIÓN EN EL LINEUP</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
+          ${[
+            {id:'A',lbl:'A — Peak principal',tip:'Donde rompen los sets'},
+            {id:'B',lbl:'B — Zona inside',tip:'Olas trabajables, scoring fácil'},
+            {id:'C',lbl:'C — Outside / Punta',tip:'Sets grandes, espera larga'},
+            {id:'D',lbl:'D — Posición dinámica',tip:'Me muevo según rival y prioridad'},
+          ].map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid ${stepStates.lineup_pos===p.id?'var(--cyan)':'rgba(255,255,255,.08)'};background:${stepStates.lineup_pos===p.id?'rgba(0,201,232,.1)':'rgba(255,255,255,.03)'};" onclick="this.parentElement.querySelectorAll('div[style]').forEach(d=>{d.style.borderColor='rgba(255,255,255,.08)';d.style.background='rgba(255,255,255,.03)';});this.style.borderColor='var(--cyan)';this.style.background='rgba(0,201,232,.1)';document.getElementById('cm-lineup-pos').value='${p.id}';">
+            <span style="font-size:18px;font-weight:900;color:${stepStates.lineup_pos===p.id?'var(--cyan)':'var(--grey)'};">${p.id}</span>
+            <div><div style="font-size:12px;font-weight:700;color:var(--white);">${p.lbl}</div>
+            <div style="font-size:10px;color:var(--grey);">${p.tip}</div></div>
+          </div>`).join('')}
         </div>
-        <input type="hidden" id="cm-heat-start" value="${stepStates.heat_start||''}">
-        <label class="inp-label">Estrategia de inicio</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-          ${['Comienzo rápido','Construcción de puntos','Selección de olas','Esperar la buena','Backup primero'].map(t=>`<button class="pill ${stepStates.heat_strategy===t?'pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('cm-heat-strategy').value='${t}'">${t}</button>`).join('')}
+        <input type="hidden" id="cm-lineup-pos" value="${stepStates.lineup_pos||''}">
+
+        <div style="font-size:12px;font-weight:800;color:var(--amber);margin-bottom:6px;">⚡ ESTRATEGIA DE HEAT</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
+          ${[
+            {id:'backup',lbl:'1. Backup primero, luego esperar la buena',tip:'Asegurar ola mediana en primeros 5 min. No quedar a 0. Después buscar puntaje alto.'},
+            {id:'build',lbl:'2. Construcción de puntos',tip:'Dos olas medianas bien ejecutadas > esperar una perfecta que puede no llegar. Ideal cuando el mar está inconsistente.'},
+            {id:'attack',lbl:'3. Aprovechar la primera oportunidad',tip:'Sin filtro al inicio. Primera ola disponible se ataca con todo. Genera presión inmediata al rival.'},
+            {id:'select',lbl:'4. Solo dos olas en todo el heat',tip:'Modo ultra-selectivo. Esperar las dos mejores olas. Alta confianza en lectura de océano y ejecución.'},
+            {id:'block',lbl:'5. Bloquear posición del rival',tip:'Ubicarse en el peak del oponente para forzar que salga de su zona. Requiere leer bien su patrón.'},
+            {id:'explode',lbl:'6. Comienzo explosivo + dominar prioridad',tip:'Atacar rápido, acumular puntaje, forzar al rival a necesitar scores imposibles.'},
+          ].map(s=>`<div style="padding:10px;border-radius:10px;cursor:pointer;border:1px solid ${stepStates.heat_strategy===s.id?'var(--amber)':'rgba(255,255,255,.08)'};background:${stepStates.heat_strategy===s.id?'rgba(245,158,11,.1)':'rgba(255,255,255,.03)'};" onclick="this.parentElement.querySelectorAll('div[style]').forEach(d=>{d.style.borderColor='rgba(255,255,255,.08)';d.style.background='rgba(255,255,255,.03)';});this.style.borderColor='var(--amber)';this.style.background='rgba(245,158,11,.1)';document.getElementById('cm-heat-strategy').value='${s.id}';">
+            <div style="font-size:12px;font-weight:700;color:${stepStates.heat_strategy===s.id?'var(--amber)':'var(--white)'};">${s.lbl}</div>
+            <div style="font-size:10px;color:var(--grey);margin-top:3px;line-height:1.4;">${s.tip}</div>
+          </div>`).join('')}
         </div>
         <input type="hidden" id="cm-heat-strategy" value="${stepStates.heat_strategy||''}">
-        <label class="inp-label">Notas de estrategia</label>
-        <textarea class="ta" id="cm-strategy" placeholder="Ej: Primeros 5 min asegurar backup, luego buscar la ola grande...">${stepStates.strategy||''}</textarea>
+        <label class="inp-label">Notas adicionales de estrategia</label>
+        <textarea class="ta" id="cm-strategy" placeholder="Detalles específicos para este heat...">${stepStates.strategy||''}</textarea>
       </div>
     </div>
 
@@ -6193,13 +6213,13 @@ async function saveCompPrep(){
       board_size:gv('cm-board-size'), board_liters:gv('cm-board-liters'),
       board_model:gv('cm-board-model'), board_fins:gv('cm-board-fins'),
       good_wave:gv('cm-good-wave'), target_score:gv('cm-target-score'),
-      key_moves:gv('cm-key-moves'), heat_start:gv('cm-heat-start'),
+      key_moves:gv('cm-key-moves'), lineup_pos:gv('cm-lineup-pos'),
       heat_strategy:gv('cm-heat-strategy'), strategy:gv('cm-strategy'),
       confidence:gv('cm-confidence'),
       what_worked:gv('cm-what-worked'), what_failed:gv('cm-what-failed'), next_train:gv('cm-next-train'),
       step1_done:!!(gv('cm-wave-type')&&gv('cm-wave-dir')),
       step2_done:!!(document.getElementById('cm-pre-warmup')?.checked||document.getElementById('cm-pre-simul')?.checked),
-      step3_done:!!(gv('cm-good-wave')&&gv('cm-target-score')),
+      step3_done:!!(gv('cm-good-wave')||gv('cm-target-score')||gv('cm-lineup-pos')||gv('cm-heat-strategy')),
       step4_done:!!(gv('cm-confidence')),
     };
     // Check if prep record exists
