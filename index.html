@@ -1377,7 +1377,7 @@ async function loadHoy(date){
                 ${blockDone?'✅':'○'}
               </button>
             </div>
-            ${plan.notes?`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.85);margin-bottom:10px;">${plan.notes}</p>`:''}
+            ${plan.notes?`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.85);margin-bottom:10px;">${esc(plan.notes)}</p>`:''}
             <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
               ${plan.sesion_time?`<div style="background:rgba(0,201,232,.12);border:1px solid rgba(0,201,232,.25);border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:6px;">
                 <span style="font-size:14px;">⏱</span>
@@ -1451,7 +1451,7 @@ async function loadHoy(date){
               ${blockDone?'✅':'○'}
             </button>
           </div>
-          ${plan.notes?`<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:rgba(232,240,245,.8);margin-bottom:8px;">${plan.notes}</p>`:''}
+          ${plan.notes?`<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:rgba(232,240,245,.8);margin-bottom:8px;">${esc(plan.notes)}</p>`:''}
           ${tasks.length?`
           <div style="margin-bottom:6px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
@@ -1711,7 +1711,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
             <span style="font-size:26px;">🏆</span>
             <div>
               <div style="font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:2px;">Entreno de Competencia</div>
-              <div style="font-size:14px;font-weight:700;">${plan.objective||'Simulacion de Heat'}</div>
+              <div style="font-size:14px;font-weight:700;">${esc(plan.objective)||'Simulacion de Heat'}</div>
             </div>
           </div>
           ${ctData.target_score?`<div style="background:rgba(245,158,11,.15);padding:4px 10px;border-radius:12px;">
@@ -1769,7 +1769,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
             </div>
             <input type="hidden" id="ctPrepStrategy_${pid}" value="${prep.strategy||''}">
 
-            <input class="inp" type="text" id="ctPrepMantra_${pid}" placeholder="Palabra clave / Mantra..." style="margin-bottom:8px;font-size:12px;" value="${prep.mantra||''}">
+            <input class="inp" type="text" id="ctPrepMantra_${pid}" placeholder="Palabra clave / Mantra..." style="margin-bottom:8px;font-size:12px;" value="${escAttr(prep.mantra||'')}">
 
             <div style="text-align:center;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(0,201,232,.06));border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:14px;margin-bottom:4px;">
               <div style="font-size:28px;margin-bottom:4px;">🌊</div>
@@ -1803,7 +1803,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
             </div>
           </div>
           <label style="font-size:10px;color:var(--grey);display:block;margin-bottom:4px;">💬 Comentarios</label>
-          <textarea class="ta" id="ctComments_${pid}" placeholder="Que maniobras salieron? Que fallo? Como te sentiste?" style="min-height:50px;font-size:11px;">${athResp.comments||''}</textarea>
+          <textarea class="ta" id="ctComments_${pid}" placeholder="Que maniobras salieron? Que fallo? Como te sentiste?" style="min-height:50px;font-size:11px;">${esc(athResp.comments||'')}</textarea>
           <button class="btn btn-amber" style="width:100%;margin-top:8px;padding:12px;" onclick="saveCompTrainResult('${pid}','${date}')">💾 Guardar Resultados</button>
         </div>
       </div>`;
@@ -1832,7 +1832,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
             ${blockDone?'✅':'○'}
           </button>
         </div>
-        ${plan.notes?`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.85);margin-bottom:10px;">${plan.notes}</p>`:''}
+        ${plan.notes?`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.85);margin-bottom:10px;">${esc(plan.notes)}</p>`:''}
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
           ${plan.sesion_time?`<div style="background:rgba(0,201,232,.12);border:1px solid rgba(0,201,232,.25);border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:6px;">
             <span style="font-size:14px;">⏱</span>
@@ -1905,7 +1905,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
           ${blockDone?'✅':'○'}
         </button>
       </div>
-      ${plan.notes?`<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:rgba(232,240,245,.8);margin-bottom:8px;">${plan.notes}</p>`:''}
+      ${plan.notes?`<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:rgba(232,240,245,.8);margin-bottom:8px;">${esc(plan.notes)}</p>`:''}
       ${tasks.length?`
       <div style="margin-bottom:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
@@ -2643,7 +2643,7 @@ async function loadPlanDay(date){
               <button class="btn btn-xs btn-red" onclick="deleteBlock('${plan.id}','${date}')">🗑</button>
             </div>`:''}
           </div>
-          ${plan.notes?`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.8);white-space:pre-wrap;margin-bottom:8px;">${plan.notes}</p>`:''}
+          ${plan.notes?`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.8);white-space:pre-wrap;margin-bottom:8px;">${esc(plan.notes)}</p>`:''}
           ${plan._blocks&&plan._blocks.length?`
             <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
               ${plan._blocks.map((t,i)=>`
@@ -2891,8 +2891,8 @@ async function saveCompTrainResult(planId, date){
     }
     if(error) throw error;
     toast('✅ Resultados guardados','success');
-    // Reload the plans section to show saved state
-    setTimeout(()=>reloadPlansSection&&reloadPlansSection(),500);
+    // Reload the full day view to show saved state
+    setTimeout(()=>{try{loadHoy(date);}catch(e){}},500);
   } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); }
 }
 
