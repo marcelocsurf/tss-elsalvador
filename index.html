@@ -1486,22 +1486,26 @@ async function loadHoy(date){
     }
 
     let ciHtml='';
-    const ciComplete = ci && (ci.water_glasses || ci.energy_level || ci.focus_level);
+    const ciComplete = ci && (ci.water_glasses || ci.energy_level || ci.focus_level) && !window._ciEditMode;
+    window._ciEditMode = false; // reset flag after use
     if(ciComplete){
       ciHtml=`<div class="card card-green anim-up">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="sec-title" style="margin-bottom:0;">Mi Check-in de Hoy</div>
-          <span class="completed-badge">✅ Completado</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span class="completed-badge">✅ Completado</span>
+            <button class="btn btn-xs btn-outline" onclick="editCheckin('${date}')" style="font-size:10px;padding:3px 8px;">✏️ Editar</button>
+          </div>
         </div>
         <div class="checkin-grid">
           <div class="checkin-box"><div class="checkin-val" style="color:var(--cyan);">${ci.water_glasses??0}${ci.water_glasses>=8?'+':''}</div><div class="checkin-lbl">💧 Vasos agua</div></div>
-          <div class="checkin-box"><div class="checkin-val" style="color:var(--amber);">${ci.energy_level}/5</div><div class="checkin-lbl">⚡ Energía</div></div>
+          <div class="checkin-box"><div class="checkin-val" style="color:var(--amber);">${ci.energy_level??0}/5</div><div class="checkin-lbl">⚡ Energía</div></div>
           <div class="checkin-box"><div class="checkin-val" style="color:${ci.nutrition==='Si'?'var(--green)':ci.nutrition==='Medio'?'var(--amber)':ci.nutrition?'var(--red)':'var(--grey)'};">${ci.nutrition||'—'}</div><div class="checkin-lbl">🥗 Nutrición</div></div>
-          <div class="checkin-box"><div class="checkin-val" style="color:var(--purple);">${ci.focus_level}/5</div><div class="checkin-lbl">🎯 Enfoque</div></div>
+          <div class="checkin-box"><div class="checkin-val" style="color:var(--purple);">${ci.focus_level??0}/5</div><div class="checkin-lbl">🎯 Enfoque</div></div>
           ${ci.surf_hours?`<div class="checkin-box"><div class="checkin-val" style="color:var(--cyan);">${ci.surf_hours}h</div><div class="checkin-lbl">🏄 Surf</div></div>`:''}
+          ${ci.goal_achieved?`<div class="checkin-box"><div class="checkin-val" style="color:${ci.goal_achieved==='Si'?'var(--green)':ci.goal_achieved==='Parcial'?'var(--amber)':'var(--red)'};">${ci.goal_achieved==='Si'?'✅':ci.goal_achieved==='Parcial'?'⚡':'❌'}</div><div class="checkin-lbl">🎯 Objetivo</div></div>`:''}
         </div>
-        
-        ${ci.notes?`<p style="font-size:12px;color:rgba(232,240,245,.5);margin-top:8px;">${ci.notes}</p>`:''}
+        ${ci.notes?`<p style="font-size:12px;color:rgba(232,240,245,.5);margin-top:8px;">💬 ${esc(ci.notes)}</p>`:''}
       </div>`;
     } else {
       ciHtml=`<div class="card anim-up">
@@ -1538,10 +1542,21 @@ async function loadHoy(date){
             <span style="font-size:13px;color:var(--grey);">horas en el agua</span>
           </div>
           <label class="inp-label">Notas (opcional)</label>
-          <textarea class="ta" id="ci-notes" placeholder="¿Cómo estuvo el día?"></textarea>
+          <textarea class="ta" id="ci-notes" placeholder="¿Cómo estuvo el día?">${ci?.notes||''}</textarea>
           <button class="save-btn" onclick="saveCheckin('${date}')">💾 Guardar Check-in</button>
         </div>
       </div>`;
+    }
+    // Pre-fill form with existing values when editing
+    if(!ciComplete && ci){
+      setTimeout(()=>{
+        if(ci.water_glasses){ const wb=document.querySelectorAll('.water-btn'); if(wb[ci.water_glasses-1]){ pickWater(ci.water_glasses, wb[ci.water_glasses-1]); }}
+        if(ci.energy_level){ const se=document.getElementById('sc-ci-energy'); if(se){se.value=ci.energy_level; document.querySelectorAll('#ciForm .scale-row .s-btn').forEach(b=>{if(parseInt(b.dataset.val)===ci.energy_level)b.classList.add('on');});}}
+        if(ci.nutrition){ document.getElementById('ci-nutri').value=ci.nutrition; document.querySelectorAll('#ciForm .opt-pill').forEach(b=>{if(b.textContent.trim()===(ci.nutrition==='Si'?'Sí':ci.nutrition))b.classList.add(ci.nutrition==='Si'?'on-green':ci.nutrition==='Medio'?'on-amber':'on-red');});}
+        if(ci.focus_level){ const sf=document.getElementById('sc-ci-focus'); if(sf){sf.value=ci.focus_level;}}
+        if(ci.goal_achieved){ const sg=document.getElementById('ci-goal'); if(sg) sg.value=ci.goal_achieved;}
+        if(ci.surf_hours){ const sh=document.getElementById('ci-surf-hours'); if(sh) sh.value=ci.surf_hours;}
+      },100);
     }
 
     el.innerHTML=`<div id="plansSection">${planHtml}</div>`+ciHtml;
@@ -2027,6 +2042,15 @@ function pickOpt(hiddenId,btn,val,onClass){
  * ║  los valores del atleta con 0 o null → bug de wellness reset.  ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
+function editCheckin(date){
+  // Re-load the day view which will show the form again (we temporarily clear the CI cache)
+  const sel = S.selDate || date;
+  // Force re-render by wiping sessionStorage cache for this date
+  try{ sessionStorage.removeItem(`tss_ci_edit_${date}`); }catch(e){}
+  // Set edit flag so loadHoy shows form instead of summary
+  window._ciEditMode = true;
+  loadHoy(sel);
+}
 async function saveCheckin(date){
   const water=parseInt(gv('ci-water')||0);
   const energy=parseInt(gv('sc-ci-energy')||0);
@@ -2044,7 +2068,7 @@ async function saveCheckin(date){
   showLoad(true);
   try {
     const surfHours = parseFloat(document.getElementById('ci-surf-hours')?.value||0)||null;
-    const checkinData = {water_glasses:water,energy_level:energy,nutrition:nutri,focus_level:focus||null,goal_achieved:goal||null,notes:gv('ci-notes'),surf_hours:surfHours};
+    const checkinData = {water_glasses:water,energy_level:energy,nutrition:nutri,focus_level:focus,goal_achieved:goal||'',notes:gv('ci-notes'),surf_hours:surfHours};
     const existing = (await db.from('tss_daily_checkins').select('*').eq('athlete_id',S.user.id).eq('date',date).maybeSingle()).data;
     let error;
     if(existing){
