@@ -3739,17 +3739,11 @@ async function vPanel(){
   render(`<div class="page-title">Coach Panel</div><div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando...</div>`);
   try {
     const today = todayStr();
-    // Also load last 7 days of check-ins for fatigue index
-    const d7=new Date(); d7.setDate(d7.getDate()-7); const date7=d7.toISOString().split('T')[0];
     const offFloor = showOfficialOnly ? OFFICIAL_START : '2000-01-01';
-    let qSess = db.from('tss_presencial_sessions').select('athlete_ids,date').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false});
-    let qEvals = db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive,date').gte('date',offFloor).order('date',{ascending:false}).limit(300);
-    let qWeek = db.from('tss_daily_checkins').select('athlete_id,energy_level,focus_level,nutrition,surf_hours,water_glasses,goal_achieved').gte('date',date7>offFloor?date7:offFloor).order('date',{ascending:false});
-    const [{data:sessions},{data:evals},{data:checkins},{data:weekCheckins},{data:presFeedbacks}] = await Promise.all([
-      qSess, qEvals,
+    const [{data:sessions},{data:evals},{data:checkins}] = await Promise.all([
+      db.from('tss_presencial_sessions').select('athlete_ids,date').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false}),
+      db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive,date').gte('date',offFloor).order('date',{ascending:false}).limit(300),
       db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes,sesion_result').eq('date',today),
-      qWeek,
-      db.from('tss_presencial_feedbacks').select('athlete_id,frustration_rating,focus_rating').order('id',{ascending:false}).limit(100),
     ]);
 
     // last session per athlete
@@ -3770,63 +3764,6 @@ async function vPanel(){
     // checkins today
     const ciToday={};
     (checkins||[]).forEach(ci=>{ ciToday[ci.athlete_id]=ci; });
-
-    // === FATIGUE INDEX CALCULATION ===
-    // Factors (last 7 days): low energy, low focus, bad nutrition, high surf hours, high frustration, no goal achieved
-    const fatigueData = {};
-    S.athletes.forEach(a=>{
-      const myCI = (weekCheckins||[]).filter(c=>c.athlete_id===a.id);
-      const myFB = (presFeedbacks||[]).filter(f=>f.athlete_id===a.id).slice(0,5);
-      if(!myCI.length && !myFB.length){ fatigueData[a.id]={score:0,level:'ok',factors:[],days:0}; return; }
-
-      let riskScore=0; const factors=[];
-
-      // 1. Average energy (< 2.5 = high risk, < 3.5 = medium)
-      if(myCI.length){
-        const avgE=myCI.reduce((s,c)=>s+(c.energy_level||0),0)/myCI.length;
-        if(avgE<2){ riskScore+=30; factors.push('Energia muy baja ('+avgE.toFixed(1)+'/5)'); }
-        else if(avgE<3){ riskScore+=15; factors.push('Energia baja ('+avgE.toFixed(1)+'/5)'); }
-
-        // 2. Average focus
-        const avgF=myCI.reduce((s,c)=>s+(c.focus_level||0),0)/myCI.length;
-        if(avgF>0 && avgF<2){ riskScore+=20; factors.push('Enfoque muy bajo ('+avgF.toFixed(1)+'/5)'); }
-        else if(avgF>0 && avgF<3){ riskScore+=10; factors.push('Enfoque bajo ('+avgF.toFixed(1)+'/5)'); }
-
-        // 3. Nutrition quality
-        const badNutri=myCI.filter(c=>c.nutrition==='No').length;
-        if(badNutri>=3){ riskScore+=20; factors.push('Mala nutricion '+badNutri+'/'+myCI.length+' dias'); }
-        else if(badNutri>=2){ riskScore+=10; factors.push('Nutricion irregular'); }
-
-        // 4. Hydration
-        const avgW=myCI.reduce((s,c)=>s+(c.water_glasses||0),0)/myCI.length;
-        if(avgW<3){ riskScore+=15; factors.push('Baja hidratacion ('+avgW.toFixed(0)+' vasos/dia)'); }
-
-        // 5. Overtraining — too many surf hours
-        const totalSurf=myCI.reduce((s,c)=>s+(parseFloat(c.surf_hours)||0),0);
-        if(totalSurf>25){ riskScore+=20; factors.push('Carga alta: '+totalSurf.toFixed(1)+'h surf en 7 dias'); }
-        else if(totalSurf>18){ riskScore+=10; factors.push('Carga elevada: '+totalSurf.toFixed(1)+'h surf'); }
-
-        // 6. Goals not achieved
-        const noGoals=myCI.filter(c=>c.goal_achieved==='No').length;
-        if(noGoals>=3){ riskScore+=10; factors.push('Objetivos no logrados: '+noGoals+' dias'); }
-      }
-
-      // 7. High frustration in sessions
-      if(myFB.length){
-        const avgFrust=myFB.reduce((s,f)=>s+(f.frustration_rating||0),0)/myFB.length;
-        if(avgFrust>=4){ riskScore+=20; factors.push('Frustracion alta en sesiones ('+avgFrust.toFixed(1)+'/5)'); }
-        else if(avgFrust>=3){ riskScore+=10; factors.push('Frustracion moderada ('+avgFrust.toFixed(1)+'/5)'); }
-      }
-
-      // 8. Injury flag
-      if(a.injury){ riskScore+=25; factors.push('Lesion activa: '+a.injury); }
-
-      const level=riskScore>=50?'high':riskScore>=25?'medium':'ok';
-      fatigueData[a.id]={score:Math.min(riskScore,100),level,factors,days:myCI.length};
-    });
-
-    const highRisk=S.athletes.filter(a=>fatigueData[a.id]?.level==='high');
-    const medRisk=S.athletes.filter(a=>fatigueData[a.id]?.level==='medium');
 
     // stats
     const total = S.athletes.length;
@@ -3875,48 +3812,6 @@ async function vPanel(){
       <span style="font-size:12px;color:var(--amber);">${S.athletes.filter(a=>daysSince(lastSes[a.id])>7).length} atleta(s) sin actividad en 7 días</span>
     </div>`:''}
 
-    <!-- FATIGUE / INJURY RISK INDEX -->
-    ${(highRisk.length||medRisk.length)?`
-    <div style="margin-bottom:16px;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--red);margin-bottom:10px;">🔴 ÍNDICE DE FATIGA / RIESGO DE LESIÓN</div>
-      ${highRisk.map(a=>{
-        const f=fatigueData[a.id];
-        return `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <div style="font-size:14px;font-weight:800;color:var(--white);">${esc(a.name)}</div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <div style="font-size:20px;font-weight:900;color:var(--red);font-family:'Space Mono',monospace;">${f.score}%</div>
-              <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.4);">⚠️ ALTO RIESGO</span>
-            </div>
-          </div>
-          <div style="background:rgba(255,255,255,.06);border-radius:4px;height:6px;margin-bottom:8px;">
-            <div style="width:${f.score}%;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--amber),var(--red));"></div>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;">
-            ${f.factors.map(fac=>`<span style="font-size:9px;padding:3px 8px;border-radius:6px;background:rgba(239,68,68,.1);color:rgba(255,120,120,.9);border:1px solid rgba(239,68,68,.2);">${esc(fac)}</span>`).join('')}
-          </div>
-        </div>`;
-      }).join('')}
-      ${medRisk.map(a=>{
-        const f=fatigueData[a.id];
-        return `<div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:10px 14px;margin-bottom:6px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <div style="font-size:13px;font-weight:700;color:var(--white);">${esc(a.name)}</div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <div style="font-size:16px;font-weight:900;color:var(--amber);font-family:'Space Mono',monospace;">${f.score}%</div>
-              <span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(245,158,11,.15);color:var(--amber);border:1px solid rgba(245,158,11,.3);">⚡ MONITOREAR</span>
-            </div>
-          </div>
-          <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;margin-bottom:6px;">
-            <div style="width:${f.score}%;height:100%;border-radius:4px;background:var(--amber);"></div>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:3px;">
-            ${f.factors.map(fac=>`<span style="font-size:8px;padding:2px 6px;border-radius:5px;background:rgba(245,158,11,.08);color:rgba(245,180,60,.9);">${esc(fac)}</span>`).join('')}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`:''}
-
     <!-- LISTA ATLETAS HOY -->
     <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:10px;">REPORTE DEL DÍA · ${new Date().toLocaleDateString('es',{day:'2-digit',month:'short'}).toUpperCase()}</div>
 
@@ -3935,8 +3830,6 @@ async function vPanel(){
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div style="font-size:15px;font-weight:800;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;">${a.name}</div>
           <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-            ${fatigueData[a.id]?.level==='high'?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);white-space:nowrap;">🔴 Riesgo</span>':''}
-            ${fatigueData[a.id]?.level==='medium'?'<span style="font-size:9px;padding:2px 6px;border-radius:20px;background:rgba(245,158,11,.1);color:var(--amber);white-space:nowrap;">⚡ Fatiga</span>':''}
             ${ci?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);white-space:nowrap;">✅ Check-in</span>'
                :'<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--grey);white-space:nowrap;">Sin check-in</span>'}
             ${pct===100?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);white-space:nowrap;">🏆 100%</span>'
