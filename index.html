@@ -1279,7 +1279,7 @@ async function loadHoy(date){
     }));
 
     const allBlocks = [...presBlocks, ...(plans||[])];
-    const hasSesion = allBlocks.some(b=>b.work_type==='sesion'||b._isPresencial);
+    const hasSesion = allBlocks.some(b=>b.work_type==='sesion'||b.work_type==='comp_training'||b._isPresencial);
 
     // Cache plans + presencial blocks for quick re-render on toggle
     const cacheKey = `tss_plans_cache_${date}`;
@@ -1551,10 +1551,10 @@ async function loadHoy(date){
     if(!ciComplete && ci){
       setTimeout(()=>{
         if(ci.water_glasses){ const wb=document.querySelectorAll('.water-btn'); if(wb[ci.water_glasses-1]){ pickWater(ci.water_glasses, wb[ci.water_glasses-1]); }}
-        if(ci.energy_level){ const se=document.getElementById('sc-ci-energy'); if(se){se.value=ci.energy_level; document.querySelectorAll('#ciForm .scale-row .s-btn').forEach(b=>{if(parseInt(b.dataset.val)===ci.energy_level)b.classList.add('on');});}}
+        if(ci.energy_level){ const se=document.getElementById('sc-ci-energy'); if(se){se.value=ci.energy_level; const esr=se.previousElementSibling; if(esr&&esr.classList.contains('scale-row')){esr.querySelectorAll('.se-n').forEach((b,i)=>{b.classList.remove('on');if(i+1===ci.energy_level)b.classList.add('on');});}}}
         if(ci.nutrition){ document.getElementById('ci-nutri').value=ci.nutrition; document.querySelectorAll('#ciForm .opt-pill').forEach(b=>{if(b.textContent.trim()===(ci.nutrition==='Si'?'Sí':ci.nutrition))b.classList.add(ci.nutrition==='Si'?'on-green':ci.nutrition==='Medio'?'on-amber':'on-red');});}
-        if(ci.focus_level){ const sf=document.getElementById('sc-ci-focus'); if(sf){sf.value=ci.focus_level;}}
-        if(ci.goal_achieved){ const sg=document.getElementById('ci-goal'); if(sg) sg.value=ci.goal_achieved;}
+        if(ci.focus_level){ const sf=document.getElementById('sc-ci-focus'); if(sf){sf.value=ci.focus_level; const sr=sf.closest('.scale-row')||sf.previousElementSibling; if(sr){const btns=sr.querySelectorAll('.se-n'); btns.forEach((b,i)=>{b.classList.remove('on');if(i+1===ci.focus_level)b.classList.add('on');});}}}
+        if(ci.goal_achieved){ const sg=document.getElementById('ci-goal'); if(sg){ sg.value=ci.goal_achieved; const goalLabel=ci.goal_achieved==='Si'?'Sí':ci.goal_achieved; const goalCls=ci.goal_achieved==='Si'?'on-green':ci.goal_achieved==='Parcial'?'on-amber':'on-red'; sg.closest('.checkin-form')?.querySelectorAll('.opt-pill').forEach(b=>{if(b.textContent.trim()===goalLabel)b.classList.add(goalCls);});  }}
         if(ci.surf_hours){ const sh=document.getElementById('ci-surf-hours'); if(sh) sh.value=ci.surf_hours;}
       },100);
     }
@@ -1738,7 +1738,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
           <span style="font-size:10px;color:var(--grey);">📍 Spot:</span>
           <span style="font-size:12px;font-weight:600;color:var(--white);margin-left:4px;">${esc(ctData.spot)}</span>
         </div>`:''}
-        ${ctData.instructions?`<div style="font-size:12px;color:rgba(232,240,245,.7);line-height:1.5;margin-bottom:8px;">📋 ${esc(ctData.instructions)}</div>`:''}
+        ${ctData.instructions?`<div style="font-size:12px;color:rgba(232,240,245,.7);line-height:1.6;margin-bottom:8px;white-space:pre-line;">📋 ${esc(ctData.instructions)}</div>`:''}
         ${vid?`<div style="border-radius:10px;overflow:hidden;margin-bottom:10px;position:relative;padding-bottom:56.25%;height:0;">
           <iframe src="https://www.youtube.com/embed/${vid}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
         </div>`:''}
@@ -3858,9 +3858,11 @@ async function vPanel(){
           ${ci?(function(){
             var sr={}; try{sr=ci.sesion_result?JSON.parse(ci.sesion_result):{};}catch(e){}
             var sKeys=Object.keys(sr);
-            var objRes=sKeys.length?sr[sKeys[0]]:null;
+            var rawRes=sKeys.length?sr[sKeys[0]]:null;
+            // Handle comp_training results (objects with .mission) vs simple strings
+            var objRes = (rawRes && typeof rawRes==='object') ? (rawRes.mission||null) : rawRes;
             var focusVal=ci.focus_level||0;
-            if(!ci.surf_hours && !objRes) return '';
+            if(!ci.surf_hours && !objRes && !focusVal) return '';
             var focusColor2=focusVal>=4?'var(--cyan)':focusVal>=2?'var(--amber)':'var(--grey)';
             var objIcon=objRes==='Si'?'✅':objRes==='Parcial'?'⚡':objRes==='No'?'❌':'—';
             var objColor=objRes==='Si'?'var(--green)':objRes==='Parcial'?'var(--amber)':objRes==='No'?'var(--red)':'var(--grey)';
@@ -5849,7 +5851,7 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
       doc.text(ci.date,M+3,y+6);
       doc.setFont('helvetica','normal'); doc.setTextColor(107,138,154);
       let sesResLine='';
-      if(ci.sesion_result){try{const sr=JSON.parse(ci.sesion_result);const vals=Object.values(sr);if(vals.length){sesResLine='  🌊'+(vals.includes('Si')?'✅':vals.includes('Parcial')?'⚡':'❌');}}catch(e){}}
+      if(ci.sesion_result){try{const sr=JSON.parse(ci.sesion_result);const vals=Object.values(sr).map(v=>(v&&typeof v==='object')?v.mission:v);if(vals.length){sesResLine='  🌊'+(vals.includes('Si')?'✅':vals.includes('Parcial')?'⚡':'❌');}}catch(e){}}
       const line='💧'+ci.water_glasses+'v  ⚡'+ci.energy_level+'/5  🎯'+(ci.focus_level||'—')+'/5  🥗'+(ci.nutrition||'—')+'  ✅'+(ci.goal_achieved||'—')+(ci.surf_hours?'  🏄'+ci.surf_hours+'h':'')+sesResLine+(ci.progress_pct?'  📋'+ci.progress_pct+'%':'');
       doc.text(line,M+28,y+6);
       y+=12;
