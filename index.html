@@ -1712,7 +1712,9 @@ function buildPlansHtml(plans, compState, date, sesionResults){
     }
     // ENTRENO DE COMPETENCIA BLOCK
     if(plan.work_type==='comp_training'){
-      let ctData={}; try{ctData=JSON.parse(plan.notes||'{}');}catch(e){}
+      let ctData={}; try{ctData=JSON.parse(plan.notes||'{}');}catch(e){ ctData={instructions:plan.notes||''}; }
+      // Fix double-encoded instructions (JSON inside instructions field)
+      if(ctData.instructions && ctData.instructions.trim().startsWith('{')){try{const inner=JSON.parse(ctData.instructions);if(inner.instructions){ctData.spot=ctData.spot||inner.spot;ctData.target_score=ctData.target_score||inner.target_score;ctData.instructions=inner.instructions;}}catch(e){}}
       const vid=ytId(plan.video_url);
       const pid=plan.id;
       let athResp={}; try{const sr=sesionResults[pid]; if(sr&&typeof sr==='object') athResp=sr; }catch(e){}
@@ -2782,7 +2784,7 @@ function openAddBlockModal(date, existData=null){
     <input type="text" class="inp" id="blockObj" value="${existData?existData.objective||'':''}" placeholder="Ej: Activar sistema nervioso">
 
     <label class="inp-label">Instrucciones generales</label>
-    <textarea class="ta" id="blockNotes" style="min-height:70px;" placeholder="Descripción general...">${existData?existData.notes||'':''}</textarea>
+    <textarea class="ta" id="blockNotes" style="min-height:70px;" placeholder="Descripción general...">${(()=>{if(!existData||!existData.notes)return '';if(existData.work_type==='comp_training'){try{const p=JSON.parse(existData.notes);return p.instructions||'';}catch(e){}}return existData.notes;})()}</textarea>
 
     <div id="sesionExtraFields" style="display:${existData&&existData.work_type==='sesion'?'block':'none'};">
       <label class="inp-label">⏱ Tiempo en el agua</label>
@@ -3743,7 +3745,7 @@ async function vPanel(){
     const [{data:sessions},{data:evals},{data:checkins}] = await Promise.all([
       db.from('tss_presencial_sessions').select('athlete_ids,date').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false}),
       db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive,date').gte('date',offFloor).order('date',{ascending:false}).limit(300),
-      db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes,sesion_result').eq('date',today),
+      db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes,sesion_result,goal_achieved').eq('date',today),
     ]);
 
     // last session per athlete
@@ -3860,7 +3862,7 @@ async function vPanel(){
             var sKeys=Object.keys(sr);
             var rawRes=sKeys.length?sr[sKeys[0]]:null;
             // Handle comp_training results (objects with .mission) vs simple strings
-            var objRes = (rawRes && typeof rawRes==='object') ? (rawRes.mission||null) : rawRes;
+            var objRes = (rawRes && typeof rawRes==='object') ? (rawRes.mission||'') : (rawRes||'');
             var focusVal=ci.focus_level||0;
             if(!ci.surf_hours && !objRes && !focusVal) return '';
             var focusColor2=focusVal>=4?'var(--cyan)':focusVal>=2?'var(--amber)':'var(--grey)';
