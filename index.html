@@ -3863,6 +3863,8 @@ async function vPanel(){
             var rawRes=sKeys.length?sr[sKeys[0]]:null;
             // Handle comp_training results (objects with .mission) vs simple strings
             var objRes = (rawRes && typeof rawRes==='object') ? (rawRes.mission||'') : (rawRes||'');
+            // Fallback to goal_achieved from check-in form if sesion_result has no objective
+            if(!objRes && ci.goal_achieved) objRes = ci.goal_achieved;
             var focusVal=ci.focus_level||0;
             if(!ci.surf_hours && !objRes && !focusVal) return '';
             var focusColor2=focusVal>=4?'var(--cyan)':focusVal>=2?'var(--amber)':'var(--grey)';
