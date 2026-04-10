@@ -1287,10 +1287,19 @@ async function loadHoy(date){
 
     let planHtml='';
     if(allBlocks.length){
-      // Progress summary
-      const trackableBlocks=allBlocks.filter(p=>!p._isPresencial && p.work_type!=='sesion'&&p.work_type!=='comp_training');
+      // Progress summary — include ALL blocks (regular, sesion, comp_training, presencial)
+      // A sesion block is done if its sesion_result is Si/Parcial OR block toggle is on
+      // A comp_training block is done if its result was submitted OR block toggle is on
+      const _ciSR = (()=>{try{return ci?.sesion_result?JSON.parse(ci.sesion_result):{};}catch(e){return{};}})();
+      const isBlockDone = (p) => {
+        if(compState[p.id+'_block']) return true;
+        if(p.work_type==='sesion'){ const r=_ciSR[p.id]; return r==='Si'||r==='Parcial'; }
+        if(p.work_type==='comp_training'){ const r=_ciSR[p.id]; return !!(r && typeof r==='object' && (r.mission||(r.waves&&r.waves.length))); }
+        return false;
+      };
+      const trackableBlocks=allBlocks;
       let totalBlocks=trackableBlocks.length;
-      let doneBlocks=trackableBlocks.filter(p=>compState[p.id+'_block']).length;
+      let doneBlocks=trackableBlocks.filter(isBlockDone).length;
       let pct=totalBlocks>0?Math.round((doneBlocks/totalBlocks)*100):0;
       planHtml=`<div class="sec-title">📋 Plan del Día</div>
       <div class="card card-cyan anim-up" style="margin-bottom:12px;padding:12px 14px;">
@@ -1626,24 +1635,30 @@ async function reloadPlansSection(date, compState){
     try{ allBlocks = JSON.parse(sessionStorage.getItem(cacheKey)||'[]'); }catch(e2){}
   }
 
-  // Count real totals — exclude sesion and presencial blocks from progress calculation
-  const regularBlocks = allBlocks.filter(b=>!b._isPresencial && b.work_type!=='sesion' && b.work_type!=='comp_training');
-  const regularBlockIds = new Set(regularBlocks.map(b=>String(b.id)));
-  let realTotalTasks=0, realTotalBlocks=regularBlocks.length;
-  regularBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); realTotalTasks+=t.length; }catch(e){} });
-  // Count done — only from regular blocks (exclude sesion/presencial)
-  const realDoneBlocks = Object.keys(compState).filter(k=>k.endsWith('_block')&&compState[k]&&regularBlockIds.has(k.replace('_block',''))).length;
-  const realDoneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]&&regularBlockIds.has(k.split('_task_')[0])).length;
-  // Re-save progress with correct totals if compState has data
-  if(Object.keys(compState).length>0){
-    await saveProgressToDb(date, compState, realTotalTasks||null, realTotalBlocks||null, realDoneBlocks, realDoneTasks);
-  }
-  // Fetch sesion_result for sesion blocks
+  // Fetch sesion_result first so we can count sesion/comp_training completion
   let sesionResults = {};
   try {
     const{data:ciRow}=await db.from('tss_daily_checkins').select('sesion_result').eq('athlete_id',S.user.id).eq('date',date).maybeSingle();
     if(ciRow?.sesion_result) sesionResults=JSON.parse(ciRow.sesion_result);
   } catch(e){}
+  // Count real totals — include ALL blocks (regular, sesion, comp_training, presencial)
+  const trackBlocks = allBlocks;
+  const trackBlockIds = new Set(trackBlocks.map(b=>String(b.id)));
+  let realTotalTasks=0, realTotalBlocks=trackBlocks.length;
+  trackBlocks.forEach(b=>{ try{ const t=JSON.parse(b.exercises||'[]'); realTotalTasks+=t.length; }catch(e){} });
+  // A block is done if: toggle is on, OR sesion_result marks it done for sesion/comp_training
+  const isDone = (b) => {
+    if(compState[b.id+'_block']) return true;
+    if(b.work_type==='sesion'){ const r=sesionResults[b.id]; return r==='Si'||r==='Parcial'; }
+    if(b.work_type==='comp_training'){ const r=sesionResults[b.id]; return !!(r && typeof r==='object' && (r.mission||(r.waves&&r.waves.length))); }
+    return false;
+  };
+  const realDoneBlocks = trackBlocks.filter(isDone).length;
+  const realDoneTasks = Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]&&trackBlockIds.has(k.split('_task_')[0])).length;
+  // Re-save progress with correct totals if compState has data OR blocks are completed via other mechanisms
+  if(Object.keys(compState).length>0 || realDoneBlocks>0){
+    await saveProgressToDb(date, compState, realTotalTasks||null, realTotalBlocks||null, realDoneBlocks, realDoneTasks);
+  }
   const plansEl = document.getElementById('plansSection');
   if(plansEl && allBlocks.length) {
     plansEl.innerHTML = buildPlansHtml(allBlocks, compState, date, sesionResults);
@@ -1667,9 +1682,16 @@ async function reloadPlansOnly(date, compState){
 function buildPlansHtml(plans, compState, date, sesionResults){
   if(!plans||!plans.length) return '';
   sesionResults = sesionResults || {};
-  const trackable=plans.filter(p=>!p._isPresencial && p.work_type!=='sesion'&&p.work_type!=='comp_training');
+  // Include ALL blocks in progress; sesion/comp_training count as done via their own mechanisms
+  const isBlockDone = (p) => {
+    if(compState[p.id+'_block']) return true;
+    if(p.work_type==='sesion'){ const r=sesionResults[p.id]; return r==='Si'||r==='Parcial'; }
+    if(p.work_type==='comp_training'){ const r=sesionResults[p.id]; return !!(r && typeof r==='object' && (r.mission||(r.waves&&r.waves.length))); }
+    return false;
+  };
+  const trackable=plans;
   let totalBlocks=trackable.length;
-  let doneBlocks=trackable.filter(p=>compState[p.id+'_block']).length;
+  let doneBlocks=trackable.filter(isBlockDone).length;
   let pct=totalBlocks>0?Math.round((doneBlocks/totalBlocks)*100):0;
   let html=`<div class="sec-title">📋 Plan del Día</div>
   <div class="card card-cyan anim-up" style="margin-bottom:12px;padding:12px 14px;">
@@ -2917,6 +2939,13 @@ async function saveCompTrainResult(planId, date){
     }
     if(error) throw error;
     toast('✅ Resultados guardados','success');
+    // Recalculate and save progress to DB (comp_training now counts towards completion)
+    try {
+      const compKey = `tss_comp_${S.user.id}_${date}`;
+      let cs = {};
+      try{ cs=JSON.parse(localStorage.getItem(compKey)||'{}'); }catch(e){}
+      await reloadPlansSection(date, cs);
+    } catch(e){ console.error('Progress reload error',e); }
     // Reload the full day view to show saved state
     setTimeout(()=>{try{loadHoy(date);}catch(e){}},500);
   } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); }
@@ -2942,6 +2971,13 @@ async function saveSesionResult(planId, result, date){
     const active = document.querySelector(`[data-sesion-plan="${planId}"][data-sesion-val="${result}"]`);
     if(active){ active.classList.add('sesion-'+result.replace(' ','')); active.style.opacity='1'; }
     toast('✅ Resultado guardado','success');
+    // Recalculate and save progress to DB (sesion now counts towards completion)
+    try {
+      const compKey = `tss_comp_${S.user.id}_${date}`;
+      let cs = {};
+      try{ cs=JSON.parse(localStorage.getItem(compKey)||'{}'); }catch(e){}
+      await reloadPlansSection(date, cs);
+    } catch(e){ console.error('Progress reload error',e); }
   } catch(e){ toast('Error guardando resultado','error'); console.error(e); }
 }
 
