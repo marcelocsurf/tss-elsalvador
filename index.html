@@ -2003,10 +2003,12 @@ async function saveProgressToDb(date, compState, realTotalTasks=null, realTotalB
     const totalBlocks = realTotalBlocks ?? Object.keys(compState).filter(k=>k.endsWith('_block')).length;
     const doneTasks = realDoneTasks ?? Object.keys(compState).filter(k=>k.includes('_task_')&&compState[k]).length;
     const totalTasks = realTotalTasks ?? Object.keys(compState).filter(k=>k.includes('_task_')).length;
-    // Use real totals — never jump to 100 unless everything is truly done
-    const pct = totalTasks>0
-      ? Math.round((doneTasks/totalTasks)*100)
-      : (totalBlocks>0 ? Math.round((doneBlocks/totalBlocks)*100) : 0);
+    // Block-based progress (alineado con buildPlansHtml — el atleta ve bloques, no tareas).
+    // Un bloque marcado cuenta completo aunque sus sub-tareas no estén chequeadas.
+    // Fallback a tareas solo si no hay bloques regulares (ej. día solo con sesión/presencial).
+    const pct = totalBlocks>0
+      ? Math.round((doneBlocks/totalBlocks)*100)
+      : (totalTasks>0 ? Math.round((doneTasks/totalTasks)*100) : 0);
     // Check if checkin exists first
     const{data:existing}=await db.from('tss_daily_checkins').select('id').eq('athlete_id',S.user.id).eq('date',date).maybeSingle();
     if(existing){
