@@ -377,7 +377,7 @@ const OFFICIAL_START = '2026-03-23';
 let showOfficialOnly = true;
 
 /* STATE */
-let S = { user:null, pin:'', loginRole:'', athletes:[], groups:[], view:null, selDate:null };
+let S = { user:null, pin:'', loginRole:'', athletes:[], coaches:[], groups:[], view:null, selDate:null };
 let spSelectedAthletes = []; // athletes selected for presencial session
 
 /* UTILS */
@@ -1075,6 +1075,30 @@ async function bootApp(){
     }
     const{data:grps}=await db.from('tss_groups').select('*').order('name');
     S.groups=grps||[];
+
+    // F1: cargar lista de coaches/acoaches solo si soy head coach (gestión)
+    if(S.user.role==='coach'){
+      const{data:coachList}=await db.from('tss_profiles')
+        .select('id,name,pin,role,avatar_url,active')
+        .in('role',['coach','acoach']).neq('active',false).order('name');
+      S.coaches=coachList||[];
+    } else {
+      S.coaches=[];
+    }
+
+    // F1: si soy acoach, filtrar grupos y atletas a solo lo asignado
+    if(S.user.role==='acoach'){
+      S.groups = S.groups.filter(g=>g.coach_id===S.user.id);
+      const myGroupIds = S.groups.map(g=>g.id);
+      if(myGroupIds.length){
+        const{data:members}=await db.from('tss_group_members').select('athlete_id').in('group_id',myGroupIds);
+        const myAthIds = new Set((members||[]).map(m=>m.athlete_id));
+        S.athletes = S.athletes.filter(a=>myAthIds.has(a.id));
+      } else {
+        S.athletes = []; // acoach sin grupo asignado: sin atletas visibles
+      }
+    }
+
     S.selDate=todayStr();
 
     const isCoach=S.user.role==='coach';
@@ -3116,6 +3140,7 @@ async function renderGrupos(){
         const{data:members}=await db.from('tss_group_members').select('athlete_id').eq('group_id',g.id);
         const mids=(members||[]).map(m=>m.athlete_id);
         const mnames=S.athletes.filter(a=>mids.includes(a.id)).map(a=>a.name);
+        const coachName = g.coach_id ? ((S.coaches||[]).find(c=>c.id===g.coach_id)?.name || '?') : null;
         html+=`<div class="card anim-up">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
             <div style="font-size:15px;font-weight:700;">${g.name}</div>
@@ -3123,6 +3148,9 @@ async function renderGrupos(){
               <button class="btn btn-xs btn-outline" onclick="openGroupModal('${g.id}')">✏️ Editar</button>
               <button class="btn btn-xs btn-red" onclick="deleteGroup('${g.id}')">🗑</button>
             </div>
+          </div>
+          <div style="font-size:11px;color:var(--grey);margin-bottom:6px;">
+            🏆 Coach: <span style="color:${coachName?'var(--cyan)':'var(--grey)'};">${coachName||'sin asignar'}</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:4px;">
             ${mnames.map(n=>`<span class="chip chip-purple">${n}</span>`).join('')}
@@ -3137,6 +3165,8 @@ async function renderGrupos(){
 
 function openGroupModal(groupId){
   const m=document.createElement('div'); m.className='modal-overlay'; m.id='groupModal';
+  // F1: dropdown coach asignado (solo head coach lo ve / setea)
+  const coachOptions = (S.coaches||[]).map(c=>`<option value="${c.id}">${c.name} ${c.role==='coach'?'(Head)':'(Asistente)'}</option>`).join('');
   m.innerHTML=`<div class="modal-sheet">
     <div class="modal-head">
       <div><div class="modal-title">${groupId?'Editar Grupo':'Nuevo Grupo'}</div></div>
@@ -3144,6 +3174,12 @@ function openGroupModal(groupId){
     </div>
     <label class="inp-label">Nombre del grupo</label>
     <input type="text" class="inp" id="gName" placeholder="Ej: Shortboard, Mujeres, Sub-18...">
+    <label class="inp-label" style="margin-top:16px;">Coach asignado</label>
+    <select class="inp" id="gCoachId">
+      <option value="">— Sin asignar (head coach) —</option>
+      ${coachOptions}
+    </select>
+    <div style="font-size:11px;color:var(--grey);margin-top:-6px;margin-bottom:8px;">El coach asignado verá solo los atletas de este grupo.</div>
     <label class="inp-label" style="margin-top:16px;">Atletas del grupo</label>
     <div id="groupAthList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
       ${S.athletes.map(a=>`<button type="button" class="opt-pill" id="ga-${a.id}" onclick="toggleGroupAth('${a.id}',this)">${a.name}</button>`).join('')}
@@ -3155,7 +3191,10 @@ function openGroupModal(groupId){
 
   if(groupId){
     db.from('tss_groups').select('*').eq('id',groupId).single().then(({data})=>{
-      if(data) document.getElementById('gName').value=data.name;
+      if(data){
+        document.getElementById('gName').value=data.name;
+        const sel=document.getElementById('gCoachId'); if(sel && data.coach_id) sel.value=data.coach_id;
+      }
     });
     db.from('tss_group_members').select('athlete_id').eq('group_id',groupId).then(({data})=>{
       (data||[]).forEach(m=>{ const btn=document.getElementById(`ga-${m.athlete_id}`); if(btn){btn.classList.add('on');btn.dataset.sel='1';} });
@@ -3170,14 +3209,15 @@ function toggleGroupAth(id,btn){
 
 async function saveGroup(existId){
   const name=gv('gName'); if(!name){toast('Ingresa el nombre','error');return;}
+  const coach_id = document.getElementById('gCoachId')?.value || null;
   const selAths=[...document.querySelectorAll('#groupAthList .opt-pill')].filter(b=>b.dataset.sel==='1').map(b=>b.id.replace('ga-',''));
   showLoad(true);
   try {
     let groupId=existId;
     if(existId){
-      await db.from('tss_groups').update({name}).eq('id',existId);
+      await db.from('tss_groups').update({name, coach_id}).eq('id',existId);
     } else {
-      const{data}=await db.from('tss_groups').insert({name,created_by:S.user.id}).select().single();
+      const{data}=await db.from('tss_groups').insert({name, coach_id, created_by:S.user.id}).select().single();
       groupId=data.id;
     }
     // Sync members
@@ -4036,62 +4076,159 @@ async function loadCoachGroupRanking(){
   } catch(e){ console.error('Coach ranking error',e); }
 }
 
+// F1: openEditBio ahora redirige al modal unificado (incluye nombre+PIN+rol+físicos)
 function openEditBio(athleteId){
-  const ath = S.athletes.find(a=>a.id===athleteId) || {};
-  let m = document.getElementById('editBioModal'); if(m) m.remove();
-  m = document.createElement('div'); m.className='modal-overlay'; m.id='editBioModal';
-  m.innerHTML = `<div class="modal-sheet">
-    <div class="modal-head">
-      <div class="modal-title">✏️ Datos Físicos</div>
-      <button class="btn-icon" onclick="closeModal('editBioModal')">✕</button>
-    </div>
-    <input type="hidden" id="editBioId" value="${athleteId}">
-    <label class="inp-label">Fecha de nacimiento</label>
-    <input class="inp" type="date" id="editBirthDate" value="${ath.birth_date||''}">
-    <label class="inp-label" style="margin-top:12px;">Peso actual (kg)</label>
-    <input class="inp" type="number" step="0.1" min="30" max="200" id="editWeight" placeholder="Ej: 72.5" value="${ath.weight_kg||''}">
-    <label class="inp-label" style="margin-top:12px;">Altura (cm)</label>
-    <input class="inp" type="number" step="0.1" min="100" max="230" id="editHeight" placeholder="Ej: 175" value="${ath.height_cm||''}">
-    <label class="inp-label" style="margin-top:12px;">Posición de surf</label>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <button type="button" id="stanceRegular" class="btn${ath.stance==='Goofy'?'':' btn-cyan'}" style="flex:1;" onclick="document.getElementById('stanceRegular').classList.add('btn-cyan');document.getElementById('stanceGoofy').classList.remove('btn-cyan');">🏄 Regular</button>
-      <button type="button" id="stanceGoofy" class="btn${ath.stance==='Goofy'?' btn-cyan':''}" style="flex:1;" onclick="document.getElementById('stanceGoofy').classList.add('btn-cyan');document.getElementById('stanceRegular').classList.remove('btn-cyan');">🏄 Goofy</button>
-    </div>
-    <button class="btn btn-cyan" style="width:100%;" onclick="saveEditBio()">💾 Guardar</button>
-  </div>`;
-  document.body.appendChild(m);
-  m.onclick = e => { if(e.target===m) closeModal('editBioModal'); };
+  openEditUserModal(athleteId);
 }
 
-async function saveEditBio(){
-  const athleteId = document.getElementById('editBioId').value;
-  const birth_date = document.getElementById('editBirthDate').value || null;
-  const weight_kg = parseFloat(document.getElementById('editWeight').value) || null;
-  const height_cm = parseFloat(document.getElementById('editHeight').value) || null;
-  const stance = document.getElementById('stanceGoofy').classList.contains('btn-cyan') ? 'Goofy' : 'Regular';
-  try {
-    const {error} = await db.from('tss_profiles').update({birth_date, weight_kg, height_cm, stance}).eq('id', athleteId);
-    if(error) throw error;
-    // Update local cache
-    const ai = S.athletes.findIndex(a=>a.id===athleteId);
-    if(ai>=0) S.athletes[ai] = {...S.athletes[ai], birth_date, weight_kg, height_cm, stance};
-    toast('✅ Datos actualizados','success');
-    closeModal('editBioModal');
-    // Refresh profile
-    const athName = S.athletes[ai]?.name || '';
-    vPerfil(athleteId, athName);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
-}
+// Compat: si algún botón viejo llama saveEditBio, redirigir a saveEditUser
+async function saveEditBio(){ return saveEditUser(); }
 
-async function confirmDeactivate(athleteId, athleteName){
-  if(!confirm('¿Desactivar a ' + athleteName + '? Sus datos históricos se conservan pero dejará de aparecer en el equipo.')) return;
+async function confirmDeactivate(userId, userName, isCoach){
+  if(!confirm('¿Desactivar a ' + userName + '? Sus datos históricos se conservan pero dejará de aparecer en el equipo.')) return;
   try {
-    const {error} = await db.from('tss_profiles').update({active: false}).eq('id', athleteId);
+    const {error} = await db.from('tss_profiles').update({active: false}).eq('id', userId);
     if(error) throw error;
-    S.athletes = S.athletes.filter(a=>a.id!==athleteId);
-    toast('✅ ' + athleteName + ' desactivado','success');
+    if(isCoach){
+      S.coaches = (S.coaches||[]).filter(c=>c.id!==userId);
+    } else {
+      S.athletes = S.athletes.filter(a=>a.id!==userId);
+    }
+    toast('✅ ' + userName + ' desactivado','success');
     vAtletas();
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+}
+
+/* F1: Modal unificado de edición de usuario (atleta o coach).
+   Permite head coach: editar nombre, PIN, rol, datos físicos (si atleta).
+   Para usuario propio: solo nombre + PIN (no se baja a sí mismo de rol). */
+function openEditUserModal(userId){
+  const u = (S.athletes||[]).find(a=>a.id===userId) || (S.coaches||[]).find(c=>c.id===userId) || {};
+  if(!u.id){ toast('Usuario no encontrado','error'); return; }
+  const isAthlete = u.role==='athlete';
+  const isHeadCoach = S.user.role==='coach';
+  const isSelf = u.id===S.user.id;
+  let m = document.getElementById('editUserModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='editUserModal';
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">✏️ Editar ${isAthlete?'Atleta':'Coach'}</div>
+      <button class="btn-icon" onclick="closeModal('editUserModal')">✕</button>
+    </div>
+    <input type="hidden" id="editUserId" value="${u.id}">
+    <input type="hidden" id="editUserOriginalRole" value="${u.role}">
+    ${isHeadCoach ? `
+      <label class="inp-label">Nombre</label>
+      <input type="text" class="inp" id="editUserName" value="${escAttr(u.name||'')}">
+      <label class="inp-label" style="margin-top:12px;">PIN (4 dígitos)</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="number" class="inp" id="editUserPin" value="${u.pin||''}" maxlength="4" style="letter-spacing:8px;font-size:18px;text-align:center;flex:1;">
+        <button type="button" class="btn btn-sm btn-outline" onclick="resetEditUserPin()">🔄 Resetear</button>
+      </div>
+      <div style="font-size:11px;color:var(--grey);margin-top:-4px;margin-bottom:8px;">Resetear genera un PIN aleatorio nuevo.</div>
+      ${isSelf?'':`<label class="inp-label" style="margin-top:12px;">Rol</label>
+      <select class="inp" id="editUserRole">
+        <option value="athlete"${u.role==='athlete'?' selected':''}>🌊 Atleta</option>
+        <option value="acoach"${u.role==='acoach'?' selected':''}>📋 Coach Asistente</option>
+        <option value="coach"${u.role==='coach'?' selected':''}>🏆 Head Coach</option>
+      </select>
+      <div style="font-size:11px;color:var(--amber);margin-top:-4px;margin-bottom:8px;">⚠️ Cambiar el rol modifica permisos y vistas. Pedirá confirmación al guardar.</div>`}
+    `:''}
+    ${isAthlete ? `
+      <div style="border-top:1px solid rgba(255,255,255,.06);margin-top:16px;padding-top:14px;">
+        <div class="sec-title">DATOS FÍSICOS</div>
+        <label class="inp-label">Fecha de nacimiento</label>
+        <input class="inp" type="date" id="editBirthDate" value="${u.birth_date||''}">
+        <label class="inp-label" style="margin-top:12px;">Peso actual (kg)</label>
+        <input class="inp" type="number" step="0.1" min="30" max="200" id="editWeight" placeholder="Ej: 72.5" value="${u.weight_kg||''}">
+        <label class="inp-label" style="margin-top:12px;">Altura (cm)</label>
+        <input class="inp" type="number" step="0.1" min="100" max="230" id="editHeight" placeholder="Ej: 175" value="${u.height_cm||''}">
+        <label class="inp-label" style="margin-top:12px;">Posición de surf</label>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button type="button" id="stanceRegular" class="btn${u.stance==='Goofy'?'':' btn-cyan'}" style="flex:1;" onclick="document.getElementById('stanceRegular').classList.add('btn-cyan');document.getElementById('stanceGoofy').classList.remove('btn-cyan');">🏄 Regular</button>
+          <button type="button" id="stanceGoofy" class="btn${u.stance==='Goofy'?' btn-cyan':''}" style="flex:1;" onclick="document.getElementById('stanceGoofy').classList.add('btn-cyan');document.getElementById('stanceRegular').classList.remove('btn-cyan');">🏄 Goofy</button>
+        </div>
+      </div>
+    `:''}
+    <button class="btn btn-cyan" style="width:100%;margin-top:8px;" onclick="saveEditUser()">💾 Guardar</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('editUserModal'); };
+}
+
+function resetEditUserPin(){
+  // Genera un PIN aleatorio de 4 dígitos (no 0000)
+  let p; do { p = String(Math.floor(1000+Math.random()*9000)); } while(p==='0000');
+  const inp = document.getElementById('editUserPin'); if(inp) inp.value = p;
+  toast('PIN nuevo generado: ' + p, 'info');
+}
+
+async function saveEditUser(){
+  const userId = document.getElementById('editUserId').value;
+  const originalRole = document.getElementById('editUserOriginalRole').value;
+  const isHeadCoach = S.user.role==='coach';
+  const updates = {};
+  // Datos físicos (si los inputs existen, es atleta)
+  const birthEl = document.getElementById('editBirthDate');
+  if(birthEl){
+    updates.birth_date = birthEl.value || null;
+    updates.weight_kg = parseFloat(document.getElementById('editWeight').value) || null;
+    updates.height_cm = parseFloat(document.getElementById('editHeight').value) || null;
+    updates.stance = document.getElementById('stanceGoofy').classList.contains('btn-cyan') ? 'Goofy' : 'Regular';
+  }
+  // Campos de gestión (solo head coach)
+  if(isHeadCoach){
+    const name = document.getElementById('editUserName')?.value?.trim();
+    const pin = document.getElementById('editUserPin')?.value?.trim();
+    const newRole = document.getElementById('editUserRole')?.value || originalRole;
+    if(!name){ toast('El nombre no puede quedar vacío','error'); return; }
+    if(!pin || pin.length !== 4 || isNaN(pin)){ toast('El PIN debe ser 4 dígitos','error'); return; }
+    if(pin==='0000'){ toast('Ese PIN no se permite','error'); return; }
+    // PIN único (excluyendo el propio usuario)
+    try {
+      const{data:exists}=await db.from('tss_profiles').select('id').eq('pin',pin).neq('id',userId).neq('active',false).limit(1);
+      if(exists && exists.length){ toast('Ese PIN ya está en uso por otro usuario','error'); return; }
+    } catch(e){}
+    if(newRole !== originalRole){
+      const labels={athlete:'Atleta', acoach:'Coach Asistente', coach:'Head Coach'};
+      if(!confirm(`¿Confirmás cambiar el rol de ${name}\n\nde "${labels[originalRole]}" a "${labels[newRole]}"?\n\nEsto modifica sus permisos y la vista que ve al iniciar sesión.`)) return;
+    }
+    updates.name = name;
+    updates.pin = pin;
+    updates.role = newRole;
+  }
+  showLoad(true);
+  try {
+    const{error} = await db.from('tss_profiles').update(updates).eq('id', userId);
+    if(error) throw error;
+    // Refrescar caches locales
+    const ai = S.athletes.findIndex(a=>a.id===userId);
+    if(ai>=0){
+      // Si cambió de rol y ya no es atleta, sacarlo de athletes
+      if(updates.role && updates.role!=='athlete'){
+        const moved = {...S.athletes[ai], ...updates};
+        S.athletes.splice(ai,1);
+        if(updates.role==='coach'||updates.role==='acoach'){ (S.coaches=S.coaches||[]).push(moved); S.coaches.sort((a,b)=>a.name.localeCompare(b.name)); }
+      } else {
+        S.athletes[ai] = {...S.athletes[ai], ...updates};
+      }
+    }
+    const ci = (S.coaches||[]).findIndex(c=>c.id===userId);
+    if(ci>=0){
+      // Si cambió a atleta, mover a athletes
+      if(updates.role==='athlete'){
+        const moved = {...S.coaches[ci], ...updates};
+        S.coaches.splice(ci,1);
+        S.athletes.push(moved); S.athletes.sort((a,b)=>a.name.localeCompare(b.name));
+      } else {
+        S.coaches[ci] = {...S.coaches[ci], ...updates};
+      }
+    }
+    toast('✅ Datos actualizados','success');
+    closeModal('editUserModal');
+    vAtletas();
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally{ showLoad(false); }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -4836,69 +4973,145 @@ async function genPDF(athleteId, athleteName){
 ============================================================ */
 function vAtletas(){
   const isCoach = S.user.role === 'coach';
+  // F1: head coach ve tabs Atletas | Coaches; acoach ve solo atletas (sin tabs)
+  if(isCoach){
+    render(`<div class="page-title">Equipo</div>
+    <div class="page-sub">Atletas y staff</div>
+    <div class="inner-tabs">
+      <button class="itab active" id="it-team-athletes" onclick="vTeamTab('athletes')">🌊 Atletas</button>
+      <button class="itab" id="it-team-coaches" onclick="vTeamTab('coaches')">🏆 Coaches</button>
+    </div>
+    <div id="teamTabContent"></div>`);
+    vTeamTab('athletes');
+    return;
+  }
+  // Vista acoach: solo atletas de sus grupos (ya filtrados en bootApp)
   render(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
     <div><div class="page-title" style="margin-bottom:0;">Atletas</div><div class="page-sub">Perfil completo y reporte</div></div>
-    ${isCoach ? `<button class="btn btn-cyan btn-sm" onclick="openAddAthleteModal()">+ Agregar</button>` : ''}
   </div>
-  ${S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${escAttr(a.name)}')">
+  ${S.athletes.length?S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${escAttr(a.name)}')">
     ${a.avatar_url?`<img src="${a.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);">`:`<div class="ath-avatar">${a.name.charAt(0)}</div>`}
     <div class="ath-info"><div class="ath-name">${a.name} ${a.injury?'<span style="color:var(--red);font-size:11px;">🚨</span>':''}</div><div class="ath-meta">Ver perfil · Índice · PDF</div></div>
     <span style="color:var(--grey);font-size:18px;">›</span>
-  </div>`).join('')}`);
+  </div>`).join(''):'<div class="empty"><div class="empty-icon">👥</div><p class="empty-txt">No tenés atletas asignados todavía. Pedile al head coach que te asigne un grupo.</p></div>'}`);
 }
 
-function openAddAthleteModal(){
+function vTeamTab(t){
+  document.querySelectorAll('.inner-tabs .itab').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('it-team-'+t); if(btn) btn.classList.add('active');
+  const el=document.getElementById('teamTabContent'); if(!el) return;
+  if(t==='athletes'){
+    el.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button class="btn btn-cyan btn-sm" onclick="openAddUserModal('athlete')">+ Agregar Atleta</button>
+    </div>
+    ${S.athletes.map(a=>`<div class="ath-row" onclick="openAthProfile('${a.id}','${escAttr(a.name)}')">
+      ${a.avatar_url?`<img src="${a.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);">`:`<div class="ath-avatar">${a.name.charAt(0)}</div>`}
+      <div class="ath-info"><div class="ath-name">${a.name} ${a.injury?'<span style="color:var(--red);font-size:11px;">🚨</span>':''}</div><div class="ath-meta">Ver perfil · Índice · PDF</div></div>
+      <span style="color:var(--grey);font-size:18px;">›</span>
+    </div>`).join('')}`;
+  } else if(t==='coaches'){
+    const list = (S.coaches||[]);
+    el.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button class="btn btn-cyan btn-sm" onclick="openAddUserModal('coach')">+ Agregar Coach</button>
+    </div>
+    ${list.length?list.map(c=>{
+      const roleLabel = c.role==='coach'?'Head Coach':'Coach Asistente';
+      const roleColor = c.role==='coach'?'var(--amber)':'var(--purple)';
+      const myGroups = (S.groups||[]).filter(g=>g.coach_id===c.id).map(g=>g.name);
+      const isSelf = c.id===S.user.id;
+      return `<div class="ath-row">
+        ${c.avatar_url?`<img src="${c.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;">`:`<div class="ath-avatar" style="background:rgba(245,158,11,.1);color:${roleColor};">${c.name.charAt(0)}</div>`}
+        <div class="ath-info">
+          <div class="ath-name">${c.name}${isSelf?' <span style="font-size:10px;color:var(--cyan);">(vos)</span>':''}</div>
+          <div class="ath-meta"><span style="color:${roleColor};">${roleLabel}</span>${myGroups.length?' · '+myGroups.join(', '):' · sin grupo'}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-xs btn-outline" onclick="openEditUserModal('${c.id}')">✏️</button>
+          ${isSelf?'':`<button class="btn btn-xs" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="confirmDeactivate('${c.id}','${escAttr(c.name)}',true)">🗑</button>`}
+        </div>
+      </div>`;
+    }).join(''):'<div class="empty"><div class="empty-icon">🏆</div><p class="empty-txt">Sin coaches creados. Tocá "+ Agregar Coach" para invitar uno.</p></div>'}`;
+  }
+}
+
+// F1: Modal unificado de creación de usuario (atleta / coach asistente / head coach)
+function openAddUserModal(initialRole){
+  const role = initialRole || 'athlete';
   const m = document.createElement('div');
-  m.className = 'modal-overlay'; m.id = 'addAthleteModal';
+  m.className = 'modal-overlay'; m.id = 'addUserModal';
   m.innerHTML = `<div class="modal-sheet">
     <div class="modal-head">
-      <div class="modal-title">➕ Nuevo Atleta</div>
-      <button class="modal-close" onclick="closeModal('addAthleteModal')">✕</button>
+      <div class="modal-title">➕ Nuevo Usuario</div>
+      <button class="modal-close" onclick="closeModal('addUserModal')">✕</button>
     </div>
-    <label class="inp-label">Nombre completo</label>
+    <label class="inp-label">Tipo de usuario</label>
+    <select class="inp" id="newUserRole" onchange="renderAddUserStanceField()">
+      <option value="athlete"${role==='athlete'?' selected':''}>🌊 Atleta</option>
+      <option value="acoach"${role==='acoach'?' selected':''}>📋 Coach Asistente</option>
+      <option value="coach"${role==='coach'?' selected':''}>🏆 Head Coach</option>
+    </select>
+    <label class="inp-label" style="margin-top:14px;">Nombre completo</label>
     <input type="text" class="inp" id="newAthName" placeholder="Ej: Daniel Monterrosa">
     <label class="inp-label">PIN (4 dígitos)</label>
     <input type="number" class="inp" id="newAthPin" placeholder="Ej: 1234" maxlength="4" style="letter-spacing:8px;font-size:20px;text-align:center;">
-    <div style="font-size:11px;color:var(--grey);margin-top:-8px;margin-bottom:12px;">El atleta usará este PIN para iniciar sesión</div>
-    <label class="inp-label" style="margin-top:12px;">Posición de surf</label>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button type="button" id="newStanceRegular" class="btn btn-cyan" style="flex:1;" onclick="document.getElementById('newStanceRegular').classList.add('btn-cyan');document.getElementById('newStanceGoofy').classList.remove('btn-cyan');">🏄 Regular</button>
-      <button type="button" id="newStanceGoofy" class="btn" style="flex:1;" onclick="document.getElementById('newStanceGoofy').classList.add('btn-cyan');document.getElementById('newStanceRegular').classList.remove('btn-cyan');">🏄 Goofy</button>
-    </div>
-    <button class="save-btn" onclick="saveNewAthlete()">💾 Crear Atleta</button>
+    <div style="font-size:11px;color:var(--grey);margin-top:-8px;margin-bottom:12px;">Lo usará para iniciar sesión.</div>
+    <div id="newUserStanceWrap"></div>
+    <button class="save-btn" onclick="saveNewUser()">💾 Crear Usuario</button>
   </div>`;
   document.body.appendChild(m);
-  m.onclick = e => { if(e.target===m) closeModal('addAthleteModal'); };
+  m.onclick = e => { if(e.target===m) closeModal('addUserModal'); };
+  renderAddUserStanceField();
   setTimeout(()=>{ document.getElementById('newAthName')?.focus(); }, 100);
 }
 
-async function saveNewAthlete(){
+function renderAddUserStanceField(){
+  const role = document.getElementById('newUserRole')?.value || 'athlete';
+  const wrap = document.getElementById('newUserStanceWrap'); if(!wrap) return;
+  if(role==='athlete'){
+    wrap.innerHTML = `<label class="inp-label" style="margin-top:12px;">Posición de surf</label>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button type="button" id="newStanceRegular" class="btn btn-cyan" style="flex:1;" onclick="document.getElementById('newStanceRegular').classList.add('btn-cyan');document.getElementById('newStanceGoofy').classList.remove('btn-cyan');">🏄 Regular</button>
+      <button type="button" id="newStanceGoofy" class="btn" style="flex:1;" onclick="document.getElementById('newStanceGoofy').classList.add('btn-cyan');document.getElementById('newStanceRegular').classList.remove('btn-cyan');">🏄 Goofy</button>
+    </div>`;
+  } else {
+    wrap.innerHTML = '';
+  }
+}
+
+// Compatibilidad: si algo viejo llama openAddAthleteModal, redirigir
+function openAddAthleteModal(){ openAddUserModal('athlete'); }
+
+async function saveNewUser(){
+  const role = document.getElementById('newUserRole')?.value || 'athlete';
   const name = document.getElementById('newAthName')?.value?.trim();
   const pin = document.getElementById('newAthPin')?.value?.trim();
-  if(!name){ toast('Ingresa el nombre del atleta','error'); return; }
+  if(!name){ toast('Ingresa el nombre','error'); return; }
   if(!pin || pin.length !== 4 || isNaN(pin)){ toast('El PIN debe ser exactamente 4 dígitos','error'); return; }
-  // Check PIN not already in use
-  const pinExists = S.athletes.find(a=>a.pin===pin) || (pin==='0000');
-  if(pinExists){ toast('Ese PIN ya está en uso, elige otro','error'); return; }
+  if(pin==='0000'){ toast('Ese PIN no se permite, elige otro','error'); return; }
   showLoad(true);
   try {
-    const{data,error} = await db.from('tss_profiles').insert({
-      user_id: crypto.randomUUID(),
-      name,
-      role: 'athlete',
-      pin,
-      stance: document.getElementById('newStanceGoofy')?.classList.contains('btn-cyan')?'Goofy':'Regular',
-      active: true
-    }).select().single();
+    // Validar PIN único en TODA la tabla (atletas + coaches activos)
+    const{data:exists}=await db.from('tss_profiles').select('id').eq('pin',pin).neq('active',false).limit(1);
+    if(exists && exists.length){ toast('Ese PIN ya está en uso, elige otro','error'); showLoad(false); return; }
+    const payload = { user_id: crypto.randomUUID(), name, role, pin, active: true };
+    if(role==='athlete'){
+      payload.stance = document.getElementById('newStanceGoofy')?.classList.contains('btn-cyan')?'Goofy':'Regular';
+    }
+    const{data,error} = await db.from('tss_profiles').insert(payload).select().single();
     if(error) throw error;
-    // Add to local list
-    S.athletes.push(data);
-    toast(`✅ ${name} agregado al equipo`,'success');
-    closeModal('addAthleteModal');
+    // Refrescar listas locales
+    if(role==='athlete'){ S.athletes.push(data); }
+    else { (S.coaches||[]).push(data); S.coaches.sort((a,b)=>a.name.localeCompare(b.name)); }
+    const labels={athlete:'atleta', acoach:'coach asistente', coach:'head coach'};
+    toast(`✅ ${name} agregado como ${labels[role]||role}`,'success');
+    closeModal('addUserModal');
     vAtletas();
-  } catch(e){ toast('Error al crear atleta: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error al crear usuario: '+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
+
+// Alias por compat
+async function saveNewAthlete(){ return saveNewUser(); }
 function openScoreCapModal(athleteId, athleteName, current){
   const m = document.createElement('div');
   m.className = 'modal-overlay'; m.id = 'scoreCapModal';
