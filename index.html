@@ -377,7 +377,7 @@ const OFFICIAL_START = '2026-03-23';
 let showOfficialOnly = true;
 
 /* STATE */
-let S = { user:null, pin:'', loginRole:'', athletes:[], coaches:[], groups:[], view:null, selDate:null };
+let S = { user:null, pin:'', loginRole:'', athletes:[], coaches:[], groups:[], videoLibrary:[], view:null, selDate:null };
 let spSelectedAthletes = []; // athletes selected for presencial session
 
 /* UTILS */
@@ -2471,6 +2471,7 @@ function vPlaneacion(){
     <div class="inner-tabs">
       <button class="itab active" id="it-dias" onclick="pTab('dias')">📅 Días</button>
       <button class="itab" id="it-grupos" onclick="pTab('grupos')">👥 Grupos</button>
+      <button class="itab" id="it-videos" onclick="pTab('videos')">📚 Videos</button>
     </div>
     <div id="planTab"></div>`);
   pTab('dias');
@@ -2478,7 +2479,9 @@ function vPlaneacion(){
 function pTab(t){
   document.querySelectorAll('.itab').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById(`it-${t}`); if(el) el.classList.add('active');
-  if(t==='dias') renderPlanDias(); else renderGrupos();
+  if(t==='dias') renderPlanDias();
+  else if(t==='grupos') renderGrupos();
+  else if(t==='videos') renderVideoLibrary();
 }
 
 function renderPlanDias(){
@@ -2864,7 +2867,10 @@ function openAddBlockModal(date, existData=null){
     </div>
     <div id="planTaskList"></div>
 
-    <label class="inp-label">Video YouTube (opcional)</label>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+      <label class="inp-label" style="margin:0;">Video YouTube (opcional)</label>
+      <button type="button" class="btn btn-xs btn-outline" onclick="openVideoPicker()">📚 Buscar en librería</button>
+    </div>
     <input type="url" class="inp" id="blockVideo" value="${existData?existData.video_url||'':''}" placeholder="https://youtube.com/...">
     <button class="save-btn" style="margin-top:16px;" onclick="saveBlock('${date}','${existData?existData.id:''}')">💾 Guardar Actividad</button>
   </div>`;
@@ -3241,6 +3247,249 @@ async function deleteGroup(id){
     S.groups=grps||[];
     toast('Grupo eliminado','success'); renderGrupos();
   } catch(e){toast('Error','error');} finally{showLoad(false);}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   F2: LIBRERÍA DE VIDEOS — catálogo reutilizable por pilar
+   Solo head coach crea/edita. Acoach lee y usa al armar planes.
+   ════════════════════════════════════════════════════════════════════ */
+let _videoLibFilter = 'all';
+
+async function renderVideoLibrary(){
+  const isHead = S.user.role==='coach';
+  const el = document.getElementById('planTab');
+  el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando librería…</div>';
+  try {
+    const{data,error}=await db.from('tss_video_library')
+      .select('*').neq('archived',true).order('created_at',{ascending:false});
+    if(error) throw error;
+    S.videoLibrary = data||[];
+    paintVideoLibrary();
+  } catch(e){
+    console.error('renderVideoLibrary',e);
+    el.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar la librería</p>';
+  }
+}
+
+function paintVideoLibrary(){
+  const isHead = S.user.role==='coach';
+  const list = (S.videoLibrary||[]).filter(v => _videoLibFilter==='all' || v.pillar===_videoLibFilter);
+  const filterPills = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+    <button class="opt-pill${_videoLibFilter==='all'?' on':''}" onclick="filterVideoLib('all')">📚 Todos</button>
+    ${BLOCK_TYPES.map(bt=>`<button class="opt-pill${_videoLibFilter===bt.id?' on':''}" onclick="filterVideoLib('${bt.id}')">${bt.emoji} ${bt.label}</button>`).join('')}
+  </div>`;
+  const headerBtn = isHead ? `<button class="btn btn-cyan btn-sm" style="margin-bottom:14px;" onclick="openAddVideoModal()">+ Agregar Video</button>` : '';
+  let html = headerBtn + filterPills;
+  if(!list.length){
+    html += `<div class="empty"><div class="empty-icon">📚</div><p class="empty-txt">${_videoLibFilter==='all'?'Sin videos en la librería todavía':'Sin videos en este pilar'}</p></div>`;
+  } else {
+    html += list.map(v=>{
+      const bt = getBlockType(v.pillar);
+      const ytid = ytId(v.video_url);
+      const thumb = ytid ? `<img src="https://img.youtube.com/vi/${ytid}/mqdefault.jpg" style="width:120px;height:68px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'">` : `<div style="width:120px;height:68px;background:var(--bg3);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🎬</div>`;
+      const desc = v.description ? `<div style="font-size:11px;color:rgba(232,240,245,.6);margin-top:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc(v.description)}</div>` : '';
+      return `<div class="card anim-up" style="margin-bottom:10px;display:flex;gap:10px;">
+        ${thumb}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="font-size:13px;font-weight:700;color:var(--white);line-height:1.3;">${esc(v.title)}</div>
+            ${isHead?`<div style="display:flex;gap:4px;flex-shrink:0;">
+              <button class="btn btn-xs btn-outline" onclick="openEditVideoModal('${v.id}')">✏️</button>
+              <button class="btn btn-xs" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="deleteVideo('${v.id}')">🗑</button>
+            </div>`:''}
+          </div>
+          <span class="chip" style="font-size:10px;padding:2px 8px;background:rgba(0,201,232,.1);color:var(--cyan);border:1px solid rgba(0,201,232,.2);border-radius:10px;display:inline-block;margin-top:4px;">${bt.emoji} ${bt.label}</span>
+          ${desc}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('planTab').innerHTML = html;
+}
+
+function filterVideoLib(p){
+  _videoLibFilter = p;
+  paintVideoLibrary();
+}
+
+function openAddVideoModal(){
+  if(S.user.role!=='coach'){ toast('Solo el head coach puede agregar videos','error'); return; }
+  let m = document.getElementById('videoModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='videoModal';
+  const pillarOpts = BLOCK_TYPES.map(bt=>`<option value="${bt.id}">${bt.emoji} ${bt.label}</option>`).join('');
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">📚 Nuevo Video</div>
+      <button class="modal-close" onclick="closeModal('videoModal')">✕</button>
+    </div>
+    <input type="hidden" id="videoEditId" value="">
+    <label class="inp-label">Título</label>
+    <input type="text" class="inp" id="videoTitle" placeholder="Ej: Bhastrika Pranayama 5 min">
+    <label class="inp-label" style="margin-top:12px;">URL de YouTube</label>
+    <input type="url" class="inp" id="videoUrl" placeholder="https://youtube.com/watch?v=...">
+    <div id="videoPreview" style="margin-top:8px;"></div>
+    <label class="inp-label" style="margin-top:12px;">Pilar</label>
+    <select class="sel inp" id="videoPillar">${pillarOpts}</select>
+    <label class="inp-label" style="margin-top:12px;">Descripción / instrucciones</label>
+    <textarea class="ta" id="videoDesc" style="min-height:90px;" placeholder="Qué se trabaja con este video, cómo ejecutarlo, foco principal..."></textarea>
+    <button class="save-btn" style="margin-top:16px;" onclick="saveVideo()">💾 Guardar Video</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('videoModal'); };
+  // Live preview cuando se pega URL
+  document.getElementById('videoUrl').addEventListener('input', renderVideoModalPreview);
+  setTimeout(()=>document.getElementById('videoTitle')?.focus(), 100);
+}
+
+function openEditVideoModal(videoId){
+  if(S.user.role!=='coach'){ toast('Solo el head coach puede editar videos','error'); return; }
+  const v = (S.videoLibrary||[]).find(x=>x.id===videoId);
+  if(!v){ toast('Video no encontrado','error'); return; }
+  openAddVideoModal();
+  // Prellenar
+  setTimeout(()=>{
+    document.getElementById('videoEditId').value = v.id;
+    document.getElementById('videoTitle').value = v.title||'';
+    document.getElementById('videoUrl').value = v.video_url||'';
+    document.getElementById('videoPillar').value = v.pillar||'otro';
+    document.getElementById('videoDesc').value = v.description||'';
+    document.querySelector('#videoModal .modal-title').textContent = '📚 Editar Video';
+    renderVideoModalPreview();
+  }, 50);
+}
+
+function renderVideoModalPreview(){
+  const url = document.getElementById('videoUrl')?.value;
+  const wrap = document.getElementById('videoPreview'); if(!wrap) return;
+  const id = ytId(url);
+  if(id){
+    wrap.innerHTML = `<div style="border-radius:8px;overflow:hidden;background:var(--bg3);"><iframe width="100%" height="180" src="https://www.youtube.com/embed/${id}" frameborder="0" allowfullscreen style="display:block;border-radius:8px;"></iframe></div>`;
+  } else if(url) {
+    wrap.innerHTML = `<div style="font-size:11px;color:var(--amber);padding:8px;">⚠️ URL de YouTube no reconocida</div>`;
+  } else {
+    wrap.innerHTML = '';
+  }
+}
+
+async function saveVideo(){
+  const editId = document.getElementById('videoEditId')?.value;
+  const title = document.getElementById('videoTitle')?.value?.trim();
+  const url = document.getElementById('videoUrl')?.value?.trim();
+  const pillar = document.getElementById('videoPillar')?.value;
+  const description = document.getElementById('videoDesc')?.value?.trim() || null;
+  if(!title){ toast('Ingresá el título','error'); return; }
+  if(!url || !ytId(url)){ toast('URL de YouTube inválida','error'); return; }
+  if(!pillar){ toast('Elegí un pilar','error'); return; }
+  showLoad(true);
+  try {
+    if(editId){
+      const{error}=await db.from('tss_video_library').update({title,video_url:url,pillar,description}).eq('id',editId);
+      if(error) throw error;
+      const i = (S.videoLibrary||[]).findIndex(v=>v.id===editId);
+      if(i>=0) S.videoLibrary[i] = {...S.videoLibrary[i], title, video_url:url, pillar, description};
+      toast('✅ Video actualizado','success');
+    } else {
+      const{data,error}=await db.from('tss_video_library')
+        .insert({title,video_url:url,pillar,description,created_by:S.user.id})
+        .select().single();
+      if(error) throw error;
+      (S.videoLibrary = S.videoLibrary||[]).unshift(data);
+      toast('✅ Video agregado','success');
+    }
+    closeModal('videoModal');
+    paintVideoLibrary();
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
+async function deleteVideo(videoId){
+  if(S.user.role!=='coach'){ toast('Solo el head coach puede borrar','error'); return; }
+  if(!confirm('¿Eliminar este video de la librería? (los planes que ya lo usan se mantienen sin cambios)')) return;
+  showLoad(true);
+  try {
+    const{error}=await db.from('tss_video_library').update({archived:true}).eq('id',videoId);
+    if(error) throw error;
+    S.videoLibrary = (S.videoLibrary||[]).filter(v=>v.id!==videoId);
+    toast('✅ Video eliminado','success');
+    paintVideoLibrary();
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
+/* PICKER de la librería desde el modal de creación de bloque */
+async function openVideoPicker(){
+  // Cargar librería si no está en memoria
+  if(!S.videoLibrary || !S.videoLibrary.length){
+    try {
+      const{data}=await db.from('tss_video_library').select('*').neq('archived',true).order('created_at',{ascending:false});
+      S.videoLibrary = data||[];
+    } catch(e){ toast('Error cargando librería','error'); return; }
+  }
+  // Filtrar por el work_type actual del bloque (si está seleccionado)
+  const currentPillar = document.getElementById('blockTypeVal')?.value || 'all';
+  let m = document.getElementById('videoPickerModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='videoPickerModal';
+  m.style.zIndex='10001'; // por encima del modal de bloque
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head">
+      <div class="modal-title">📚 Elegir Video</div>
+      <button class="modal-close" onclick="closeModal('videoPickerModal')">✕</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="vpFilterRow">
+      <button class="opt-pill${currentPillar==='all'?' on':''}" onclick="renderVideoPickerList('all',this)">📚 Todos</button>
+      ${BLOCK_TYPES.map(bt=>`<button class="opt-pill${currentPillar===bt.id?' on':''}" onclick="renderVideoPickerList('${bt.id}',this)">${bt.emoji} ${bt.label}</button>`).join('')}
+    </div>
+    <div id="vpList"></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('videoPickerModal'); };
+  renderVideoPickerList(currentPillar, null);
+}
+
+function renderVideoPickerList(pillar, btn){
+  if(btn){
+    document.querySelectorAll('#vpFilterRow .opt-pill').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+  }
+  const list = (S.videoLibrary||[]).filter(v => pillar==='all' || v.pillar===pillar);
+  const wrap = document.getElementById('vpList'); if(!wrap) return;
+  if(!list.length){
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📚</div><p class="empty-txt">Sin videos en este pilar. Agregá uno desde Planeación → 📚 Videos.</p></div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(v=>{
+    const bt = getBlockType(v.pillar);
+    const yid = ytId(v.video_url);
+    const thumb = yid ? `<img src="https://img.youtube.com/vi/${yid}/mqdefault.jpg" style="width:100px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'">` : `<div style="width:100px;height:60px;background:var(--bg3);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🎬</div>`;
+    return `<div class="card anim-up" style="margin-bottom:8px;cursor:pointer;display:flex;gap:10px;align-items:center;" onclick="pickVideoFromLib('${v.id}')">
+      ${thumb}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--white);">${esc(v.title)}</div>
+        <span style="font-size:10px;color:var(--cyan);">${bt.emoji} ${bt.label}</span>
+        ${v.description?`<div style="font-size:11px;color:rgba(232,240,245,.55);margin-top:3px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;">${esc(v.description)}</div>`:''}
+      </div>
+      <span style="color:var(--cyan);font-size:18px;">›</span>
+    </div>`;
+  }).join('');
+}
+
+function pickVideoFromLib(videoId){
+  const v = (S.videoLibrary||[]).find(x=>x.id===videoId);
+  if(!v){ toast('Video no encontrado','error'); return; }
+  // Rellenar campos del bloque (sin sobrescribir si ya tienen contenido)
+  const urlEl = document.getElementById('blockVideo');
+  const objEl = document.getElementById('blockObj');
+  const notesEl = document.getElementById('blockNotes');
+  if(urlEl){
+    if(urlEl.value && urlEl.value !== v.video_url){
+      if(!confirm('El campo URL ya tiene un video. ¿Reemplazarlo?')){ closeModal('videoPickerModal'); return; }
+    }
+    urlEl.value = v.video_url;
+  }
+  if(objEl && !objEl.value.trim()){ objEl.value = v.title || ''; }
+  if(notesEl && !notesEl.value.trim() && v.description){ notesEl.value = v.description; }
+  closeModal('videoPickerModal');
+  toast('✅ Video cargado · podés ajustar título o notas','success');
 }
 
 /* ============================================================
