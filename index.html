@@ -644,7 +644,7 @@ function renderSpCard(s, isToday){
       <div class="drill-val">${esc(s.mental_hack)}</div>
     </div>` : ''}
 
-    ${vid ? `<div class="yt-embed"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>` : ''}
+    ${vid ? `<div class="yt-embed"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" allowfullscreen></iframe></div>` : ''}
 
     ${s.notes ? `<p style="font-size:12px;color:rgba(232,240,245,.5);margin-top:8px;line-height:1.6;">${esc(s.notes)}</p>` : ''}
 
@@ -1374,7 +1374,7 @@ async function loadHoy(date){
                 ${d.time||d.reps?`<div style="font-size:11px;color:var(--cyan);margin-top:3px;">${d.time?d.time+' min':''}${d.time&&d.reps?' · ':''}${d.reps?d.reps+' reps':''}</div>`:''}
               </div>`).join('')}
             </div>`:''}
-            ${vid?`<div class="yt-embed" style="margin-top:8px;"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
+            ${vid?`<div class="yt-embed" style="margin-top:8px;"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
           </div>`;
           return;
         }
@@ -1434,7 +1434,7 @@ async function loadHoy(date){
               }).join('')}
               </div>
             </div>`:''}
-            ${vid?`<div style="border-radius:10px;overflow:hidden;margin-bottom:14px;"><iframe width="100%" height="180" src="https://www.youtube.com/embed/${vid}" frameborder="0" allowfullscreen style="border-radius:10px;display:block;"></iframe></div>`:''}
+            ${vid?`<div style="border-radius:10px;overflow:hidden;margin-bottom:14px;"><iframe width="100%" height="180" src="https://www.youtube-nocookie.com/embed/${vid}" frameborder="0" allowfullscreen style="border-radius:10px;display:block;"></iframe></div>`:''}
             <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:12px;">
               ${sesRes ? `<div style="text-align:center;padding:12px;background:rgba(0,0,0,.2);border-radius:10px;">
                 <div style="font-size:20px;margin-bottom:4px;">${sesRes==='Si'?'✅':sesRes==='Parcial'?'⚡':'❌'}</div>
@@ -1511,7 +1511,7 @@ async function loadHoy(date){
               </div>`;
             }).join('')}
           </div>`:''}
-          ${vid?`<div class="yt-embed" style="margin-top:10px;"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
+          ${vid?`<div class="yt-embed" style="margin-top:10px;"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
         </div>`;
       });
     } else {
@@ -1788,7 +1788,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
         </div>`:''}
         ${ctData.instructions?`<div style="font-size:12px;color:rgba(232,240,245,.7);line-height:1.6;margin-bottom:8px;white-space:pre-line;">📋 ${esc(ctData.instructions)}</div>`:''}
         ${vid?`<div style="border-radius:10px;overflow:hidden;margin-bottom:10px;position:relative;padding-bottom:56.25%;height:0;">
-          <iframe src="https://www.youtube.com/embed/${vid}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
+          <iframe src="https://www.youtube-nocookie.com/embed/${vid}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe>
         </div>`:''}
         ${ctData.include_prep?`
         <div style="border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:10px;margin-bottom:10px;">
@@ -1918,7 +1918,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
           }).join('')}
           </div>
         </div>`:''}
-        ${vid?`<div style="border-radius:10px;overflow:hidden;margin-bottom:14px;"><iframe width="100%" height="180" src="https://www.youtube.com/embed/${vid}" frameborder="0" allowfullscreen style="border-radius:10px;display:block;"></iframe></div>`:''}
+        ${vid?`<div style="border-radius:10px;overflow:hidden;margin-bottom:14px;"><iframe width="100%" height="180" src="https://www.youtube-nocookie.com/embed/${vid}" frameborder="0" allowfullscreen style="border-radius:10px;display:block;"></iframe></div>`:''}
         <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:12px;">
           ${sesRes ? `<div style="text-align:center;padding:12px;background:rgba(0,0,0,.2);border-radius:10px;">
             <div style="font-size:20px;margin-bottom:4px;">${sesRes==='Si'?'✅':sesRes==='Parcial'?'⚡':'❌'}</div>
@@ -1994,7 +1994,7 @@ function buildPlansHtml(plans, compState, date, sesionResults){
           </div>`;
         }).join('')}
       </div>`:''}
-      ${vid?`<div class="yt-embed" style="margin-top:10px;"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
+      ${vid?`<div class="yt-embed" style="margin-top:10px;"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
     </div>`;
   });
   return html;
@@ -2374,7 +2374,7 @@ async function showDayDetail(date, plansByDateArg, ciByDateArg, myGroupsArg){
             <div style="font-size:12px;color:var(--white);line-height:1.5;">${ps.mental_hack}</div>
           </div>`:''}
 
-          ${vid?`<div style="border-radius:10px;overflow:hidden;margin-top:8px;"><iframe width="100%" height="160" src="https://www.youtube.com/embed/${vid}" frameborder="0" allowfullscreen style="display:block;border-radius:10px;"></iframe></div>`:''}
+          ${vid?`<div style="border-radius:10px;overflow:hidden;margin-top:8px;"><iframe width="100%" height="160" src="https://www.youtube-nocookie.com/embed/${vid}" frameborder="0" allowfullscreen style="display:block;border-radius:10px;"></iframe></div>`:''}
 
           ${ps.notes?`<p style="font-size:11px;color:rgba(232,240,245,.45);margin-top:8px;line-height:1.6;font-style:italic;">${ps.notes}</p>`:''}
         </div>`;
@@ -2451,7 +2451,7 @@ async function loadSesHist(athleteId=null,containerId='sesTab'){
         </div>
         <div class="intensity-bar"><div class="intensity-fill" style="width:${s.intensity*10}%"></div></div>
         ${s.notes?`<p style="font-size:12px;color:rgba(232,240,245,.6);margin-top:10px;line-height:1.6;">${s.notes}</p>`:''}
-        ${vid?`<div class="yt-embed"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
+        ${vid?`<div class="yt-embed"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
       </div>`;
     }).join('');
   } catch(e){container.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar</p>';}
@@ -2733,7 +2733,7 @@ async function loadPlanDay(date){
                   </div>
                 </div>`).join('')}
             </div>`:''}
-          ${vid?`<div class="yt-embed" style="margin-top:10px;"><iframe src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
+          ${vid?`<div class="yt-embed" style="margin-top:10px;"><iframe src="https://www.youtube-nocookie.com/embed/${vid}" allowfullscreen></iframe></div>`:''}
         </div>`;
       });
     }
@@ -3363,7 +3363,7 @@ function renderVideoModalPreview(){
   const wrap = document.getElementById('videoPreview'); if(!wrap) return;
   const id = ytId(url);
   if(id){
-    wrap.innerHTML = `<div style="border-radius:8px;overflow:hidden;background:var(--bg3);"><iframe width="100%" height="180" src="https://www.youtube.com/embed/${id}" frameborder="0" allowfullscreen style="display:block;border-radius:8px;"></iframe></div>`;
+    wrap.innerHTML = `<div style="border-radius:8px;overflow:hidden;background:var(--bg3);"><iframe width="100%" height="180" src="https://www.youtube-nocookie.com/embed/${id}" frameborder="0" allowfullscreen style="display:block;border-radius:8px;"></iframe></div>`;
   } else if(url) {
     wrap.innerHTML = `<div style="font-size:11px;color:var(--amber);padding:8px;">⚠️ URL de YouTube no reconocida</div>`;
   } else {
@@ -7028,7 +7028,7 @@ async function saveHeatEntry(){
     };
     let res=await db.from('tss_comp_evaluations').insert(heatPayload);
     if(res.error){
-      // Retry without created_by
+      // Retry without created_by in case column doesn't exist
       delete heatPayload.created_by;
       res=await db.from('tss_comp_evaluations').insert(heatPayload);
       if(res.error) throw res.error;
@@ -7036,7 +7036,11 @@ async function saveHeatEntry(){
     toast('✅ Heat guardado','success');
     closeModal('heatEntryModal');
     loadCompMode(compId, athleteId, athleteName);
-  } catch(e){ toast('Error al guardar heat','error'); console.error(e); }
+  } catch(e){
+    const msg = (e && (e.message||e.hint||e.details||e.code)) || 'desconocido';
+    toast('Error al guardar heat: '+msg,'error');
+    console.error('saveHeatEntry error:', e, 'payload was:', { athleteId, eventName, round, wavesStr, result });
+  }
   finally { showLoad(false); }
 }
 
