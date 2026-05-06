@@ -2721,7 +2721,23 @@ async function loadPlanDay(date){
               <button class="btn btn-xs btn-red" onclick="deleteBlock('${plan.id}','${date}')">🗑</button>
             </div>`:''}
           </div>
-          ${plan.notes?`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.8);white-space:pre-wrap;margin-bottom:8px;">${esc(plan.notes)}</p>`:''}
+          ${(()=>{
+            if(!plan.notes) return '';
+            // Para Entreno Competencia, las notas son JSON {spot,target_score,instructions,include_prep}
+            if(plan.work_type==='comp_training'){
+              let ct={}; try{ ct=JSON.parse(plan.notes); }catch(e){ ct={instructions:plan.notes}; }
+              // Doble-encoding defensivo (JSON dentro de instructions)
+              if(ct.instructions && typeof ct.instructions==='string' && ct.instructions.trim().startsWith('{')){
+                try{ const inner=JSON.parse(ct.instructions); if(inner.instructions){ ct.spot=ct.spot||inner.spot; ct.target_score=ct.target_score||inner.target_score; ct.instructions=inner.instructions; } }catch(e){}
+              }
+              let out='';
+              if(ct.spot) out+=`<div style="font-size:11px;color:var(--cyan);margin-bottom:4px;">📍 ${esc(ct.spot)}</div>`;
+              if(ct.target_score) out+=`<div style="font-size:11px;color:var(--amber);margin-bottom:4px;">🎯 Score objetivo: ${esc(ct.target_score)}/10</div>`;
+              if(ct.instructions) out+=`<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.8);white-space:pre-wrap;margin-bottom:8px;">${esc(ct.instructions)}</p>`;
+              return out;
+            }
+            return `<p style="font-size:13px;line-height:1.7;color:rgba(232,240,245,.8);white-space:pre-wrap;margin-bottom:8px;">${esc(plan.notes)}</p>`;
+          })()}
           ${plan._blocks&&plan._blocks.length?`
             <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
               ${plan._blocks.map((t,i)=>`
@@ -6671,6 +6687,8 @@ async function loadCompMode(compId, athleteId, athleteName){
         }
       });
     }
+    // Cachear heats globalmente para que addHeatEntry(heatId) los encuentre al editar
+    window._cmHeats = heats;
 
     const isCoach=S.user.role==='coach'||S.user.role==='acoach';
     const stepStates=prepData;
@@ -6831,30 +6849,47 @@ async function loadCompMode(compId, athleteId, athleteName){
     <!-- SAVE PREP BUTTON -->
     <button class="btn btn-cyan" style="width:100%;margin-bottom:16px;" onclick="saveCompPrep('prep')">💾 Guardar Preparación</button>
 
-    <!-- STEP 5: HEAT TRACKER -->
+    <!-- STEP 5: HEAT TRACKER (clickeable + indicadores 3 secciones) -->
     <div style="border-top:2px solid rgba(245,158,11,.3);padding-top:14px;margin-top:6px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:14px;font-weight:900;color:var(--amber);">🔥 HEATS EN VIVO</div>
-        ${isCoach?`<button class="btn btn-xs btn-amber" onclick="addHeatEntry()">+ Agregar Heat</button>`:''}
+        <div>
+          <div style="font-size:14px;font-weight:900;color:var(--amber);">🔥 HEATS</div>
+          <div style="font-size:10px;color:var(--grey);">Tocá un heat para ver/editar sus 3 secciones</div>
+        </div>
+        <button class="btn btn-xs btn-amber" onclick="addHeatEntry()">+ Nuevo Heat</button>
       </div>
       <div id="heatsList">
         ${heats.length?heats.map((h,i)=>{
-          let waves=[]; let heatNote='';
+          // Detectar estructura nueva (pre/post/coach) vs vieja
+          let ext=null, waves=[], heatNote='';
           try{
+            const rawNotes=h.notes||'';
+            const parsed=JSON.parse(rawNotes);
+            if(parsed && (parsed.pre || parsed.post || parsed.coach)){
+              ext = parsed;
+              waves = (parsed.post && Array.isArray(parsed.post.waves)) ? parsed.post.waves : [];
+            } else if(Array.isArray(parsed)) {
+              waves = parsed;
+            }
+          }catch(e){
+            // Estructura vieja con " | Olas: "
             const rawNotes=h.notes||'';
             if(rawNotes.includes(' | Olas: ')){
               const parts=rawNotes.split(' | Olas: ');
               heatNote=parts[0];
-              waves=JSON.parse(parts[1]||'[]');
-            } else {
-              waves=JSON.parse(rawNotes||'[]');
+              try{ waves=JSON.parse(parts[1]||'[]'); }catch(e2){}
             }
-          }catch(e){waves=[];}
+          }
           if(!Array.isArray(waves)) waves=[];
           const w1=parseFloat(h.avg_wave_score)||0;
           const w2=parseFloat(h.highest_wave)||0;
           const total=parseFloat(h.heat_total)||(w1+w2);
-          return `<div class="card" style="margin-bottom:8px;border:1px solid rgba(245,158,11,.2);">
+          // Indicadores de qué secciones están llenas
+          const hasPre = ext && ext.pre && (ext.pre.mantra||ext.pre.position||ext.pre.strategy||ext.pre.confidence);
+          const hasPost = ext && ext.post && (ext.post.worked||ext.post.failed||ext.post.feeling||(ext.post.waves&&ext.post.waves.length)) || (waves.length>0 || h.final_ranking);
+          const hasCoach = ext && ext.coach && (ext.coach.mental||ext.coach.fisico||ext.coach.tecnico||ext.coach.tactico||ext.coach.equipo||ext.coach.observation||ext.coach.action);
+          const dot = (filled,color) => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${filled?color:'rgba(255,255,255,.1)'};"></span>`;
+          return `<div class="card" style="margin-bottom:8px;border:1px solid rgba(245,158,11,.2);cursor:pointer;" onclick="addHeatEntry('${h.id}')">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <div>
                 <span style="font-size:13px;font-weight:800;color:var(--amber);">${h.round_reached||'Heat '+(i+1)}</span>
@@ -6872,13 +6907,21 @@ async function loadCompMode(compId, athleteId, athleteName){
                 <div style="font-size:8px;color:var(--grey);">Mejor Ola 2</div>
               </div>
               ${h.final_ranking?`<div style="flex:1;background:rgba(245,158,11,.1);border-radius:8px;padding:6px;text-align:center;">
-                <div style="font-size:16px;font-weight:800;color:var(--amber);">${h.final_ranking}</div>
+                <div style="font-size:14px;font-weight:800;color:var(--amber);">${h.final_ranking}</div>
                 <div style="font-size:8px;color:var(--grey);">Resultado</div>
               </div>`:''}
             </div>
-            ${waves.length?`<div style="display:flex;gap:3px;flex-wrap:wrap;">${waves.map((w,wi)=>`<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${parseFloat(w)>=6?'rgba(34,197,94,.15)':parseFloat(w)>=4?'rgba(245,158,11,.1)':'rgba(255,255,255,.05)'};color:${parseFloat(w)>=6?'var(--green)':parseFloat(w)>=4?'var(--amber)':'var(--grey)'};">Ola ${wi+1}: ${w}</span>`).join('')}</div>`:''}
+            ${waves.length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px;">${waves.map((w,wi)=>`<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${parseFloat(w)>=6?'rgba(34,197,94,.15)':parseFloat(w)>=4?'rgba(245,158,11,.1)':'rgba(255,255,255,.05)'};color:${parseFloat(w)>=6?'var(--green)':parseFloat(w)>=4?'var(--amber)':'var(--grey)'};">Ola ${wi+1}: ${w}</span>`).join('')}</div>`:''}
+            <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding-top:6px;margin-top:4px;">
+              <div style="display:flex;gap:6px;align-items:center;font-size:9px;color:var(--grey);">
+                <span title="Antes">${dot(hasPre,'var(--cyan)')} antes</span>
+                <span title="Después">${dot(hasPost,'var(--amber)')} después</span>
+                <span title="Coach">${dot(hasCoach,'var(--purple)')} coach</span>
+              </div>
+              <span style="font-size:10px;color:var(--grey);">tocá para editar →</span>
+            </div>
           </div>`;
-        }).join(''):`<div style="text-align:center;padding:20px;color:var(--grey);font-size:12px;">Sin heats registrados aún</div>`}
+        }).join(''):`<div style="text-align:center;padding:20px;color:var(--grey);font-size:12px;">Sin heats registrados aún. Tocá "+ Nuevo Heat" para arrancar.</div>`}
       </div>
     </div>
 
@@ -6969,32 +7012,133 @@ async function saveCompPrep(kind){
   finally { showLoad(false); }
 }
 
-function addHeatEntry(){
+// addHeatEntry — modal con 3 secciones holísticas (ANTES atleta · DESPUÉS atleta · ANÁLISIS coach)
+// Si se pasa heatId, carga datos existentes para editar
+function addHeatEntry(heatId){
   const {compId,athId:athleteId,athName:athleteName,eventName}=_cm;
+  const isCoach = S.user.role==='coach' || S.user.role==='acoach';
+  let existingHeat = null;
+  if(heatId){
+    // Buscar en _cmHeats si está cargado
+    existingHeat = (window._cmHeats||[]).find(h=>h.id===heatId);
+  }
+  // Parsear datos extendidos del heat (estructura nueva)
+  let ext = { pre:{}, post:{}, coach:{} };
+  if(existingHeat && existingHeat.notes){
+    try {
+      const parsed = JSON.parse(existingHeat.notes);
+      // Si es la estructura nueva tiene pre/post/coach
+      if(parsed.pre || parsed.post || parsed.coach){
+        ext = { pre: parsed.pre||{}, post: parsed.post||{}, coach: parsed.coach||{} };
+      } else {
+        // Estructura vieja: notes es texto plano o array de waves
+        // Mantener compatibilidad
+      }
+    } catch(e){}
+  }
+  const round = existingHeat?.round_reached || '';
+  // Prefer las olas COMPLETAS guardadas en ext.post.waves; fallback a estructura vieja
+  const wavesStr = existingHeat ? (()=>{
+    if(ext.post && Array.isArray(ext.post.waves) && ext.post.waves.length) return ext.post.waves.join(', ');
+    try { const n=JSON.parse(existingHeat.notes); if(Array.isArray(n)) return n.join(', '); }catch(e){}
+    if(existingHeat.highest_wave!=null) return [existingHeat.avg_wave_score, existingHeat.highest_wave].filter(x=>x).join(', ');
+    return '';
+  })() : '';
+  const result = existingHeat?.final_ranking || '';
+
   let m=document.getElementById('heatEntryModal'); if(m) m.remove();
   m=document.createElement('div'); m.className='modal-overlay'; m.id='heatEntryModal';
   m.style.cssText='z-index:10000;';
-  m.innerHTML=`<div class="modal-sheet">
-    <div class="modal-head">
-      <div class="modal-title">🔥 Registrar Heat</div>
+  // Helper para botones de escala 1-5
+  const scaleBtns = (id, current) => `<div style="display:flex;gap:4px;" data-scale="${id}">${[1,2,3,4,5].map(n=>`<button type="button" class="pill${current==n?' pill-on':''}" style="flex:1;font-size:13px;font-weight:800;padding:6px 0;" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('${id}').value='${n}'">${n}</button>`).join('')}</div><input type="hidden" id="${id}" value="${current||''}">`;
+  // Helper para botones únicos (selector)
+  const oneBtn = (id, opts, current) => `<div style="display:flex;gap:4px;flex-wrap:wrap;">${opts.map(o=>`<button type="button" class="pill${current==o.v?' pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('${id}').value='${o.v}'">${o.l}</button>`).join('')}</div><input type="hidden" id="${id}" value="${current||''}">`;
+
+  m.innerHTML=`<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;padding-bottom:30px;">
+    <div class="modal-head" style="position:sticky;top:0;background:var(--bg2);z-index:10;padding-bottom:8px;">
+      <div>
+        <div class="modal-title">🔥 ${heatId?'Editar Heat':'Nuevo Heat'}</div>
+        <div style="font-size:11px;color:var(--grey);">${esc(eventName||'')} · ${esc(athleteName||'')}</div>
+      </div>
       <button class="modal-close" onclick="closeModal('heatEntryModal')">✕</button>
     </div>
+
+    <!-- IDENTIFICADOR DEL HEAT (siempre visible) -->
+    <input type="hidden" id="ht-id" value="${heatId||''}">
     <label class="inp-label">Ronda</label>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-      ${['Round 1','Round 2','Round 3','Cuartos','Semifinal','Final'].map(r=>`<button class="pill" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-round').value='${r}'">${r}</button>`).join('')}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      ${['Round 1','Round 2','Round 3','Cuartos','Semifinal','Final'].map(r=>`<button class="pill${round===r?' pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-round').value='${r}'">${r}</button>`).join('')}
     </div>
-    <input type="hidden" id="ht-round" value="">
-    <label class="inp-label">Scores de olas (separar con coma)</label>
-    <input class="inp" type="text" id="ht-waves" placeholder="Ej: 4.5, 3.2, 6.7, 2.1, 5.5">
-    <div style="font-size:10px;color:var(--grey);margin-top:-4px;margin-bottom:8px;">Ingresa todas las olas surfeadas, las 2 mejores se calculan automáticamente</div>
-    <label class="inp-label">Resultado del heat</label>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-      ${['1ro Avanzo','2do Avanzo','3ro Eliminado','4to Eliminado','Gano Final','2do Final','3ro Final'].map(r=>`<button class="pill" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-result').value='${r}'">${r}</button>`).join('')}
+    <input type="hidden" id="ht-round" value="${round}">
+
+    <!-- SECCIÓN 1: ANTES (atleta) -->
+    <div style="border:1px solid rgba(0,201,232,.25);border-radius:10px;padding:12px;margin-bottom:12px;background:rgba(0,201,232,.04);">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="document.getElementById('hSec1').style.display=document.getElementById('hSec1').style.display==='none'?'block':'none';this.querySelector('.sec-toggle').textContent=document.getElementById('hSec1').style.display==='none'?'▼':'▲';">
+        <div style="font-size:13px;font-weight:800;color:var(--cyan);">🟦 ANTES — Preparación (atleta)</div>
+        <span class="sec-toggle" style="color:var(--cyan);font-size:14px;">▲</span>
+      </div>
+      <div id="hSec1" style="margin-top:10px;">
+        <label class="inp-label">🎯 Mantra / palabra clave</label>
+        <input class="inp" type="text" id="ht-pre-mantra" placeholder="Ej: confianza, foco, fluidez" value="${escAttr(ext.pre.mantra||'')}">
+        <label class="inp-label" style="margin-top:8px;">📍 Posición elegida en el lineup</label>
+        ${oneBtn('ht-pre-position',[{v:'A',l:'A — Peak'},{v:'B',l:'B — Inside'},{v:'C',l:'C — Outside'},{v:'D',l:'D — Dinámica'}], ext.pre.position)}
+        <label class="inp-label" style="margin-top:8px;">⚡ Estrategia</label>
+        ${oneBtn('ht-pre-strategy',[{v:'backup',l:'1. Backup primero'},{v:'build',l:'2. Construcción'},{v:'attack',l:'3. Ataque'},{v:'select',l:'4. Selectivo (2 olas)'},{v:'block',l:'5. Bloquear'},{v:'explode',l:'6. Explosivo'}], ext.pre.strategy)}
+        <label class="inp-label" style="margin-top:8px;">💪 Confianza pre-heat</label>
+        ${scaleBtns('ht-pre-confidence', ext.pre.confidence)}
+      </div>
     </div>
-    <input type="hidden" id="ht-result" value="">
-    <label class="inp-label">Notas del heat (opcional)</label>
-    <textarea class="ta" id="ht-notes" placeholder="Prioridad, decisiones, condiciones..."></textarea>
-    <button class="btn btn-amber" style="width:100%;margin-top:10px;" onclick="saveHeatEntry()">💾 Guardar Heat</button>
+
+    <!-- SECCIÓN 2: DESPUÉS (atleta) -->
+    <div style="border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:12px;margin-bottom:12px;background:rgba(245,158,11,.04);">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="document.getElementById('hSec2').style.display=document.getElementById('hSec2').style.display==='none'?'block':'none';this.querySelector('.sec-toggle').textContent=document.getElementById('hSec2').style.display==='none'?'▼':'▲';">
+        <div style="font-size:13px;font-weight:800;color:var(--amber);">🟧 DESPUÉS — Reflexión (atleta)</div>
+        <span class="sec-toggle" style="color:var(--amber);font-size:14px;">▲</span>
+      </div>
+      <div id="hSec2" style="margin-top:10px;">
+        <label class="inp-label">🌊 Scores de olas (separar con coma)</label>
+        <input class="inp" type="text" id="ht-waves" placeholder="Ej: 4.5, 3.2, 6.7" value="${escAttr(wavesStr)}">
+        <div style="font-size:10px;color:var(--grey);margin-top:-4px;margin-bottom:8px;">Las 2 mejores se calculan automáticamente</div>
+        <label class="inp-label">🏆 Resultado</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          ${['1ro Avanzo','2do Avanzo','3ro Eliminado','4to Eliminado','Gano Final','2do Final','3ro Final'].map(r=>`<button class="pill${result===r?' pill-on':''}" onclick="this.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('pill-on'));this.classList.add('pill-on');document.getElementById('ht-result').value='${r}'">${r}</button>`).join('')}
+        </div>
+        <input type="hidden" id="ht-result" value="${result}">
+        <label class="inp-label">✅ ¿Qué funcionó bien?</label>
+        <textarea class="ta" id="ht-post-worked" placeholder="Maniobras que salieron, decisiones acertadas..." style="min-height:50px;">${esc(ext.post.worked||'')}</textarea>
+        <label class="inp-label" style="margin-top:8px;">❌ ¿Qué NO funcionó?</label>
+        <textarea class="ta" id="ht-post-failed" placeholder="Selección de ola, timing, nervios..." style="min-height:50px;">${esc(ext.post.failed||'')}</textarea>
+        <label class="inp-label" style="margin-top:8px;">🧠 Sentimiento final (1=nervios · 5=confianza plena)</label>
+        ${scaleBtns('ht-post-feeling', ext.post.feeling)}
+      </div>
+    </div>
+
+    <!-- SECCIÓN 3: ANÁLISIS COACH (solo coach/acoach) -->
+    ${isCoach?`
+    <div style="border:1px solid rgba(168,85,247,.25);border-radius:10px;padding:12px;margin-bottom:12px;background:rgba(168,85,247,.04);">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="document.getElementById('hSec3').style.display=document.getElementById('hSec3').style.display==='none'?'block':'none';this.querySelector('.sec-toggle').textContent=document.getElementById('hSec3').style.display==='none'?'▼':'▲';">
+        <div style="font-size:13px;font-weight:800;color:var(--purple);">🟪 ANÁLISIS HOLÍSTICO (coach)</div>
+        <span class="sec-toggle" style="color:var(--purple);font-size:14px;">▲</span>
+      </div>
+      <div id="hSec3" style="margin-top:10px;">
+        <label class="inp-label">🧠 Mental (foco, presión, decisiones)</label>
+        ${scaleBtns('ht-coach-mental', ext.coach.mental)}
+        <label class="inp-label" style="margin-top:8px;">💪 Físico (energía, paddle, resistencia)</label>
+        ${scaleBtns('ht-coach-fisico', ext.coach.fisico)}
+        <label class="inp-label" style="margin-top:8px;">🏄 Técnico (maniobras, takeoffs, conexión)</label>
+        ${scaleBtns('ht-coach-tecnico', ext.coach.tecnico)}
+        <label class="inp-label" style="margin-top:8px;">🎯 Táctico (selección, timing, prioridad)</label>
+        ${scaleBtns('ht-coach-tactico', ext.coach.tactico)}
+        <label class="inp-label" style="margin-top:8px;">🛠 Equipo (tabla, fins, talla apropiados)</label>
+        ${scaleBtns('ht-coach-equipo', ext.coach.equipo)}
+        <label class="inp-label" style="margin-top:8px;">💬 Observación clave</label>
+        <textarea class="ta" id="ht-coach-observation" placeholder="Patrón, fortaleza, área crítica..." style="min-height:50px;">${esc(ext.coach.observation||'')}</textarea>
+        <label class="inp-label" style="margin-top:8px;">⚡ Acción concreta para próximo heat</label>
+        <textarea class="ta" id="ht-coach-action" placeholder="Qué entrenar/cambiar antes del próximo heat" style="min-height:40px;">${esc(ext.coach.action||'')}</textarea>
+      </div>
+    </div>`:''}
+
+    <button class="btn btn-amber" style="width:100%;margin-top:10px;font-size:15px;padding:14px;" onclick="saveHeatEntry()">💾 Guardar Heat</button>
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{if(e.target===m)closeModal('heatEntryModal');};
@@ -7002,47 +7146,84 @@ function addHeatEntry(){
 
 async function saveHeatEntry(){
   const {compId,athId:athleteId,athName:athleteName,eventName}=_cm;
-  const round=gv('ht-round');
-  const wavesStr=gv('ht-waves');
-  const result=gv('ht-result');
+  const heatId = gv('ht-id');
+  const round = gv('ht-round');
+  const wavesStr = gv('ht-waves');
+  const result = gv('ht-result');
   if(!round){toast('Selecciona la ronda','error');return;}
-  if(!wavesStr){toast('Ingresa los scores de olas','error');return;}
 
-  const waves=wavesStr.split(',').map(w=>parseFloat(w.trim())).filter(w=>!isNaN(w));
-  if(waves.length<1){toast('Ingresa al menos 1 score','error');return;}
+  // Scores (opcional al guardar pre-heat — sólo si están)
+  let waves=[], best1=0, best2=0, total=0;
+  if(wavesStr){
+    waves = wavesStr.split(',').map(w=>parseFloat(w.trim())).filter(w=>!isNaN(w));
+    const sorted = [...waves].sort((a,b)=>b-a);
+    best1 = sorted[0]||0;
+    best2 = sorted[1]||0;
+    total = best1+best2;
+  }
 
-  // Calculate best 2 waves
-  const sorted=[...waves].sort((a,b)=>b-a);
-  const best1=sorted[0]||0;
-  const best2=sorted[1]||0;
-  const total=best1+best2;
+  // Recoger las 3 secciones (estructura nueva en notes JSON)
+  const ext = {
+    pre: {
+      mantra: gv('ht-pre-mantra'),
+      position: gv('ht-pre-position'),
+      strategy: gv('ht-pre-strategy'),
+      confidence: parseInt(gv('ht-pre-confidence'))||null
+    },
+    post: {
+      worked: gv('ht-post-worked'),
+      failed: gv('ht-post-failed'),
+      feeling: parseInt(gv('ht-post-feeling'))||null,
+      waves: waves
+    },
+    coach: {
+      mental: parseInt(gv('ht-coach-mental'))||null,
+      fisico: parseInt(gv('ht-coach-fisico'))||null,
+      tecnico: parseInt(gv('ht-coach-tecnico'))||null,
+      tactico: parseInt(gv('ht-coach-tactico'))||null,
+      equipo: parseInt(gv('ht-coach-equipo'))||null,
+      observation: gv('ht-coach-observation'),
+      action: gv('ht-coach-action')
+    },
+    updated_at: new Date().toISOString(),
+    last_editor: S.user.id
+  };
 
   showLoad(true);
   try {
-    const heatNotes=gv('ht-notes');
-    const waveJson=JSON.stringify(waves);
-    let heatPayload={
-      athlete_id:athleteId, date:todayStr(), event_name:eventName,
-      round_reached:round,
-      avg_wave_score:best1, highest_wave:best2, heat_total:total,
-      final_ranking:result,
-      notes:heatNotes?heatNotes+' | Olas: '+waveJson:waveJson,
-      created_by:S.user.id
+    let heatPayload = {
+      athlete_id: athleteId,
+      date: todayStr(),
+      event_name: eventName,
+      round_reached: round,
+      avg_wave_score: best1 || null,
+      highest_wave: best2 || null,
+      heat_total: total || null,
+      final_ranking: result || null,
+      notes: JSON.stringify(ext),
+      created_by: S.user.id
     };
-    let res=await db.from('tss_comp_evaluations').insert(heatPayload);
-    if(res.error){
-      // Retry without created_by in case column doesn't exist
+    let res;
+    if(heatId){
+      // Update existing — no tocar created_by
       delete heatPayload.created_by;
-      res=await db.from('tss_comp_evaluations').insert(heatPayload);
-      if(res.error) throw res.error;
+      res = await db.from('tss_comp_evaluations').update(heatPayload).eq('id', heatId);
+    } else {
+      res = await db.from('tss_comp_evaluations').insert(heatPayload);
+      if(res.error){
+        // Retry sin created_by
+        delete heatPayload.created_by;
+        res = await db.from('tss_comp_evaluations').insert(heatPayload);
+      }
     }
+    if(res.error) throw res.error;
     toast('✅ Heat guardado','success');
     closeModal('heatEntryModal');
     loadCompMode(compId, athleteId, athleteName);
   } catch(e){
     const msg = (e && (e.message||e.hint||e.details||e.code)) || 'desconocido';
     toast('Error al guardar heat: '+msg,'error');
-    console.error('saveHeatEntry error:', e, 'payload was:', { athleteId, eventName, round, wavesStr, result });
+    console.error('saveHeatEntry error:', e, 'payload was:', { athleteId, eventName, round, wavesStr, result, heatId });
   }
   finally { showLoad(false); }
 }
