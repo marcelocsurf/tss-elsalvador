@@ -372,8 +372,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* OFFICIAL DATA START — Todo antes de esta fecha = historial de prueba */
-const OFFICIAL_START = '2026-03-23';
+/* OFFICIAL DATA START — Punto y aparte: cumplimiento/ranking/reportes cuentan desde aquí.
+   El histórico anterior NO se borra — sigue accesible desactivando "showOfficialOnly" en el Panel. */
+const OFFICIAL_START = '2026-05-06';
 let showOfficialOnly = true;
 
 /* STATE */
@@ -3969,6 +3970,7 @@ async function openDayReport(athleteId, athleteName){
     const evalIdx = lastEval ? (((lastEval.physical||0)+(lastEval.technique||0)+(lastEval.mindset||0)+(lastEval.competitive||0))/4).toFixed(1) : null;
 
     const body = document.getElementById('dayReportBody');
+    if(!body) return; // modal ya fue cerrado
     body.innerHTML = `
       <!-- ATHLETE HEADER -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
@@ -6827,7 +6829,7 @@ async function loadCompMode(compId, athleteId, athleteName){
     </div>
 
     <!-- SAVE PREP BUTTON -->
-    <button class="btn btn-cyan" style="width:100%;margin-bottom:16px;" onclick="saveCompPrep()">💾 Guardar Preparación</button>
+    <button class="btn btn-cyan" style="width:100%;margin-bottom:16px;" onclick="saveCompPrep('prep')">💾 Guardar Preparación</button>
 
     <!-- STEP 5: HEAT TRACKER -->
     <div style="border-top:2px solid rgba(245,158,11,.3);padding-top:14px;margin-top:6px;">
@@ -6905,7 +6907,7 @@ async function loadCompMode(compId, athleteId, athleteName){
         <textarea class="ta" id="cm-what-failed" placeholder="Selección de ola, timing, nervios...">${stepStates.what_failed||''}</textarea>
         <label class="inp-label">¿Qué entrenar para la próxima?</label>
         <textarea class="ta" id="cm-next-train" placeholder="Maniobras a mejorar, mentalidad, condición física...">${stepStates.next_train||''}</textarea>
-        <button class="btn" style="width:100%;background:var(--purple);margin-top:8px;" onclick="saveCompPrep()">💾 Guardar Evaluación</button>
+        <button class="btn" style="width:100%;background:var(--purple);margin-top:8px;" onclick="saveCompPrep('eval')">💾 Guardar Evaluación</button>
       </div>
     </div>`:''}
     `;
@@ -6917,8 +6919,9 @@ function toggleCompStep(id){
   el.style.display=el.style.display==='none'?'block':'none';
 }
 
-async function saveCompPrep(){
+async function saveCompPrep(kind){
   const {compId,athId:athleteId,eventName}=_cm;
+  const label = kind === 'eval' ? 'Evaluación' : 'Preparación';
   showLoad(true);
   try {
     const prep={
@@ -6961,8 +6964,8 @@ async function saveCompPrep(){
       else { res=await db.from('tss_comp_evaluations').insert(payload); }
       if(res.error) throw res.error;
     }
-    toast('✅ Preparación guardada','success');
-  } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); }
+    toast('✅ '+label+' guardada','success');
+  } catch(e){ toast('Error al guardar '+label.toLowerCase()+': '+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
