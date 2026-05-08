@@ -313,7 +313,7 @@ header{padding:10px 16px;display:flex;align-items:center;justify-content:space-b
   <div style="margin-bottom:32px;font-size:11px;color:#4A6070;letter-spacing:1px;">by Marcelo Castellanos</div>
   <div id="roleButtons" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;">
     <button class="btn btn-cyan" onclick="showPin('coach')">🏆 Head Coach</button>
-    <button class="btn btn-amber" onclick="showPin('acoach')">📋 Coach Asistente</button>
+    <button class="btn btn-amber" onclick="showPin('acoach')">📋 Coach Manager</button>
     <button class="btn btn-green" onclick="showPin('athlete')">🌊 Atleta</button>
   </div>
   <div id="pinPad" style="display:none;width:100%;max-width:300px;">
@@ -427,7 +427,7 @@ function showPin(role){
   S.pin=''; S.loginRole=role;
   document.getElementById('roleButtons').style.display='none';
   document.getElementById('pinPad').style.display='block';
-  const titles={coach:'PIN DE HEAD COACH',acoach:'PIN DE COACH ASISTENTE',athlete:'INGRESA TU PIN'};
+  const titles={coach:'PIN DE HEAD COACH',acoach:'PIN DE COACH MANAGER',athlete:'INGRESA TU PIN'};
   document.getElementById('pinTitle').textContent=titles[role];
   document.getElementById('athPinErr').style.display='none';
   updateDots();
@@ -1111,7 +1111,7 @@ async function bootApp(){
     document.getElementById('appShell').style.display='block';
 
     const chipMap={coach:'rc-coach',acoach:'rc-acoach',athlete:'rc-athlete'};
-    const labelMap={coach:'Head Coach',acoach:'Coach Asistente'};
+    const labelMap={coach:'Head Coach',acoach:'Coach Manager'};
     document.getElementById('roleChip').textContent=labelMap[S.user.role]||S.user.name;
     document.getElementById('roleChip').className=`role-chip ${chipMap[S.user.role]||'rc-athlete'}`;
     document.getElementById('headerSub').textContent=(isCoach||isACoach)?'Coach Panel':'El Salvador';
@@ -1149,8 +1149,8 @@ function updateHeaderAvatar(){
 function buildNav(){
   const r=S.user.role;
   let tabs;
-  if(r==='coach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'planeacion',icon:'📋',lbl:'Planeación'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'mensajes',icon:'✉️',lbl:'Mensajes'},{id:'atletas',icon:'👥',lbl:'Atletas'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
-  else if(r==='acoach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Evaluar'},{id:'mensajes',icon:'✉️',lbl:'Mensajes'},{id:'atletas',icon:'👥',lbl:'Atletas'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
+  if(r==='coach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'planeacion',icon:'📋',lbl:'Plan'},{id:'citas',icon:'📅',lbl:'Citas'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Eval'},{id:'mensajes',icon:'✉️',lbl:'Msg'},{id:'atletas',icon:'👥',lbl:'Equipo'},{id:'perfil',icon:'👤',lbl:'Perfil'}];
+  else if(r==='acoach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'citas',icon:'📅',lbl:'Citas'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Eval'},{id:'mensajes',icon:'✉️',lbl:'Msg'},{id:'atletas',icon:'👥',lbl:'Equipo'},{id:'perfil',icon:'👤',lbl:'Perfil'}];
   else tabs=[{id:'hoy',icon:'🌊',lbl:'Hoy'},{id:'semana',icon:'📅',lbl:'Semana'},{id:'mensajes',icon:'✉️',lbl:'Mensajes'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
   document.getElementById('bottomNav').innerHTML=tabs.map(t=>`<button class="nav-btn" id="nb-${t.id}" onclick="switchView('${t.id}')"><span class="icon">${t.icon}</span><span>${t.lbl}</span></button>`).join('');
 }
@@ -1159,7 +1159,7 @@ function switchView(view){
   S.view=view;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById(`nb-${view}`); if(btn) btn.classList.add('active');
-  ({hoy:vHoy,semana:vSemana,perfil:vPerfil,panel:vPanel,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial,mensajes:vMensajes})[view]?.();
+  ({hoy:vHoy,semana:vSemana,perfil:vPerfil,panel:vPanel,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial,mensajes:vMensajes,citas:vCitas})[view]?.();
 }
 
 /* ============================================================
@@ -1172,9 +1172,11 @@ function switchView(view){
 async function vHoy(){
   const today=todayStr();
   render(`<div class="page-title">Mi Día</div><div class="page-sub">${fmtDate(today)}</div>
+    <div id="upcomingApptsBanner"></div>
     <div id="groupRankingSection"></div>
     <div id="hoyContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
   await loadHoy(today);
+  loadUpcomingApptsBanner();
   loadGroupRanking(today);
 }
 
@@ -3191,7 +3193,7 @@ async function renderGrupos(){
 function openGroupModal(groupId){
   const m=document.createElement('div'); m.className='modal-overlay'; m.id='groupModal';
   // F1: dropdown coach asignado (solo head coach lo ve / setea)
-  const coachOptions = (S.coaches||[]).map(c=>`<option value="${c.id}">${c.name} ${c.role==='coach'?'(Head)':'(Asistente)'}</option>`).join('');
+  const coachOptions = (S.coaches||[]).map(c=>`<option value="${c.id}">${c.name} ${c.role==='coach'?'(Head)':'(Manager)'}</option>`).join('');
   m.innerHTML=`<div class="modal-sheet">
     <div class="modal-head">
       <div><div class="modal-title">${groupId?'Editar Grupo':'Nuevo Grupo'}</div></div>
@@ -4282,6 +4284,418 @@ async function vPanel(){
   } catch(e){ render('<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando panel</p>'); console.error(e); }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: CITAS / APPOINTMENTS
+   vCitas, openApptForm, saveAppt, deleteAppt, markApptDone, athleteConfirmAppt
+   loadAthleteAppts, loadUpcomingApptsBanner, openApptDetail
+   ════════════════════════════════════════════════════════════════════ */
+const APPT_TYPES = [
+  {id:'eval_fisica',     label:'Evaluación Física',    icon:'🏃', color:'green',  triggerEval:'fisica'},
+  {id:'eval_tecnica',    label:'Evaluación Técnica',   icon:'🎯', color:'cyan',   triggerEval:'tecnica'},
+  {id:'nutricion',       label:'Nutricionista',        icon:'🥗', color:'green'},
+  {id:'psicologo',       label:'Psicólogo',            icon:'🧠', color:'purple'},
+  {id:'masaje',          label:'Masaje / Terapia',     icon:'💆', color:'amber'},
+  {id:'medico',          label:'Cita Médica',          icon:'🩺', color:'red'},
+  {id:'competencia',     label:'Competencia',          icon:'🏆', color:'amber'},
+  {id:'otro',            label:'Otro',                 icon:'📋', color:'grey'},
+];
+function apptType(id){ return APPT_TYPES.find(t=>t.id===id) || APPT_TYPES[APPT_TYPES.length-1]; }
+function apptStatusBadge(status){
+  const map = {
+    programada:  {lbl:'Programada',  bg:'rgba(0,201,232,.1)',  c:'var(--cyan)'},
+    confirmada:  {lbl:'Confirmada',  bg:'rgba(34,197,94,.12)', c:'var(--green)'},
+    cumplida:    {lbl:'Cumplida',    bg:'rgba(34,197,94,.18)', c:'var(--green)'},
+    cancelada:   {lbl:'Cancelada',   bg:'rgba(239,68,68,.1)',  c:'var(--red)'},
+    reprogramada:{lbl:'Reprogramada',bg:'rgba(245,158,11,.1)', c:'var(--amber)'},
+  };
+  const m = map[status] || map.programada;
+  return `<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:${m.bg};color:${m.c};font-weight:700;white-space:nowrap;">${m.lbl}</span>`;
+}
+function fmtApptDate(d){ if(!d) return '—'; const dt=new Date(d+'T00:00:00'); const tdy=todayStr(); const dDate=d; if(dDate===tdy) return 'Hoy'; const tom=new Date(); tom.setDate(tom.getDate()+1); if(dDate===tom.toISOString().split('T')[0]) return 'Mañana'; return dt.toLocaleDateString('es-SV',{weekday:'short',day:'2-digit',month:'short'}); }
+function fmtApptTime(t){ if(!t) return ''; return t.substring(0,5); }
+
+async function vCitas(){
+  const isCoach = S.user.role==='coach' || S.user.role==='acoach';
+  if(!isCoach){ render('<p style="padding:20px;color:var(--grey);">Sin acceso</p>'); return; }
+  render(`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+      <div><div class="page-title">📅 Citas</div><div class="page-sub">Gestión de citas y evaluaciones del equipo</div></div>
+      <button class="btn btn-cyan" style="width:auto;padding:9px 14px;font-size:12px;flex-shrink:0;" onclick="openApptForm()">+ Nueva</button>
+    </div>
+    <div class="itab-wrap" style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;">
+      <button class="itab active" id="it-cit-prox" onclick="citasTab('prox')">⏰ Próximas</button>
+      <button class="itab" id="it-cit-hoy" onclick="citasTab('hoy')">🟢 Hoy</button>
+      <button class="itab" id="it-cit-semana" onclick="citasTab('semana')">📅 Semana</button>
+      <button class="itab" id="it-cit-atleta" onclick="citasTab('atleta')">👤 Por Atleta</button>
+      <button class="itab" id="it-cit-cumplidas" onclick="citasTab('cumplidas')">✅ Cumplidas</button>
+    </div>
+    <div id="citasContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
+  citasTab('prox');
+}
+
+function citasTab(t){
+  document.querySelectorAll('#it-cit-prox,#it-cit-hoy,#it-cit-semana,#it-cit-atleta,#it-cit-cumplidas').forEach(b=>b.classList.remove('active'));
+  const el=document.getElementById('it-cit-'+t); if(el) el.classList.add('active');
+  if(t==='prox') loadApptsProx();
+  else if(t==='hoy') loadApptsHoy();
+  else if(t==='semana') loadApptsSemana();
+  else if(t==='atleta') loadApptsByAthlete();
+  else if(t==='cumplidas') loadApptsCumplidas();
+}
+
+async function loadApptsProx(){
+  const el=document.getElementById('citasContent'); if(!el) return;
+  try {
+    const today = todayStr();
+    const {data, error} = await db.from('tss_appointments')
+      .select('*').gte('date',today).in('status',['programada','confirmada'])
+      .order('date').order('time').limit(60);
+    if(error){ el.innerHTML='<p style="padding:20px;color:var(--red);">Error: '+esc(error.message)+'</p>'; return; }
+    if(!data||!data.length){ el.innerHTML='<div class="card" style="text-align:center;padding:30px;"><div style="font-size:32px;margin-bottom:6px;">📅</div><p style="color:var(--grey);font-size:12px;">Sin citas programadas</p></div>'; return; }
+    el.innerHTML = data.map(renderApptCard).join('');
+  } catch(e){ el.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; console.error(e); }
+}
+
+async function loadApptsHoy(){
+  const el=document.getElementById('citasContent'); if(!el) return;
+  try {
+    const today = todayStr();
+    const {data} = await db.from('tss_appointments').select('*').eq('date',today).order('time');
+    if(!data||!data.length){ el.innerHTML='<div class="card" style="text-align:center;padding:30px;"><p style="color:var(--grey);font-size:12px;">Sin citas hoy</p></div>'; return; }
+    el.innerHTML = data.map(renderApptCard).join('');
+  } catch(e){ el.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; console.error(e); }
+}
+
+async function loadApptsSemana(){
+  const el=document.getElementById('citasContent'); if(!el) return;
+  try {
+    const today=new Date(todayStr()+'T00:00:00');
+    const end=new Date(today); end.setDate(today.getDate()+7);
+    const startStr=today.toISOString().split('T')[0];
+    const endStr=end.toISOString().split('T')[0];
+    const {data} = await db.from('tss_appointments').select('*').gte('date',startStr).lte('date',endStr).order('date').order('time');
+    if(!data||!data.length){ el.innerHTML='<div class="card" style="text-align:center;padding:30px;"><p style="color:var(--grey);font-size:12px;">Sin citas en los próximos 7 días</p></div>'; return; }
+    // Group by date
+    const byDate={}; data.forEach(a=>{(byDate[a.date]=byDate[a.date]||[]).push(a);});
+    let html='';
+    Object.keys(byDate).sort().forEach(d=>{
+      html+=`<div class="sec-title" style="margin:14px 0 8px;">${fmtApptDate(d)} · ${fmtDate(d)}</div>`;
+      html+=byDate[d].map(renderApptCard).join('');
+    });
+    el.innerHTML = html;
+  } catch(e){ el.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; console.error(e); }
+}
+
+async function loadApptsByAthlete(){
+  const el=document.getElementById('citasContent'); if(!el) return;
+  try {
+    const today = todayStr();
+    const {data} = await db.from('tss_appointments').select('*').gte('date',today).in('status',['programada','confirmada']).order('date').order('time');
+    const byAth={}; (data||[]).forEach(a=>{(byAth[a.athlete_id]=byAth[a.athlete_id]||[]).push(a);});
+    const sorted = (S.athletes||[]).filter(a=>a.active!==false).sort((a,b)=>{
+      const ca=(byAth[a.id]||[]).length, cb=(byAth[b.id]||[]).length;
+      if(ca!==cb) return cb-ca;
+      return a.name.localeCompare(b.name);
+    });
+    let html='';
+    sorted.forEach(ath=>{
+      const list = byAth[ath.id]||[];
+      const next = list[0];
+      html+=`<div class="card" style="margin-bottom:8px;cursor:pointer;" onclick="openAthAppts('${ath.id}','${escAttr(ath.name)}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--white);">${esc(ath.name)}</div>
+            <div style="font-size:11px;color:var(--grey);margin-top:2px;">${list.length>0?list.length+' cita(s) próxima(s)':'Sin citas'}</div>
+          </div>
+          ${next?`<div style="text-align:right;">
+            <div style="font-size:11px;color:var(--cyan);font-weight:700;">${apptType(next.type).icon} ${fmtApptDate(next.date)}</div>
+            <div style="font-size:9px;color:var(--grey);">${apptType(next.type).label}</div>
+          </div>`:'<span style="font-size:11px;color:var(--grey);">→</span>'}
+        </div>
+      </div>`;
+    });
+    el.innerHTML = html || '<p style="padding:20px;color:var(--grey);">Sin atletas</p>';
+  } catch(e){ el.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; console.error(e); }
+}
+
+async function loadApptsCumplidas(){
+  const el=document.getElementById('citasContent'); if(!el) return;
+  try {
+    const {data} = await db.from('tss_appointments').select('*').eq('status','cumplida').order('date',{ascending:false}).limit(50);
+    if(!data||!data.length){ el.innerHTML='<div class="card" style="text-align:center;padding:30px;"><p style="color:var(--grey);font-size:12px;">Aún no hay citas cumplidas</p></div>'; return; }
+    el.innerHTML = data.map(renderApptCard).join('');
+  } catch(e){ el.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; console.error(e); }
+}
+
+function renderApptCard(a){
+  const t = apptType(a.type);
+  const ath = (S.athletes||[]).find(x=>x.id===a.athlete_id);
+  const conf = a.athlete_confirmation;
+  const confChip = conf==='voy'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);">✅ Va</span>':conf==='no_puedo'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,.15);color:var(--red);">❌ No puede</span>':'';
+  return `<div class="card" style="margin-bottom:8px;border-left:3px solid var(--${t.color});cursor:pointer;" onclick="openApptDetail('${a.id}')">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:800;color:var(--white);display:flex;align-items:center;gap:6px;">${t.icon} ${esc(ath?.name||'Atleta')}</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;">${t.label}${a.provider_name?' · '+esc(a.provider_name):''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">${apptStatusBadge(a.status)}</div>
+    </div>
+    <div style="display:flex;gap:8px;font-size:11px;color:var(--grey);margin-top:4px;flex-wrap:wrap;align-items:center;">
+      <span>📆 ${fmtApptDate(a.date)} ${fmtDate(a.date)}</span>
+      ${a.time?`<span>🕐 ${fmtApptTime(a.time)}</span>`:''}
+      ${a.location?`<span>📍 ${esc(a.location)}</span>`:''}
+      ${confChip}
+    </div>
+  </div>`;
+}
+
+function openApptForm(existAppt=null, prefAthleteId=null){
+  const ath = (S.athletes||[]).filter(a=>a.active!==false);
+  const aOpts = ath.map(a=>`<option value="${a.id}"${(existAppt?.athlete_id===a.id||prefAthleteId===a.id)?' selected':''}>${esc(a.name)}</option>`).join('');
+  const tOpts = APPT_TYPES.map(t=>`<option value="${t.id}"${existAppt?.type===t.id?' selected':''}>${t.icon} ${t.label}</option>`).join('');
+  let m = document.getElementById('apptFormModal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.className='modal-overlay';
+  m.id='apptFormModal';
+  m.innerHTML=`<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div class="modal-title">📅 ${existAppt?'Editar':'Nueva'} Cita</div>
+      <button class="btn-icon" onclick="closeModal('apptFormModal')">✕</button>
+    </div>
+    <div style="padding:6px 0;">
+      <label class="inp-label">Atleta</label>
+      <select class="sel" id="ap-ath" ${prefAthleteId?'disabled':''}>${aOpts}</select>
+      <label class="inp-label" style="margin-top:10px;">Tipo de cita</label>
+      <select class="sel" id="ap-type">${tOpts}</select>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <div style="flex:1;"><label class="inp-label">Fecha</label><input type="date" class="inp" id="ap-date" value="${existAppt?.date||todayStr()}" min="2026-01-01" max="2027-12-31"></div>
+        <div style="flex:1;"><label class="inp-label">Hora</label><input type="time" class="inp" id="ap-time" value="${existAppt?.time||''}"></div>
+      </div>
+      <label class="inp-label" style="margin-top:10px;">Duración (min)</label>
+      <input type="number" class="inp" id="ap-dur" value="${existAppt?.duration_min||60}" min="5" max="480">
+      <label class="inp-label" style="margin-top:10px;">Lugar</label>
+      <input type="text" class="inp" id="ap-loc" value="${escAttr(existAppt?.location||'')}" placeholder="Ej: Hospital de Diagnóstico, Clínica X...">
+      <label class="inp-label" style="margin-top:10px;">Profesional / Médico</label>
+      <input type="text" class="inp" id="ap-prov" value="${escAttr(existAppt?.provider_name||'')}" placeholder="Ej: Dr. Mendoza">
+      <label class="inp-label" style="margin-top:10px;">Notas</label>
+      <textarea class="ta" id="ap-notes" placeholder="Detalles, instrucciones, recordatorios...">${esc(existAppt?.notes||'')}</textarea>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-cyan" style="flex:1;" onclick="saveAppt('${existAppt?.id||''}','${prefAthleteId||''}')">💾 Guardar</button>
+        ${existAppt?`<button class="btn btn-red" style="width:auto;padding:14px;" onclick="deleteAppt('${existAppt.id}')">🗑</button>`:''}
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('apptFormModal'); };
+}
+
+async function saveAppt(existId, prefAthleteId){
+  const athleteId = prefAthleteId || gv('ap-ath');
+  const type = gv('ap-type');
+  const date = gv('ap-date');
+  if(!athleteId){ toast('Selecciona un atleta','error'); return; }
+  if(!type){ toast('Selecciona el tipo','error'); return; }
+  if(!date){ toast('Ingresa la fecha','error'); return; }
+  const payload = {
+    athlete_id: athleteId, type, date,
+    time: gv('ap-time')||null,
+    duration_min: parseInt(gv('ap-dur'))||60,
+    location: gv('ap-loc')||null,
+    provider_name: gv('ap-prov')||null,
+    notes: gv('ap-notes')||null,
+    created_by: S.user.id,
+  };
+  showLoad(true);
+  try {
+    let error;
+    if(existId){ ({error} = await db.from('tss_appointments').update(payload).eq('id',existId)); }
+    else { ({error} = await db.from('tss_appointments').insert(payload)); }
+    if(error) throw error;
+    toast(existId?'✅ Cita actualizada':'✅ Cita creada','success');
+    closeModal('apptFormModal');
+    if(S.view==='citas') citasTab('prox');
+    else if(S.view==='perfil') loadAthleteAppts(athleteId);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function deleteAppt(id){
+  if(!confirm('¿Eliminar esta cita?')) return;
+  showLoad(true);
+  try {
+    const {error} = await db.from('tss_appointments').delete().eq('id',id);
+    if(error) throw error;
+    toast('Cita eliminada','success');
+    closeModal('apptFormModal');
+    closeModal('apptDetailModal');
+    if(S.view==='citas') citasTab('prox');
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function openApptDetail(id){
+  let m = document.getElementById('apptDetailModal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.className='modal-overlay';
+  m.id='apptDetailModal';
+  m.innerHTML=`<div class="modal-sheet"><div class="modal-head"><div class="modal-title">Cargando...</div><button class="btn-icon" onclick="closeModal('apptDetailModal')">✕</button></div><div id="apptDetailBody" style="padding:20px;text-align:center;color:var(--grey);">...</div></div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('apptDetailModal'); };
+  try {
+    const {data:a} = await db.from('tss_appointments').select('*').eq('id',id).maybeSingle();
+    if(!a){ document.getElementById('apptDetailBody').innerHTML='<p style="color:var(--red);">No encontrada</p>'; return; }
+    const t = apptType(a.type);
+    const ath = (S.athletes||[]).find(x=>x.id===a.athlete_id);
+    const isCoach = S.user.role==='coach' || S.user.role==='acoach';
+    const isOwner = S.user.role==='athlete' && S.user.id===a.athlete_id;
+    document.querySelector('#apptDetailModal .modal-title').innerHTML = `${t.icon} ${t.label}`;
+    document.getElementById('apptDetailBody').innerHTML = `
+      <div style="text-align:left;padding:4px 0;">
+        <div style="font-size:16px;font-weight:800;color:var(--white);margin-bottom:2px;">${esc(ath?.name||'Atleta')}</div>
+        <div style="margin-bottom:10px;">${apptStatusBadge(a.status)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+            <div style="font-size:9px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;">Fecha</div>
+            <div style="font-size:14px;font-weight:700;color:var(--white);margin-top:3px;">${fmtApptDate(a.date)}</div>
+            <div style="font-size:10px;color:var(--grey);">${fmtDate(a.date)}</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px;">
+            <div style="font-size:9px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;">Hora</div>
+            <div style="font-size:14px;font-weight:700;color:var(--cyan);margin-top:3px;">${a.time?fmtApptTime(a.time):'—'}</div>
+            <div style="font-size:10px;color:var(--grey);">${a.duration_min||60} min</div>
+          </div>
+        </div>
+        ${a.provider_name?`<div style="margin-bottom:8px;"><div style="font-size:9px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;">Profesional</div><div style="font-size:13px;color:var(--white);">${esc(a.provider_name)}</div></div>`:''}
+        ${a.location?`<div style="margin-bottom:8px;"><div style="font-size:9px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;">Lugar</div><div style="font-size:13px;color:var(--white);">📍 ${esc(a.location)}</div></div>`:''}
+        ${a.notes?`<div style="margin-bottom:8px;"><div style="font-size:9px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;">Notas</div><div style="font-size:13px;color:var(--white);line-height:1.5;white-space:pre-wrap;">${esc(a.notes)}</div></div>`:''}
+        ${a.athlete_confirmation?`<div style="margin-top:10px;padding:8px;background:${a.athlete_confirmation==='voy'?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'};border-radius:8px;font-size:11px;">${a.athlete_confirmation==='voy'?'✅ Atleta confirmó asistencia':'❌ Atleta dijo que no puede'}</div>`:''}
+        ${a.completed_at?`<div style="margin-top:8px;padding:8px;background:rgba(34,197,94,.08);border-radius:8px;font-size:11px;color:var(--green);">✅ Cumplida el ${new Date(a.completed_at).toLocaleDateString('es-SV')}</div>`:''}
+
+        <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
+          ${isCoach && a.status!=='cumplida' && a.status!=='cancelada'?`<button class="btn btn-green" style="flex:1;min-width:120px;" onclick="markApptDone('${a.id}','${a.type}','${a.athlete_id}')">✅ Marcar Cumplida</button>`:''}
+          ${isOwner && a.status!=='cumplida' && a.status!=='cancelada' && a.athlete_confirmation!=='voy'?`<button class="btn btn-green" style="flex:1;min-width:90px;" onclick="athleteConfirmAppt('${a.id}','voy')">✅ Voy</button>`:''}
+          ${isOwner && a.status!=='cumplida' && a.status!=='cancelada' && a.athlete_confirmation!=='no_puedo'?`<button class="btn btn-red" style="flex:1;min-width:90px;" onclick="athleteConfirmAppt('${a.id}','no_puedo')">❌ No puedo</button>`:''}
+          ${isCoach?`<button class="btn btn-outline" style="flex:1;min-width:90px;" onclick="closeModal('apptDetailModal');openApptForm(${JSON.stringify(a).replace(/"/g,'&quot;')})">✏️ Editar</button>`:''}
+        </div>
+      </div>`;
+  } catch(e){ document.getElementById('apptDetailBody').innerHTML='<p style="color:var(--red);">Error: '+esc(e.message)+'</p>'; console.error(e); }
+}
+
+async function markApptDone(id, type, athleteId){
+  showLoad(true);
+  try {
+    const {error} = await db.from('tss_appointments').update({status:'cumplida', completed_at:new Date().toISOString()}).eq('id',id);
+    if(error) throw error;
+    toast('✅ Cita marcada como cumplida','success');
+    closeModal('apptDetailModal');
+    // If type triggers an evaluation form, open it after closing
+    const t = apptType(type);
+    if(t.triggerEval && (S.user.role==='coach'||S.user.role==='acoach')){
+      setTimeout(()=>{
+        toast('Abriendo evaluación...','info');
+        switchView('evaluar');
+      }, 600);
+    } else {
+      if(S.view==='citas') citasTab('prox');
+      else if(S.view==='perfil') loadAthleteAppts(athleteId);
+    }
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function athleteConfirmAppt(id, value){
+  showLoad(true);
+  try {
+    const upd = {athlete_confirmation:value, athlete_confirmed_at:new Date().toISOString()};
+    if(value==='voy') upd.status='confirmada';
+    const {error} = await db.from('tss_appointments').update(upd).eq('id',id);
+    if(error) throw error;
+    toast(value==='voy'?'✅ Confirmaste asistencia':'❌ Marcado como no puedes','success');
+    closeModal('apptDetailModal');
+    if(S.view==='hoy') vHoy();
+    else if(S.view==='perfil') vPerfil();
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function openAthAppts(athleteId, athleteName){
+  let m = document.getElementById('athApptsModal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.className='modal-overlay';
+  m.id='athApptsModal';
+  m.innerHTML=`<div class="modal-sheet" style="max-height:90vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div class="modal-title">📅 Citas de ${esc(athleteName)}</div>
+      <button class="btn-icon" onclick="closeModal('athApptsModal')">✕</button>
+    </div>
+    <div style="padding:6px 0;">
+      <button class="btn btn-cyan" style="margin-bottom:10px;" onclick="closeModal('athApptsModal');openApptForm(null,'${athleteId}')">+ Nueva cita para ${esc(athleteName)}</button>
+      <div id="athApptsBody"><p style="text-align:center;color:var(--grey);padding:20px;">Cargando...</p></div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('athApptsModal'); };
+  try {
+    const {data} = await db.from('tss_appointments').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(50);
+    const body = document.getElementById('athApptsBody');
+    if(!data||!data.length){ body.innerHTML='<p style="text-align:center;color:var(--grey);padding:20px;font-size:12px;">Sin citas registradas</p>'; return; }
+    const today = todayStr();
+    const upcoming = data.filter(a=>a.date>=today && a.status!=='cancelada' && a.status!=='cumplida');
+    const past = data.filter(a=>a.date<today || a.status==='cumplida' || a.status==='cancelada');
+    let html='';
+    if(upcoming.length){ html+=`<div class="sec-title">⏰ Próximas (${upcoming.length})</div>${upcoming.map(renderApptCard).join('')}`; }
+    if(past.length){ html+=`<div class="sec-title" style="margin-top:14px;">📋 Historial (${past.length})</div>${past.map(renderApptCard).join('')}`; }
+    body.innerHTML = html;
+  } catch(e){ document.getElementById('athApptsBody').innerHTML='<p style="color:var(--red);padding:20px;">Error</p>'; console.error(e); }
+}
+
+async function loadAthleteAppts(athleteId){
+  // Used in profile view; renders into #athleteApptsSection if present
+  const el = document.getElementById('athleteApptsSection'); if(!el) return;
+  try {
+    const today = todayStr();
+    const {data} = await db.from('tss_appointments').select('*').eq('athlete_id',athleteId)
+      .gte('date',today).in('status',['programada','confirmada']).order('date').order('time').limit(10);
+    if(!data||!data.length){ el.innerHTML=''; return; }
+    el.innerHTML = `<div class="sec-title">📅 Próximas Citas (${data.length})</div>${data.map(renderApptCard).join('')}`;
+  } catch(e){ console.error(e); }
+}
+
+async function loadUpcomingApptsBanner(){
+  // Used in athlete vHoy; shows next 3 appointments
+  const el = document.getElementById('upcomingApptsBanner'); if(!el) return;
+  try {
+    const today = todayStr();
+    const {data} = await db.from('tss_appointments').select('*').eq('athlete_id',S.user.id)
+      .gte('date',today).in('status',['programada','confirmada']).order('date').order('time').limit(3);
+    if(!data||!data.length){ el.innerHTML=''; return; }
+    let html=`<div class="sec-title">📅 Próximas Citas</div>`;
+    data.forEach(a=>{
+      const t=apptType(a.type);
+      const conf = a.athlete_confirmation;
+      html+=`<div class="card" style="margin-bottom:8px;border-left:3px solid var(--${t.color});cursor:pointer;" onclick="openApptDetail('${a.id}')">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:var(--white);">${t.icon} ${esc(t.label)}</div>
+            <div style="font-size:11px;color:var(--grey);margin-top:2px;">${fmtApptDate(a.date)} ${a.time?'· 🕐 '+fmtApptTime(a.time):''}${a.location?' · 📍 '+esc(a.location):''}</div>
+            ${a.provider_name?`<div style="font-size:11px;color:var(--cyan);margin-top:2px;">👤 ${esc(a.provider_name)}</div>`:''}
+          </div>
+          <div style="flex-shrink:0;">
+            ${conf==='voy'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);">✅ Vas</span>':conf==='no_puedo'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,.15);color:var(--red);">❌ No puedes</span>':apptStatusBadge(a.status)}
+          </div>
+        </div>
+        ${!conf?`<div style="display:flex;gap:6px;margin-top:8px;">
+          <button class="btn btn-green btn-xs" style="flex:1;" onclick="event.stopPropagation();athleteConfirmAppt('${a.id}','voy')">✅ Voy</button>
+          <button class="btn btn-red btn-xs" style="flex:1;" onclick="event.stopPropagation();athleteConfirmAppt('${a.id}','no_puedo')">❌ No puedo</button>
+        </div>`:''}
+      </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e){ console.error(e); }
+}
+
 async function loadCoachGroupRanking(){
   const el=document.getElementById('coachGroupRanking'); if(!el) return;
   try {
@@ -4400,7 +4814,7 @@ function openEditUserModal(userId){
       ${isSelf?'':`<label class="inp-label" style="margin-top:12px;">Rol</label>
       <select class="inp" id="editUserRole">
         <option value="athlete"${u.role==='athlete'?' selected':''}>🌊 Atleta</option>
-        <option value="acoach"${u.role==='acoach'?' selected':''}>📋 Coach Asistente</option>
+        <option value="acoach"${u.role==='acoach'?' selected':''}>📋 Coach Manager</option>
         <option value="coach"${u.role==='coach'?' selected':''}>🏆 Head Coach</option>
       </select>
       <div style="font-size:11px;color:var(--amber);margin-top:-4px;margin-bottom:8px;">⚠️ Cambiar el rol modifica permisos y vistas. Pedirá confirmación al guardar.</div>`}
@@ -4461,7 +4875,7 @@ async function saveEditUser(){
       if(exists && exists.length){ toast('Ese PIN ya está en uso por otro usuario','error'); return; }
     } catch(e){}
     if(newRole !== originalRole){
-      const labels={athlete:'Atleta', acoach:'Coach Asistente', coach:'Head Coach'};
+      const labels={athlete:'Atleta', acoach:'Coach Manager', coach:'Head Coach'};
       if(!confirm(`¿Confirmás cambiar el rol de ${name}\n\nde "${labels[originalRole]}" a "${labels[newRole]}"?\n\nEsto modifica sus permisos y la vista que ve al iniciar sesión.`)) return;
     }
     updates.name = name;
@@ -4843,6 +5257,8 @@ async function vPerfil(athleteId=null,athleteName=null){
           ${evals[0].recommendations?`<p style="font-size:12px;color:var(--grey);margin-top:4px;">📋 ${evals[0].recommendations}</p>`:''}
         </div>`:''}
       ${athleteId?`<button class="btn btn-ghost" style="margin-top:12px;" onclick="switchView('${S.user.role==='coach'||S.user.role==='acoach'?'panel':'semana'}')">← Volver</button>`:''}
+      <div id="athleteApptsSection" style="margin-top:14px;"></div>
+      ${(S.user.role==='coach'||S.user.role==='acoach')?`<button class="btn btn-cyan btn-sm" style="margin-top:6px;" onclick="openApptForm(null,'${id}')">+ Agendar Cita para ${esc(name)}</button>`:''}
       <div id="compTrainProfileSection" style="margin-top:14px;"></div>
       <div id="compEvalProfileSection" style="margin-top:14px;"></div>
       <div id="compSection" style="margin-top:14px;"><p style="padding:12px;text-align:center;color:var(--grey);font-size:12px;">Cargando competencias...</p></div>`;
@@ -4911,6 +5327,7 @@ async function vPerfil(athleteId=null,athleteName=null){
   const compEl=document.getElementById('compSection');
   if(compEl) loadCompetencias(id);
   loadCompEvalProfile(id);
+  loadAthleteAppts(id);
   } catch(e){ document.getElementById('perfilContent').innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar perfil</p>'; console.error(e); }
 }
 
