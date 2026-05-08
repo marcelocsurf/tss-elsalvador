@@ -1215,25 +1215,17 @@ async function loadGroupRanking(date){
     const ranked=[...allAthIds].sort((a,b)=>(scores[b]?.compScore||0)-(scores[a]?.compScore||0));
     const myPos=ranked.indexOf(S.user.id)+1;
     const medals=['🥇','🥈','🥉'];
+    const TOP_N = 10;
+    const top = ranked.slice(0, TOP_N);
+    const showMyRowSeparate = myPos > TOP_N;  // si el usuario esta fuera del top, mostrarlo aparte
 
-    let html=`<div class="card" style="margin-bottom:12px;border:1px solid rgba(245,158,11,.2);background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(0,201,232,.04));">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.5px;">🏆 RANKING OFICIAL · EQUIPO EL SALVADOR</div>
-          <div style="font-size:9px;color:var(--grey);">Cumplimiento últimos 7 días</div>
-        </div>
-        ${myPos>0?`<div style="background:${myPos<=3?'rgba(245,158,11,.15)':'rgba(0,201,232,.1)'};padding:4px 10px;border-radius:20px;">
-          <span style="font-size:11px;font-weight:900;color:${myPos===1?'var(--amber)':myPos<=3?'var(--green)':'var(--cyan)'};">${myPos<=3?medals[myPos-1]:''} #${myPos}/${ranked.length}</span>
-        </div>`:''}
-      </div>`;
-
-    ranked.forEach((aid,i)=>{
+    const renderRow = (aid, i) => {
       const ath=allAthletes.find(a=>a.id===aid);
       const sc=scores[aid]||{};
       const isMe=aid===S.user.id;
       const medal=i<3?medals[i]:'';
       const bgMe=isMe?'background:rgba(0,201,232,.08);border:1px solid rgba(0,201,232,.25);':'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);';
-      html+=`<div style="${bgMe}border-radius:10px;padding:8px 12px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
+      return `<div style="${bgMe}border-radius:10px;padding:8px 12px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:${i<3?'16':'13'}px;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};width:24px;text-align:center;">${medal||'#'+(i+1)}</span>
           <div>
@@ -1246,7 +1238,25 @@ async function loadGroupRanking(date){
           <div style="font-size:8px;color:var(--grey);">Score</div>
         </div>
       </div>`;
-    });
+    };
+
+    let html=`<div class="card" style="margin-bottom:12px;border:1px solid rgba(245,158,11,.2);background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(0,201,232,.04));">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <div style="font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.5px;">🏆 RANKING OFICIAL · TOP ${Math.min(TOP_N, ranked.length)}</div>
+          <div style="font-size:9px;color:var(--grey);">Cumplimiento últimos 7 días · ${ranked.length} atletas</div>
+        </div>
+        ${myPos>0?`<div style="background:${myPos<=3?'rgba(245,158,11,.15)':myPos<=TOP_N?'rgba(0,201,232,.1)':'rgba(168,85,247,.12)'};padding:4px 10px;border-radius:20px;">
+          <span style="font-size:11px;font-weight:900;color:${myPos===1?'var(--amber)':myPos<=3?'var(--green)':myPos<=TOP_N?'var(--cyan)':'var(--purple)'};">${myPos<=3?medals[myPos-1]:''} #${myPos}/${ranked.length}</span>
+        </div>`:''}
+      </div>`;
+
+    top.forEach((aid,i)=>{ html += renderRow(aid, i); });
+
+    if(showMyRowSeparate){
+      html+=`<div style="text-align:center;color:var(--grey);font-size:10px;margin:8px 0 4px;letter-spacing:1px;">· · ·</div>`;
+      html+= renderRow(S.user.id, myPos-1);
+    }
 
     html+=`</div>`;
     el.innerHTML=html;
@@ -4431,10 +4441,11 @@ function renderApptCard(a){
   const ath = (S.athletes||[]).find(x=>x.id===a.athlete_id);
   const conf = a.athlete_confirmation;
   const confChip = conf==='voy'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);">✅ Va</span>':conf==='no_puedo'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,.15);color:var(--red);">❌ No puede</span>':'';
+  const batchChip = a.batch_id?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(168,85,247,.15);color:var(--purple);font-weight:700;">👥 Grupal</span>':'';
   return `<div class="card" style="margin-bottom:8px;border-left:3px solid var(--${t.color});cursor:pointer;" onclick="openApptDetail('${a.id}')">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:800;color:var(--white);display:flex;align-items:center;gap:6px;">${t.icon} ${esc(ath?.name||'Atleta')}</div>
+        <div style="font-size:13px;font-weight:800;color:var(--white);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${t.icon} ${esc(ath?.name||'Atleta')} ${batchChip}</div>
         <div style="font-size:11px;color:var(--grey);margin-top:2px;">${t.label}${a.provider_name?' · '+esc(a.provider_name):''}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;">${apptStatusBadge(a.status)}</div>
@@ -4452,6 +4463,8 @@ function openApptForm(existAppt=null, prefAthleteId=null){
   const ath = (S.athletes||[]).filter(a=>a.active!==false);
   const aOpts = ath.map(a=>`<option value="${a.id}"${(existAppt?.athlete_id===a.id||prefAthleteId===a.id)?' selected':''}>${esc(a.name)}</option>`).join('');
   const tOpts = APPT_TYPES.map(t=>`<option value="${t.id}"${existAppt?.type===t.id?' selected':''}>${t.icon} ${t.label}</option>`).join('');
+  // En edicion solo aplica modo single. En creacion sin atleta prefijado mostramos selector de modo.
+  const allowMulti = !existAppt && !prefAthleteId;
   let m = document.getElementById('apptFormModal');
   if(m) m.remove();
   m = document.createElement('div');
@@ -4463,8 +4476,42 @@ function openApptForm(existAppt=null, prefAthleteId=null){
       <button class="btn-icon" onclick="closeModal('apptFormModal')">✕</button>
     </div>
     <div style="padding:6px 0;">
-      <label class="inp-label">Atleta</label>
-      <select class="sel" id="ap-ath" ${prefAthleteId?'disabled':''}>${aOpts}</select>
+      ${allowMulti?`
+      <label class="inp-label">¿Para quién?</label>
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="opt-pill on" id="ap-mode-single" type="button" onclick="setApptMode('single')" style="flex:1;font-size:11px;padding:8px 4px;">👤 Un atleta</button>
+        <button class="opt-pill" id="ap-mode-multi" type="button" onclick="setApptMode('multi')" style="flex:1;font-size:11px;padding:8px 4px;">👥 Varios</button>
+        <button class="opt-pill" id="ap-mode-all" type="button" onclick="setApptMode('all')" style="flex:1;font-size:11px;padding:8px 4px;">🌊 Equipo</button>
+      </div>`:''}
+
+      <div id="ap-single-wrap">
+        <label class="inp-label">Atleta</label>
+        <select class="sel" id="ap-ath" ${prefAthleteId?'disabled':''}>${aOpts}</select>
+      </div>
+
+      <div id="ap-multi-wrap" style="display:none;">
+        <label class="inp-label">Selecciona atletas</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <button type="button" class="btn-xs btn-ghost" onclick="toggleAllApptAths(true)" style="padding:4px 10px;font-size:10px;">Todos</button>
+          <span id="ap-multi-count" style="font-size:11px;color:var(--cyan);font-weight:700;">0 seleccionados</span>
+          <button type="button" class="btn-xs btn-ghost" onclick="toggleAllApptAths(false)" style="padding:4px 10px;font-size:10px;">Ninguno</button>
+        </div>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border2);border-radius:10px;padding:6px;background:rgba(255,255,255,.02);">
+          ${ath.map(a=>`<label style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--white);" onclick="setTimeout(updateApptMultiCount,0)">
+            <input type="checkbox" class="ap-multi-cb" value="${a.id}" style="accent-color:var(--cyan);width:16px;height:16px;">
+            ${esc(a.name)}
+          </label>`).join('')}
+        </div>
+      </div>
+
+      <div id="ap-all-wrap" style="display:none;">
+        <div class="card" style="text-align:center;padding:14px;background:rgba(0,201,232,.06);border:1px solid var(--border);">
+          <div style="font-size:24px;margin-bottom:4px;">🌊</div>
+          <div style="font-size:13px;font-weight:700;color:var(--cyan);">Todo el equipo</div>
+          <div style="font-size:11px;color:var(--grey);margin-top:3px;">${ath.length} atletas activos</div>
+        </div>
+      </div>
+
       <label class="inp-label" style="margin-top:10px;">Tipo de cita</label>
       <select class="sel" id="ap-type">${tOpts}</select>
       <div style="display:flex;gap:8px;margin-top:10px;">
@@ -4479,9 +4526,10 @@ function openApptForm(existAppt=null, prefAthleteId=null){
       <input type="text" class="inp" id="ap-prov" value="${escAttr(existAppt?.provider_name||'')}" placeholder="Ej: Dr. Mendoza">
       <label class="inp-label" style="margin-top:10px;">Notas</label>
       <textarea class="ta" id="ap-notes" placeholder="Detalles, instrucciones, recordatorios...">${esc(existAppt?.notes||'')}</textarea>
+      <input type="hidden" id="ap-mode-val" value="single">
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn btn-cyan" style="flex:1;" onclick="saveAppt('${existAppt?.id||''}','${prefAthleteId||''}')">💾 Guardar</button>
-        ${existAppt?`<button class="btn btn-red" style="width:auto;padding:14px;" onclick="deleteAppt('${existAppt.id}')">🗑</button>`:''}
+        ${existAppt?`<button class="btn btn-red" style="width:auto;padding:14px;" onclick="deleteAppt('${existAppt.id}',${existAppt.batch_id?`'${existAppt.batch_id}'`:'null'})">🗑</button>`:''}
       </div>
     </div>
   </div>`;
@@ -4489,15 +4537,52 @@ function openApptForm(existAppt=null, prefAthleteId=null){
   m.onclick=e=>{ if(e.target===m) closeModal('apptFormModal'); };
 }
 
+function setApptMode(mode){
+  document.getElementById('ap-mode-val').value = mode;
+  document.querySelectorAll('#ap-mode-single,#ap-mode-multi,#ap-mode-all').forEach(b=>b.classList.remove('on'));
+  document.getElementById('ap-mode-'+mode).classList.add('on');
+  document.getElementById('ap-single-wrap').style.display = mode==='single'?'block':'none';
+  document.getElementById('ap-multi-wrap').style.display = mode==='multi'?'block':'none';
+  document.getElementById('ap-all-wrap').style.display = mode==='all'?'block':'none';
+}
+
+function updateApptMultiCount(){
+  const n = document.querySelectorAll('.ap-multi-cb:checked').length;
+  const el = document.getElementById('ap-multi-count');
+  if(el) el.textContent = n + ' seleccionado'+(n===1?'':'s');
+}
+
+function toggleAllApptAths(on){
+  document.querySelectorAll('.ap-multi-cb').forEach(cb=>cb.checked=on);
+  updateApptMultiCount();
+}
+
 async function saveAppt(existId, prefAthleteId){
-  const athleteId = prefAthleteId || gv('ap-ath');
+  const mode = document.getElementById('ap-mode-val')?.value || 'single';
   const type = gv('ap-type');
   const date = gv('ap-date');
-  if(!athleteId){ toast('Selecciona un atleta','error'); return; }
   if(!type){ toast('Selecciona el tipo','error'); return; }
   if(!date){ toast('Ingresa la fecha','error'); return; }
-  const payload = {
-    athlete_id: athleteId, type, date,
+
+  // Determinar lista de atletas segun el modo
+  let athleteIds = [];
+  if(existId || prefAthleteId){
+    // Edicion o creacion para atleta especifico
+    athleteIds = [prefAthleteId || gv('ap-ath')];
+  } else if(mode==='single'){
+    athleteIds = [gv('ap-ath')];
+  } else if(mode==='multi'){
+    athleteIds = Array.from(document.querySelectorAll('.ap-multi-cb:checked')).map(cb=>cb.value);
+    if(!athleteIds.length){ toast('Selecciona al menos un atleta','error'); return; }
+  } else if(mode==='all'){
+    athleteIds = (S.athletes||[]).filter(a=>a.active!==false).map(a=>a.id);
+    if(!athleteIds.length){ toast('No hay atletas activos','error'); return; }
+  }
+
+  if(!athleteIds[0]){ toast('Selecciona un atleta','error'); return; }
+
+  const basePayload = {
+    type, date,
     time: gv('ap-time')||null,
     duration_min: parseInt(gv('ap-dur'))||60,
     location: gv('ap-loc')||null,
@@ -4505,27 +4590,47 @@ async function saveAppt(existId, prefAthleteId){
     notes: gv('ap-notes')||null,
     created_by: S.user.id,
   };
+
+  // Si son varios atletas, generar batch_id compartido
+  const isBatch = athleteIds.length > 1;
+  const batchId = isBatch ? crypto.randomUUID() : null;
+
   showLoad(true);
   try {
-    let error;
-    if(existId){ ({error} = await db.from('tss_appointments').update(payload).eq('id',existId)); }
-    else { ({error} = await db.from('tss_appointments').insert(payload)); }
-    if(error) throw error;
-    toast(existId?'✅ Cita actualizada':'✅ Cita creada','success');
+    if(existId){
+      const {error} = await db.from('tss_appointments').update({...basePayload, athlete_id: athleteIds[0]}).eq('id', existId);
+      if(error) throw error;
+      toast('✅ Cita actualizada','success');
+    } else {
+      const rows = athleteIds.map(aid => ({...basePayload, athlete_id: aid, batch_id: batchId}));
+      const {error} = await db.from('tss_appointments').insert(rows);
+      if(error) throw error;
+      toast(isBatch?`✅ ${rows.length} citas creadas (grupales)`:'✅ Cita creada','success');
+    }
     closeModal('apptFormModal');
     if(S.view==='citas') citasTab('prox');
-    else if(S.view==='perfil') loadAthleteAppts(athleteId);
+    else if(S.view==='perfil') loadAthleteAppts(athleteIds[0]);
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
-async function deleteAppt(id){
-  if(!confirm('¿Eliminar esta cita?')) return;
+async function deleteAppt(id, batchId){
+  let scope = 'one';
+  if(batchId && batchId!=='null'){
+    // Cita grupal — preguntar alcance
+    const choice = confirm('Esta es una cita grupal.\n\nOK = Eliminar TODAS las citas del grupo\nCancelar = Eliminar solo esta');
+    scope = choice ? 'batch' : 'one';
+  } else {
+    if(!confirm('¿Eliminar esta cita?')) return;
+  }
   showLoad(true);
   try {
-    const {error} = await db.from('tss_appointments').delete().eq('id',id);
+    let q = db.from('tss_appointments').delete();
+    if(scope==='batch') q = q.eq('batch_id', batchId);
+    else q = q.eq('id', id);
+    const {error} = await q;
     if(error) throw error;
-    toast('Cita eliminada','success');
+    toast(scope==='batch'?'✅ Citas del grupo eliminadas':'Cita eliminada','success');
     closeModal('apptFormModal');
     closeModal('apptDetailModal');
     if(S.view==='citas') citasTab('prox');
@@ -4728,15 +4833,19 @@ async function loadCoachGroupRanking(){
     const ranked=[...allAthIds].sort((a,b)=>(scores[b]?.compScore||0)-(scores[a]?.compScore||0));
     const teamAvg=ranked.length?Math.round(ranked.reduce((s,id)=>s+(scores[id]?.compScore||0),0)/ranked.length):0;
     const medals=['🥇','🥈','🥉'];
+    const TOP_N = 10;
+    const showAll = !!window._coachRankShowAll;
+    const visible = showAll ? ranked : ranked.slice(0, TOP_N);
+    const hidden = ranked.length - visible.length;
 
-    let html=`<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--amber);margin-bottom:10px;">🏆 RANKING OFICIAL · EQUIPO EL SALVADOR</div>
+    let html=`<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--amber);margin-bottom:10px;">🏆 RANKING OFICIAL · ${showAll?'EQUIPO COMPLETO':'TOP '+TOP_N}</div>
       <div class="card" style="margin-bottom:10px;border:1px solid rgba(245,158,11,.15);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div style="font-size:13px;font-weight:800;color:var(--amber);">🏆 Cumplimiento últimos 7 días</div>
-          <span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(245,158,11,.1);color:var(--amber);font-weight:700;">Prom: ${teamAvg}%</span>
+          <span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(245,158,11,.1);color:var(--amber);font-weight:700;">Prom: ${teamAvg}% · ${ranked.length} atletas</span>
         </div>`;
 
-    ranked.forEach((aid,i)=>{
+    visible.forEach((aid,i)=>{
       const ath=allAthletes.find(a=>a.id===aid);
       const sc=scores[aid]||{};
       const medal=i<3?medals[i]:'';
@@ -4755,6 +4864,12 @@ async function loadCoachGroupRanking(){
         </div>
       </div>`;
     });
+
+    if(hidden > 0){
+      html+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:11px;" onclick="window._coachRankShowAll=true;loadCoachGroupRanking();">Ver los ${hidden} restantes ↓</button>`;
+    } else if(showAll && ranked.length > TOP_N){
+      html+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:11px;" onclick="window._coachRankShowAll=false;loadCoachGroupRanking();">Mostrar solo top ${TOP_N} ↑</button>`;
+    }
 
     html+=`</div>`;
     el.innerHTML=html;
