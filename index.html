@@ -5675,40 +5675,89 @@ async function finalizeCompetition(){
 }
 
 async function loadCompForCoach(athleteId){
-  // En el perfil del atleta (vista coach) muestra todas las competencias con sus heats + auto-eval
+  // Sección unificada de Competencias del Atleta (consolida loadCompetencias + heats + auto-eval)
   const el=document.getElementById('compHeatsSection'); if(!el) return;
   const isCoach = S.user.role==='coach'||S.user.role==='acoach';
   try {
-    const{data:comps}=await db.from('tss_competitions').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(5);
-    if(!comps||!comps.length){ el.innerHTML=''; return; }
-    let html = `<div class="sec-title">🏆 Competencias del Atleta</div>`;
-    for(const c of comps){
-      const{data:heats}=await db.from('tss_competition_heats').select('*').eq('competition_id',c.id).order('heat_number');
+    const{data:comps}=await db.from('tss_competitions').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(20);
+
+    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="sec-title" style="margin-bottom:0;">🏆 Competencias del Atleta</div>
+      ${isCoach?`<button class="btn btn-xs btn-cyan" onclick="openCompModal('${athleteId}',null)" style="padding:5px 10px;font-size:10px;">+ Nueva</button>`:''}
+    </div>`;
+
+    if(!comps||!comps.length){
+      html += `<div class="card" style="text-align:center;padding:20px;color:var(--grey);font-size:12px;">Sin competencias registradas</div>`;
+      el.innerHTML = html;
+      return;
+    }
+
+    // Cargar heats de todas las competencias en una sola query
+    const compIds = comps.map(c=>c.id);
+    let heatsByComp = {};
+    try {
+      const{data:allHeats}=await db.from('tss_competition_heats').select('*').in('competition_id',compIds).order('heat_number');
+      (allHeats||[]).forEach(h=>{ (heatsByComp[h.competition_id]=heatsByComp[h.competition_id]||[]).push(h); });
+    } catch(e){}
+
+    const today = todayStr();
+    const upcoming = comps.filter(c=>c.date>=today);
+    const past = comps.filter(c=>c.date<today);
+
+    const renderComp = c => {
+      const heats = heatsByComp[c.id]||[];
       let finalEval=null; try{finalEval=c.athlete_final_eval?(typeof c.athlete_final_eval==='object'?c.athlete_final_eval:JSON.parse(c.athlete_final_eval)):null;}catch(e){}
-      const statusBadge = c.status==='finalizada'?'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);">Finalizada</span>':c.status==='en_curso'?'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(0,201,232,.15);color:var(--cyan);">En curso</span>':'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(245,158,11,.15);color:var(--amber);">Programada</span>';
-      html += `<div class="card" style="margin-bottom:10px;cursor:pointer;" onclick="vCompetencia('${c.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:800;color:var(--white);">🏆 ${esc(c.name)}</div>
-            <div style="font-size:10px;color:var(--grey);margin-top:2px;">${fmtDate(c.date)}${c.place?' · '+esc(c.place):''}</div>
+      const statusBadge = c.status==='finalizada'?'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);">✅ Finalizada</span>':c.status==='en_curso'?'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(0,201,232,.15);color:var(--cyan);">🔵 En curso</span>':'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(245,158,11,.15);color:var(--amber);">📅 Programada</span>';
+
+      const d = new Date(c.date+'T00:00:00');
+      const monNames=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+      const isFuture = c.date >= today && c.status !== 'finalizada' && c.status !== 'cancelada';
+      const daysLeft = isFuture ? Math.ceil((d-new Date())/(1000*60*60*24)) : null;
+
+      return `<div class="card" style="margin-bottom:10px;border-left:3px solid ${c.status==='finalizada'?'var(--green)':c.status==='en_curso'?'var(--cyan)':'var(--amber)'};">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <div style="background:var(--bg3);border-radius:8px;padding:6px 10px;text-align:center;flex-shrink:0;min-width:48px;">
+            <div style="font-size:18px;font-weight:900;color:var(--cyan);line-height:1;">${d.getDate()}</div>
+            <div style="font-size:9px;color:var(--grey);letter-spacing:.5px;margin-top:2px;">${monNames[d.getMonth()]}</div>
+            <div style="font-size:8px;color:var(--grey);">${d.getFullYear()}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
-            ${statusBadge}
-            ${isCoach?`<button class="btn-icon" onclick="event.stopPropagation();deleteComp('${c.id}','${athleteId}')" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);width:24px;height:24px;border-radius:6px;font-size:11px;padding:0;">🗑</button>`:''}
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px;">
+              <div style="font-size:13px;font-weight:800;color:var(--white);">${esc(c.name)}</div>
+              ${statusBadge}
+            </div>
+            ${c.place?`<div style="font-size:11px;color:var(--grey);">📍 ${esc(c.place)}</div>`:''}
+            ${c.category?`<span class="chip chip-amber" style="font-size:9px;margin-top:4px;">${esc(c.category)}</span>`:''}
+            ${daysLeft!==null&&daysLeft>=0?`<div style="font-size:11px;color:var(--cyan);font-weight:700;margin-top:4px;">En ${daysLeft} día${daysLeft!==1?'s':''}</div>`:''}
+            <div style="font-size:11px;color:${heats.length?'var(--cyan)':'var(--grey)'};margin-top:4px;">${heats.length} heat(s)${finalEval?' · ✅ Con auto-eval':''}</div>
+            ${finalEval?`<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:6px;">
+              ${[['🏃','fisico'],['🎯','tecnica'],['♟️','tactica'],['🌊','eleccion_olas'],['📋','equipo'],['🧠','mental']].map(([icon,key])=>{
+                const v=finalEval[key]||0;
+                const color=v>=4?'var(--green)':v>=3?'var(--amber)':v>0?'var(--red)':'var(--grey)';
+                return `<div style="text-align:center;background:var(--bg3);padding:4px 2px;border-radius:5px;"><div style="font-size:11px;">${icon}</div><div style="font-size:12px;font-weight:900;color:${color};">${v||'—'}</div></div>`;
+              }).join('')}
+            </div>`:''}
+            <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
+              <button class="btn btn-xs btn-amber" style="padding:5px 10px;font-size:10px;" onclick="vCompetencia('${c.id}')">🏆 ${c.status==='finalizada'?'Ver Competencia':'Modo Competencia'}</button>
+              ${isCoach?`<button class="btn btn-xs btn-outline" style="padding:5px 10px;font-size:10px;" onclick="openCompModal('${athleteId}','${c.id}')">✏️ Editar</button>
+              <button class="btn btn-xs btn-red" style="padding:5px 10px;font-size:10px;" onclick="deleteComp('${c.id}','${athleteId}')">🗑</button>`:''}
+            </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--cyan);">${(heats||[]).length} heat(s)${finalEval?' · ✅ Con auto-eval':''}</div>
-        ${finalEval?`<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:8px;">
-          ${[['🏃','fisico'],['🎯','tecnica'],['♟️','tactica'],['🌊','eleccion_olas'],['📋','equipo'],['🧠','mental']].map(([icon,key])=>{
-            const v=finalEval[key]||0;
-            const color=v>=4?'var(--green)':v>=3?'var(--amber)':v>0?'var(--red)':'var(--grey)';
-            return `<div style="text-align:center;background:var(--bg3);padding:4px 2px;border-radius:5px;"><div style="font-size:11px;">${icon}</div><div style="font-size:12px;font-weight:900;color:${color};">${v||'—'}</div></div>`;
-          }).join('')}
-        </div>`:''}
       </div>`;
+    };
+
+    if(upcoming.length){
+      html += `<div style="font-size:9px;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;font-weight:700;">⏰ Próximas</div>`;
+      upcoming.forEach(c => html += renderComp(c));
     }
+    if(past.length){
+      if(upcoming.length) html += `<div style="font-size:9px;color:var(--grey);letter-spacing:1px;text-transform:uppercase;margin:14px 0 6px;font-weight:700;">📋 Pasadas</div>`;
+      past.forEach(c => html += renderComp(c));
+    }
+
     el.innerHTML = html;
-  } catch(e){ console.error(e); }
+  } catch(e){ console.error(e); el.innerHTML='<p style="font-size:12px;color:var(--red);padding:8px;">Error cargando competencias</p>'; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -6868,8 +6917,7 @@ async function vPerfil(athleteId=null,athleteName=null){
       <div id="compHeatsSection" style="margin-top:14px;"></div>
       <div id="evalFullProfileSection" style="margin-top:14px;"></div>
       <div id="compTrainProfileSection" style="margin-top:14px;"></div>
-      <div id="compEvalProfileSection" style="margin-top:14px;"></div>
-      <div id="compSection" style="margin-top:14px;"><p style="padding:12px;text-align:center;color:var(--grey);font-size:12px;">Cargando competencias...</p></div>`;
+      <div id="compEvalProfileSection" style="margin-top:14px;"></div>`;
 
   // Load comp_training results from checkins
   const ctSection=document.getElementById('compTrainProfileSection');
@@ -6932,8 +6980,7 @@ async function vPerfil(athleteId=null,athleteName=null){
     }).join('');
   }
   // Load competitions and comp evals after profile renders
-  const compEl=document.getElementById('compSection');
-  if(compEl) loadCompetencias(id);
+  // loadCompetencias eliminado: consolidado en loadCompForCoach (sección unificada)
   loadCompEvalProfile(id);
   loadAthleteAppts(id);
   loadCompForCoach(id);
