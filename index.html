@@ -1062,7 +1062,7 @@ async function deleteSp(sessionId){
    ════════════════════════════════════════════════════════════════════ */
 async function bootApp(){
   try {
-    const{data:aths}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active').eq('role','athlete').neq('active',false).order('name');
+    const{data:aths}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active,current_belt').eq('role','athlete').neq('active',false).order('name');
     S.athletes=aths||[];
     // One-time name fix: Cindy → Sindy Portillo
     if(!localStorage.getItem('tss_namefix_sindy')){
@@ -1071,7 +1071,7 @@ async function bootApp(){
         if(cindy&&cindy.length){
           for(const c of cindy){ await db.from('tss_profiles').update({name:'Sindy Portillo'}).eq('id',c.id); }
           // Refresh athletes list
-          const{data:aths2}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active').eq('role','athlete').neq('active',false).order('name');
+          const{data:aths2}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active,current_belt').eq('role','athlete').neq('active',false).order('name');
           S.athletes=aths2||[];
         }
         localStorage.setItem('tss_namefix_sindy','done');
@@ -3526,13 +3526,33 @@ function pickVideoFromLib(videoId){
   toast('✅ Video cargado · podés ajustar título o notas','success');
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   SISTEMA DE CINTAS TSS (6 niveles · Canon v8.1)
+   ════════════════════════════════════════════════════════════════════ */
+const BELTS = [
+  {id:'white',  name:'Blanca',   color:'#E8E8E8', text:'#1a1a1a', glow:'rgba(232,232,232,.3)'},
+  {id:'yellow', name:'Amarilla', color:'#F5C518', text:'#1a1a1a', glow:'rgba(245,197,24,.4)'},
+  {id:'blue',   name:'Azul',     color:'#1E6FBF', text:'#FFFFFF', glow:'rgba(30,111,191,.4)'},
+  {id:'purple', name:'Morada',   color:'#7B4FBE', text:'#FFFFFF', glow:'rgba(123,79,190,.4)'},
+  {id:'brown',  name:'Café',     color:'#7D4E27', text:'#FFFFFF', glow:'rgba(125,78,39,.4)'},
+  {id:'black',  name:'Negra',    color:'#111111', text:'#F5C518', glow:'rgba(245,197,24,.3)'},
+];
+function getBelt(id){ return BELTS.find(b=>b.id===id) || null; }
+function beltChipHtml(beltId, size='md'){
+  const b = getBelt(beltId);
+  if(!b) return '';
+  const pad = size==='sm'?'2px 8px':'3px 11px';
+  const fs = size==='sm'?'9px':'10px';
+  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:${pad};border-radius:20px;background:${b.color};color:${b.text};font-size:${fs};font-weight:800;letter-spacing:.5px;box-shadow:0 0 8px ${b.glow};white-space:nowrap;">🎗 ${b.name}</span>`;
+}
+
 /* ============================================================
    EVAL — COACH + ASISTENTE
 ============================================================ */
 function vEvaluar(){
   render(`<div class="page-title">Evaluar Atleta</div><div class="page-sub">Evaluaciones formales del equipo</div>
     <div class="inner-tabs">
-      <button class="itab active" id="it-ev-train" onclick="evalTab('train')">📋 Entrenamiento</button>
+      <button class="itab active" id="it-ev-train" onclick="evalTab('train')">📋 General</button>
       <button class="itab" id="it-ev-comp" onclick="evalTab('comp')">🏆 Competencia</button>
       <button class="itab" id="it-ev-hist" onclick="evalTab('hist')">📊 Historial</button>
     </div>
@@ -3558,33 +3578,76 @@ function renderEvalTrain(){
     </select>
     <div id="evalFormArea"></div>`;
 }
-function loadEvalForm(){
+async function loadEvalForm(){
   const id=gv('eaSel'); if(!id){document.getElementById('evalFormArea').innerHTML='';return;}
   const today=todayStr();
+  // Cargar cinta actual del atleta
+  let currentBelt = null;
+  try { const{data}=await db.from('tss_profiles').select('current_belt').eq('id',id).single(); currentBelt = data?.current_belt; } catch(e){}
+
+  const beltOpts = BELTS.map(b=>`<button type="button" class="opt-pill belt-pill${currentBelt===b.id?' on':''}" data-belt="${b.id}" onclick="pickBelt('${b.id}',this)" style="border:2px solid ${b.color};${currentBelt===b.id?`background:${b.color};color:${b.text};`:''}">${b.name}</button>`).join('');
+
   document.getElementById('evalFormArea').innerHTML=`<div class="card card-cyan anim-up">
     <label class="inp-label">Fecha</label><input type="date" class="inp" id="evDate" value="${today}">
     <label class="inp-label">Condición Física</label>${scaleRow('phys')}
     <label class="inp-label">Técnica</label>${scaleRow('tech')}
+    <label class="inp-label">Táctica</label>${scaleRow('tact')}
     <label class="inp-label">Mentalidad</label>${scaleRow('mind')}
     <label class="inp-label">Rendimiento Competitivo ⭐</label>${scaleRow('comp')}
-    <label class="inp-label">Fortalezas</label><textarea class="ta" id="evStr" placeholder="Puntos fuertes..."></textarea>
+
+    <div style="margin-top:14px;padding:12px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:10px;">
+      <label class="inp-label" style="color:var(--amber);">🎗 Cinta actual del atleta</label>
+      <div class="opt-row" style="flex-wrap:wrap;gap:4px;">${beltOpts}</div>
+      <input type="hidden" id="ev-belt" value="${currentBelt||''}">
+      <p style="font-size:10px;color:var(--grey);margin-top:6px;">Cambia solo si vas a otorgar/actualizar la cinta. Si no tocas nada se mantiene la actual.</p>
+    </div>
+
+    <label class="inp-label" style="margin-top:14px;">Fortalezas</label><textarea class="ta" id="evStr" placeholder="Puntos fuertes..."></textarea>
     <label class="inp-label">Limitaciones</label><textarea class="ta" id="evLim" placeholder="Áreas a trabajar..."></textarea>
     <label class="inp-label">Recomendaciones</label><textarea class="ta" id="evRec" placeholder="Plan de acción..."></textarea>
     <button class="save-btn" style="margin-top:16px;" onclick="saveEval('${id}')">💾 Guardar Evaluación</button>
   </div>`;
 }
+
+function pickBelt(beltId, btn){
+  btn.closest('.opt-row').querySelectorAll('.belt-pill').forEach(b=>{
+    const id=b.dataset.belt; const belt=getBelt(id);
+    b.classList.remove('on');
+    b.style.background='transparent';
+    b.style.color='var(--white)';
+  });
+  const belt = getBelt(beltId);
+  btn.classList.add('on');
+  btn.style.background = belt.color;
+  btn.style.color = belt.text;
+  document.getElementById('ev-belt').value = beltId;
+}
+
 async function saveEval(athleteId){
-  const p=parseInt(gv('sc-phys')||0),t=parseInt(gv('sc-tech')||0),m=parseInt(gv('sc-mind')||0),c=parseInt(gv('sc-comp')||0);
-  if(!p||!t||!m||!c){toast('Completa todos los puntajes','error');return;}
+  const p=parseInt(gv('sc-phys')||0),t=parseInt(gv('sc-tech')||0),ta=parseInt(gv('sc-tact')||0),m=parseInt(gv('sc-mind')||0),c=parseInt(gv('sc-comp')||0);
+  if(!p||!t||!ta||!m||!c){toast('Completa todos los puntajes (incluyendo Táctica)','error');return;}
   showLoad(true);
   try {
-    const{error}=await db.from('tss_evaluations').insert({athlete_id:athleteId,coach_id:S.user.id,date:gv('evDate'),physical:p,technique:t,mindset:m,competitive:c,strengths:gv('evStr'),limitations:gv('evLim'),recommendations:gv('evRec')});
+    const{error}=await db.from('tss_evaluations').insert({athlete_id:athleteId,coach_id:S.user.id,date:gv('evDate'),physical:p,technique:t,tactical:ta,mindset:m,competitive:c,strengths:gv('evStr'),limitations:gv('evLim'),recommendations:gv('evRec')});
     if(error) throw error;
-    toast('✅ Evaluación guardada','success');
+    // Si el coach cambió la cinta, actualizar en profile
+    const newBelt = gv('ev-belt');
+    if(newBelt){
+      const{data:current}=await db.from('tss_profiles').select('current_belt').eq('id',athleteId).single();
+      if(current?.current_belt !== newBelt){
+        await db.from('tss_profiles').update({current_belt:newBelt}).eq('id',athleteId);
+        // Update local cache
+        const ath = (S.athletes||[]).find(a=>a.id===athleteId); if(ath) ath.current_belt = newBelt;
+        toast('✅ Evaluación guardada · cinta actualizada a '+getBelt(newBelt).name,'success');
+      } else {
+        toast('✅ Evaluación guardada','success');
+      }
+    } else {
+      toast('✅ Evaluación guardada','success');
+    }
     document.getElementById('eaSel').value=''; document.getElementById('evalFormArea').innerHTML='';
-    // Refresh panel so Índice de Rendimiento updates immediately
     setTimeout(()=>{ if(typeof vPanel==='function') vPanel(); if(typeof renderEvalHist==='function') renderEvalHist(); },300);
-  } catch(e){toast('Error al guardar','error');console.error(e);}
+  } catch(e){toast('Error al guardar: '+e.message,'error');console.error(e);}
   finally{showLoad(false);}
 }
 
@@ -5489,7 +5552,13 @@ async function vPerfil(athleteId=null,athleteName=null){
         ${avatarHtml}
         <div style="position:absolute;bottom:0;right:0;background:var(--cyan);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;">📷</div>
       </div>
-      <div><div class="page-title" style="margin-bottom:0;">${name}</div><div class="page-sub" style="margin-bottom:0;">Perfil · TSS 2026</div></div>
+      <div>
+        <div class="page-title" style="margin-bottom:0;">${name}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+          <div class="page-sub" style="margin-bottom:0;">Perfil · TSS 2026</div>
+          <span id="profileBeltChip"></span>
+        </div>
+      </div>
     </div>
     ${isCoach?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-cyan btn-sm" onclick="genAnalyticsPDF('${id}','${escAttr(name)}')">📈 Reporte PDF</button>
@@ -5854,7 +5923,278 @@ async function vPerfil(athleteId=null,athleteName=null){
   loadCompEvalProfile(id);
   loadAthleteAppts(id);
   loadCompForCoach(id);
+
+  // Belt chip al lado del nombre
+  const beltChipEl = document.getElementById('profileBeltChip');
+  if(beltChipEl && athBio.current_belt){ beltChipEl.innerHTML = beltChipHtml(athBio.current_belt); }
+
+  // Banner de info incompleta + radar de pilares
+  injectProfileExtras(id, athBio, evals);
   } catch(e){ document.getElementById('perfilContent').innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar perfil</p>'; console.error(e); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PROFILE EXTRAS: Banner Info Incompleta + Radar de Pilares
+   ════════════════════════════════════════════════════════════════════ */
+function getInfoCompletenessGaps(prof){
+  // Devuelve { missing: [...labels], critical: [...labels] }
+  const groups = {
+    'Datos personales (email, teléfono)': prof.email && prof.phone,
+    'Datos físicos (peso, altura, stance)': prof.weight_kg && prof.height_cm && prof.stance,
+    'Información médica (tipo de sangre)': prof.blood_type,
+    'Contacto de emergencia': prof.emergency_name && prof.emergency_phone,
+    'Metas (corto, mediano, largo)': prof.goal_short_term || prof.goal_mid_term || prof.goal_long_term,
+  };
+  const missing = Object.keys(groups).filter(k=>!groups[k]);
+  const criticalKeys = ['Información médica (tipo de sangre)','Contacto de emergencia'];
+  const critical = missing.filter(k => criticalKeys.includes(k));
+  return { missing, critical };
+}
+
+function injectProfileExtras(athleteId, prof, evals){
+  // Banner info incompleta
+  const gaps = getInfoCompletenessGaps(prof);
+  const perfilEl = document.getElementById('perfilContent');
+  if(!perfilEl) return;
+  const isOwner = S.user.id === athleteId;
+  const isCoach = S.user.role==='coach' || S.user.role==='acoach';
+  const canEdit = isOwner || isCoach;
+
+  let bannerHtml = '';
+  if(gaps.missing.length && canEdit){
+    const isCritical = gaps.critical.length > 0;
+    const color = isCritical ? 'red' : 'amber';
+    bannerHtml = `<div class="card anim-up" style="margin-bottom:12px;background:rgba(${isCritical?'239,68,68':'245,158,11'},.08);border:1px solid rgba(${isCritical?'239,68,68':'245,158,11'},.3);">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:22px;">${isCritical?'⚠️':'📋'}</span>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:800;color:var(--${color});">${isCritical?'Info crítica incompleta':'Info personal incompleta'}</div>
+          <div style="font-size:11px;color:var(--grey);margin-top:3px;">${isOwner?'Te':'Le'} faltan ${gaps.missing.length} sección(es): ${gaps.missing.slice(0,3).join(' · ')}${gaps.missing.length>3?'…':''}</div>
+        </div>
+      </div>
+      <button class="btn btn-${color}" style="width:100%;margin-top:10px;" onclick="openInfoCompletaModal('${athleteId}')">📝 ${isOwner?'Completar mi información':'Completar información'}</button>
+    </div>`;
+  } else if(canEdit){
+    // Info completa → botón pequeño para editar
+    bannerHtml = `<button class="btn btn-ghost btn-sm" style="margin-bottom:12px;width:100%;" onclick="openInfoCompletaModal('${athleteId}')">📝 Ver / Editar información completa</button>`;
+  }
+
+  // Radar de pilares (basado en última eval o promedio)
+  const radarHtml = buildPillarRadar(evals);
+
+  // Inyectar al inicio del perfilContent
+  perfilEl.insertAdjacentHTML('afterbegin', bannerHtml + radarHtml);
+}
+
+function buildPillarRadar(evals){
+  if(!evals || !evals.length){
+    return `<div class="card" style="margin-bottom:12px;text-align:center;padding:20px;">
+      <div style="font-size:32px;margin-bottom:4px;">📊</div>
+      <p style="font-size:11px;color:var(--grey);">Aún no hay evaluaciones · El radar aparecerá cuando se haga la primera</p>
+    </div>`;
+  }
+  // Promedio de las últimas 3 evals (más representativo que la última)
+  const recent = evals.slice(0,3);
+  const avg = key => {
+    const vs = recent.map(e=>e[key]).filter(v=>v);
+    return vs.length ? (vs.reduce((a,b)=>a+b,0)/vs.length) : 0;
+  };
+  const data = [
+    {label:'Físico',  key:'physical',   value:avg('physical'),  color:'#22C55E'},
+    {label:'Técnico', key:'technique',  value:avg('technique'), color:'#00C9E8'},
+    {label:'Táctico', key:'tactical',   value:avg('tactical'),  color:'#A855F7'},
+    {label:'Mental',  key:'mindset',    value:avg('mindset'),   color:'#F59E0B'},
+  ];
+  const size = 220;
+  const cx = size/2, cy = size/2;
+  const R = 80;
+  const angles = [-Math.PI/2, 0, Math.PI/2, Math.PI]; // arriba, derecha, abajo, izquierda
+  const point = (i, val) => {
+    const r = (val/5) * R;
+    return { x: cx + r * Math.cos(angles[i]), y: cy + r * Math.sin(angles[i]) };
+  };
+  const labelPoint = (i, off=18) => {
+    const r = R + off;
+    return { x: cx + r * Math.cos(angles[i]), y: cy + r * Math.sin(angles[i]) };
+  };
+  const polyPoints = data.map((d,i)=>{ const p=point(i,d.value); return `${p.x},${p.y}`; }).join(' ');
+  // Concentric rings (1-5)
+  const rings = [1,2,3,4,5].map(lv=>{
+    const r = (lv/5)*R;
+    const pts = angles.map(a=>`${cx+r*Math.cos(a)},${cy+r*Math.sin(a)}`).join(' ');
+    return `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,${lv===5?0.15:0.06})" stroke-width="1"/>`;
+  }).join('');
+  // Axes
+  const axes = angles.map(a=>`<line x1="${cx}" y1="${cy}" x2="${cx+R*Math.cos(a)}" y2="${cy+R*Math.sin(a)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`).join('');
+  // Data polygon
+  const dataPoly = `<polygon points="${polyPoints}" fill="rgba(0,201,232,0.18)" stroke="#00C9E8" stroke-width="2"/>`;
+  const dataDots = data.map((d,i)=>{ const p=point(i,d.value); return `<circle cx="${p.x}" cy="${p.y}" r="4" fill="${d.color}" stroke="#040810" stroke-width="2"/>`; }).join('');
+  // Labels
+  const labels = data.map((d,i)=>{
+    const lp = labelPoint(i);
+    const anchor = i===1?'start':i===3?'end':'middle';
+    return `<text x="${lp.x}" y="${lp.y+4}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${d.color}">${d.label}</text>
+            <text x="${lp.x}" y="${lp.y+18}" text-anchor="${anchor}" font-size="14" font-weight="800" fill="#FFFFFF" font-family="Space Mono, monospace">${d.value.toFixed(1)}</text>`;
+  }).join('');
+  const avgTotal = (data.reduce((s,d)=>s+d.value,0)/4).toFixed(1);
+  return `<div class="card card-cyan" style="margin-bottom:12px;text-align:center;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);margin-bottom:8px;">🏄 SCORE POR PILAR · PROMEDIO ÚLT. ${recent.length} EVAL${recent.length>1?'S':''}</div>
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:block;margin:0 auto;">
+      ${rings}
+      ${axes}
+      ${dataPoly}
+      ${dataDots}
+      ${labels}
+    </svg>
+    <div style="margin-top:8px;padding:8px 12px;background:rgba(0,201,232,0.08);border-radius:8px;display:inline-block;">
+      <span style="font-size:11px;color:var(--grey);">Score global </span>
+      <span style="font-size:18px;font-weight:900;color:var(--cyan);font-family:'Space Mono',monospace;">${avgTotal}/5</span>
+    </div>
+  </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   INFO COMPLETA — Modal con 5 secciones acordeón
+   openInfoCompletaModal, saveInfoCompleta, accordionToggle
+   ════════════════════════════════════════════════════════════════════ */
+async function openInfoCompletaModal(athleteId){
+  let m = document.getElementById('infoCompletaModal');
+  if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='infoCompletaModal';
+  m.innerHTML=`<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;"><div class="modal-head"><div class="modal-title">📋 Información del Atleta</div><button class="btn-icon" onclick="closeModal('infoCompletaModal')">✕</button></div><div id="ic-body" style="padding:6px 0;"><p style="text-align:center;color:var(--grey);padding:30px;">Cargando...</p></div></div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('infoCompletaModal'); };
+
+  try {
+    const{data:prof}=await db.from('tss_profiles').select('*').eq('id',athleteId).single();
+    if(!prof){ document.getElementById('ic-body').innerHTML='<p style="color:var(--red);padding:20px;">No encontrado</p>'; return; }
+    const isOwner = S.user.id === athleteId;
+    const isCoach = S.user.role==='coach' || S.user.role==='acoach';
+    const canEdit = isOwner || isCoach;
+
+    const section = (id, title, content, isOpen=false) => `
+      <div class="acc-section" style="margin-bottom:8px;border:1px solid var(--border2);border-radius:10px;overflow:hidden;">
+        <button type="button" class="acc-toggle" onclick="accordionToggle('${id}')" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--bg2);border:none;color:var(--white);cursor:pointer;font-size:13px;font-weight:700;text-align:left;">
+          <span>${title}</span>
+          <span id="${id}-icon" style="font-size:14px;transition:transform .2s;${isOpen?'transform:rotate(180deg);':''}">▼</span>
+        </button>
+        <div id="${id}-body" style="display:${isOpen?'block':'none'};padding:14px;background:var(--bg3);">${content}</div>
+      </div>`;
+
+    const inp = (id, label, val, type='text', placeholder='') => `
+      <label class="inp-label">${label}</label>
+      <input type="${type}" class="inp" id="ic-${id}" value="${escAttr(val||'')}" placeholder="${placeholder}">`;
+    const ta = (id, label, val, placeholder='') => `
+      <label class="inp-label">${label}</label>
+      <textarea class="ta" id="ic-${id}" placeholder="${placeholder}">${esc(val||'')}</textarea>`;
+    const sel = (id, label, val, opts) => `
+      <label class="inp-label">${label}</label>
+      <select class="sel" id="ic-${id}">${opts.map(o=>`<option value="${o.v}"${val===o.v?' selected':''}>${o.l}</option>`).join('')}</select>`;
+
+    document.getElementById('ic-body').innerHTML = `
+      <div style="margin-bottom:14px;text-align:center;">
+        <div style="font-size:14px;font-weight:800;color:var(--white);">${esc(prof.name)}</div>
+        <div style="margin-top:6px;">${prof.current_belt?beltChipHtml(prof.current_belt):''}</div>
+      </div>
+
+      ${section('ic-sec1', '📇 1. Datos personales', `
+        ${inp('email','Email', prof.email,'email','tu@email.com')}
+        ${inp('phone','Teléfono', prof.phone,'tel','+503 7xxx-xxxx')}
+        ${inp('dui','DUI / Pasaporte', prof.dui,'text','Número de documento')}
+        ${inp('birth_date','Fecha de nacimiento', prof.birth_date,'date')}
+        ${inp('address','Dirección', prof.address,'text','Ciudad, departamento')}
+      `, true)}
+
+      ${section('ic-sec2', '🏄 2. Datos físicos', `
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;">${inp('weight_kg','Peso (kg)', prof.weight_kg,'number','65')}</div>
+          <div style="flex:1;">${inp('height_cm','Altura (cm)', prof.height_cm,'number','175')}</div>
+        </div>
+        ${sel('stance','Stance', prof.stance, [{v:'',l:'— Elige —'},{v:'Regular',l:'Regular'},{v:'Goofy',l:'Goofy'}])}
+        ${sel('discipline','Disciplina', prof.discipline, [{v:'',l:'— Elige —'},{v:'shortboard',l:'Shortboard'},{v:'longboard',l:'Longboard'},{v:'both',l:'Ambas'}])}
+        ${inp('years_surfing','Años practicando surf', prof.years_surfing,'number','5')}
+      `)}
+
+      ${section('ic-sec3', '🩺 3. Información médica', `
+        ${sel('blood_type','Tipo de sangre', prof.blood_type, [{v:'',l:'— Elige —'},{v:'O+',l:'O+'},{v:'O-',l:'O-'},{v:'A+',l:'A+'},{v:'A-',l:'A-'},{v:'B+',l:'B+'},{v:'B-',l:'B-'},{v:'AB+',l:'AB+'},{v:'AB-',l:'AB-'},{v:'No sé',l:'No sé'}])}
+        ${ta('allergies','Alergias', prof.allergies,'Alimentos, medicamentos, materiales...')}
+        ${ta('medications','Medicamentos actuales', prof.medications,'Lista de medicamentos que toma...')}
+        ${ta('medical_conditions','Condiciones médicas / enfermedades', prof.medical_conditions,'Diabetes, asma, etc.')}
+        ${ta('medical_history','Lesiones / cirugías previas', prof.medical_history,'Historial relevante...')}
+        ${inp('doctor_name','Médico de cabecera', prof.doctor_name,'text','Nombre del doctor')}
+        ${inp('doctor_phone','Teléfono médico', prof.doctor_phone,'tel','+503...')}
+        ${inp('insurance_provider','Aseguradora', prof.insurance_provider,'text','Nombre de aseguradora')}
+        ${inp('insurance_number','Número de póliza', prof.insurance_number,'text','Número')}
+      `)}
+
+      ${section('ic-sec4', '🚨 4. Contacto de emergencia', `
+        ${inp('emergency_name','Nombre completo', prof.emergency_name,'text','Nombre del contacto')}
+        ${inp('emergency_relationship','Relación / parentesco', prof.emergency_relationship,'text','Papá, mamá, esposa, hermano...')}
+        ${inp('emergency_phone','Teléfono primario', prof.emergency_phone,'tel','+503 7xxx-xxxx')}
+        ${inp('emergency_phone_alt','Teléfono alterno', prof.emergency_phone_alt,'tel','Otro número')}
+      `)}
+
+      ${section('ic-sec5', '🎯 5. Metas', `
+        ${ta('goal_short_term','🎯 Corto plazo (1 mes)', prof.goal_short_term,'¿Qué quieres lograr este mes?')}
+        ${ta('goal_mid_term','🎯 Mediano plazo (6 meses)', prof.goal_mid_term,'¿Dónde quieres estar en 6 meses?')}
+        ${ta('goal_long_term','🎯 Largo plazo (4 años)', prof.goal_long_term,'¿Cuál es tu sueño grande?')}
+        ${ta('why_train','¿Por qué entrenas con TSS?', prof.why_train,'Tu motivación...')}
+      `)}
+
+      ${canEdit?`<button class="btn btn-cyan" style="margin-top:14px;" onclick="saveInfoCompleta('${athleteId}')">💾 Guardar Información</button>`:''}
+    `;
+  } catch(e){ document.getElementById('ic-body').innerHTML='<p style="color:var(--red);padding:20px;">Error: '+esc(e.message)+'</p>'; console.error(e); }
+}
+
+function accordionToggle(id){
+  const body = document.getElementById(id+'-body');
+  const icon = document.getElementById(id+'-icon');
+  if(!body) return;
+  if(body.style.display==='none'){ body.style.display='block'; icon.style.transform='rotate(180deg)'; }
+  else { body.style.display='none'; icon.style.transform='rotate(0deg)'; }
+}
+
+async function saveInfoCompleta(athleteId){
+  const num = id => { const v=gv('ic-'+id); return v?parseFloat(v):null; };
+  const txt = id => gv('ic-'+id) || null;
+  const payload = {
+    // Personales
+    email: txt('email'), phone: txt('phone'), dui: txt('dui'),
+    birth_date: txt('birth_date'), address: txt('address'),
+    // Físicos
+    weight_kg: num('weight_kg'), height_cm: num('height_cm'),
+    stance: txt('stance'), discipline: txt('discipline'),
+    years_surfing: num('years_surfing'),
+    // Médicos
+    blood_type: txt('blood_type'), allergies: txt('allergies'),
+    medications: txt('medications'), medical_conditions: txt('medical_conditions'),
+    medical_history: txt('medical_history'),
+    doctor_name: txt('doctor_name'), doctor_phone: txt('doctor_phone'),
+    insurance_provider: txt('insurance_provider'),
+    insurance_number: txt('insurance_number'),
+    // Emergencia
+    emergency_name: txt('emergency_name'),
+    emergency_relationship: txt('emergency_relationship'),
+    emergency_phone: txt('emergency_phone'),
+    emergency_phone_alt: txt('emergency_phone_alt'),
+    // Metas
+    goal_short_term: txt('goal_short_term'),
+    goal_mid_term: txt('goal_mid_term'),
+    goal_long_term: txt('goal_long_term'),
+    why_train: txt('why_train'),
+  };
+  showLoad(true);
+  try {
+    const{error}=await db.from('tss_profiles').update(payload).eq('id',athleteId);
+    if(error) throw error;
+    // Refrescar cache local
+    const idx=(S.athletes||[]).findIndex(a=>a.id===athleteId);
+    if(idx>=0) S.athletes[idx] = {...S.athletes[idx], ...payload};
+    toast('✅ Información guardada','success');
+    closeModal('infoCompletaModal');
+    if(S.view==='perfil') vPerfil(athleteId, (S.athletes||[]).find(a=>a.id===athleteId)?.name || S.user.name);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
 }
 
 async function loadCompEvalProfile(athleteId){
