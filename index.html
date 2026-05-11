@@ -1183,8 +1183,109 @@ async function vHoy(){
   loadGroupRanking(today);
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   SISTEMA DE PUNTOS DIARIOS · 100 max/día + bonus
+   Cumplimiento 25 · Sueño 20 · Surf 20 · Nutrición 15 · Agua 10
+   Energía 4 · Enfoque 3 · Objetivo 3   |   +10 sesión · +10 heat
+   ════════════════════════════════════════════════════════════════════ */
+function calcDailyPoints(ci, extras){
+  if(!ci) return 0;
+  let pts = 0;
+
+  // Plan (25) — basado en progress_pct
+  const pct = ci.progress_pct || 0;
+  if(pct >= 100) pts += 25;
+  else if(pct >= 80) pts += 20;
+  else if(pct >= 50) pts += 12;
+  else if(pct > 0)   pts += 5;
+
+  // Sueño (20)
+  const sleep = parseFloat(ci.sleep_hours) || 0;
+  if(sleep >= 8)        pts += 20;
+  else if(sleep >= 7)   pts += 15;
+  else if(sleep >= 6)   pts += 10;
+  else if(sleep >= 5)   pts += 5;
+
+  // Surf (20)
+  const surf = parseFloat(ci.surf_hours) || 0;
+  if(surf >= 3)         pts += 20;
+  else if(surf >= 2)    pts += 15;
+  else if(surf >= 1)    pts += 8;
+  else if(surf > 0)     pts += 3;
+
+  // Nutrición (15)
+  if(ci.nutrition === 'Si' || ci.nutrition === 'Alta' || ci.nutrition === 'Buena') pts += 15;
+  else if(ci.nutrition === 'Medio' || ci.nutrition === 'Parcial')                  pts += 8;
+  else if(ci.nutrition)                                                            pts += 3;
+
+  // Agua (10)
+  const water = ci.water_glasses || 0;
+  if(water >= 8)        pts += 10;
+  else if(water >= 6)   pts += 7;
+  else if(water >= 4)   pts += 4;
+  else if(water > 0)    pts += 1;
+
+  // Energía (4) — secundaria
+  pts += Math.min(4, (ci.energy_level || 0)*0.8);
+
+  // Enfoque (3) — secundaria
+  pts += Math.min(3, (ci.focus_level || 0)*0.6);
+
+  // Objetivo (3) — secundaria
+  if(ci.goal_achieved === 'Si') pts += 3;
+  else if(ci.goal_achieved === 'Parcial') pts += 1.5;
+
+  // Bonus
+  if(extras){
+    if(extras.attended_session)  pts += 10;
+    if(extras.heat_logged)       pts += 10;
+  }
+
+  return Math.round(pts*10)/10; // 1 decimal
+}
+
+function getWeekBoundaries(refDate){
+  // Lunes a domingo
+  const d = refDate ? new Date(refDate+'T00:00:00') : new Date();
+  const dn = d.getDay()||7;
+  const mon = new Date(d); mon.setDate(d.getDate()-(dn-1));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return { mon: mon.toISOString().split('T')[0], sun: sun.toISOString().split('T')[0] };
+}
+
+// Auto-snapshot del ranking de la semana ANTERIOR si aún no se hizo
+async function ensureWeeklySnapshot(){
+  try {
+    // Calcular el lunes de la semana pasada
+    const today = new Date();
+    const dn = today.getDay()||7;
+    const monThisWeek = new Date(today); monThisWeek.setDate(today.getDate()-(dn-1));
+    const monLastWeek = new Date(monThisWeek); monLastWeek.setDate(monThisWeek.getDate()-7);
+    const sunLastWeek = new Date(monLastWeek); sunLastWeek.setDate(monLastWeek.getDate()+6);
+    const wkStart = monLastWeek.toISOString().split('T')[0];
+    const wkEnd   = sunLastWeek.toISOString().split('T')[0];
+
+    if(wkStart < OFFICIAL_START) return; // no hay nada que snapshot antes del inicio
+    // Ya existe?
+    const{data:exist}=await db.from('tss_weekly_rankings').select('id').eq('week_start',wkStart).maybeSingle();
+    if(exist) return;
+
+    // Calcular ranking de esa semana
+    const allAthletes = (S.athletes||[]).filter(a=>a.active!==false);
+    if(!allAthletes.length) return;
+    const aIds = allAthletes.map(a=>a.id);
+    const{data:cisWeek}=await db.from('tss_daily_checkins').select('*').in('athlete_id',aIds).gte('date',wkStart).lte('date',wkEnd);
+    const totals = {};
+    aIds.forEach(aid=>totals[aid]=0);
+    (cisWeek||[]).forEach(ci=>{ totals[ci.athlete_id] = (totals[ci.athlete_id]||0) + calcDailyPoints(ci); });
+    const ranking = allAthletes.map(a=>({athlete_id:a.id,name:a.name,points:Math.round(totals[a.id]||0)})).sort((x,y)=>y.points-x.points).map((r,i)=>({...r,position:i+1}));
+    await db.from('tss_weekly_rankings').insert({week_start:wkStart, week_end:wkEnd, rankings_json:ranking});
+  } catch(e){ console.error('snapshot error',e); }
+}
+
 async function loadGroupRanking(date){
   const el=document.getElementById('groupRankingSection'); if(!el) return;
+  await ensureWeeklySnapshot();
   try {
     // Ranking oficial unificado: TODOS los atletas activos, sin separar por grupos.
     // Periodo: desde OFFICIAL_START (miercoles 6 may 2026) hasta hoy.
@@ -1192,78 +1293,113 @@ async function loadGroupRanking(date){
     if(!allAthletes.length){ el.innerHTML=''; return; }
     const allAthIds = allAthletes.map(a=>a.id);
 
-    // Ventana: ultimos 7 dias o desde OFFICIAL_START (lo mas reciente de los dos)
-    const d7=new Date(); d7.setDate(d7.getDate()-7);
-    const date7=d7.toISOString().split('T')[0];
-    const floorDate=date7>OFFICIAL_START?date7:OFFICIAL_START;
-    const{data:allCI}=await db.from('tss_daily_checkins')
-      .select('athlete_id,date,progress_pct,energy_level,surf_hours,goal_achieved')
-      .in('athlete_id',allAthIds).gte('date',floorDate).order('date');
-
-    // Calculate compliance score per athlete
-    const scores={};
-    allAthIds.forEach(aid=>{
-      const ci=(allCI||[]).filter(c=>c.athlete_id===aid);
-      const days=ci.length;
-      const avgPct=days?Math.round(ci.reduce((s,c)=>s+(c.progress_pct||0),0)/days):0;
-      const avgEnergy=days?(ci.reduce((s,c)=>s+(c.energy_level||0),0)/days).toFixed(1):0;
-      const surfH=ci.reduce((s,c)=>s+(parseFloat(c.surf_hours)||0),0);
-      const goals=ci.filter(c=>c.goal_achieved==='Si').length;
-      // Composite score: 40% plan compliance + 20% check-in days + 20% goals + 20% surf hours
-      const compScore=Math.round(avgPct*0.4 + Math.min(days/7*100,100)*0.2 + (days?goals/days*100:0)*0.2 + Math.min(surfH/10*100,100)*0.2);
-      scores[aid]={compScore,avgPct,days,avgEnergy,surfH,goals};
-    });
-
-    // Sort UNICA lista por score desc
-    const ranked=[...allAthIds].sort((a,b)=>(scores[b]?.compScore||0)-(scores[a]?.compScore||0));
-    const myPos=ranked.indexOf(S.user.id)+1;
-    const medals=['🥇','🥈','🥉'];
-    const TOP_N = 10;
-    const top = ranked.slice(0, TOP_N);
-    const showMyRowSeparate = myPos > TOP_N;  // si el usuario esta fuera del top, mostrarlo aparte
-
-    const renderRow = (aid, i) => {
-      const ath=allAthletes.find(a=>a.id===aid);
-      const sc=scores[aid]||{};
-      const isMe=aid===S.user.id;
-      const medal=i<3?medals[i]:'';
-      const bgMe=isMe?'background:rgba(0,201,232,.08);border:1px solid rgba(0,201,232,.25);':'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);';
-      return `<div style="${bgMe}border-radius:10px;padding:8px 12px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:${i<3?'16':'13'}px;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};width:24px;text-align:center;">${medal||'#'+(i+1)}</span>
-          <div>
-            <div style="font-size:12px;font-weight:${isMe?'800':'600'};color:${isMe?'var(--cyan)':'var(--white)'};">${ath?.name||'Atleta'}${isMe?' (Tú)':''}</div>
-            <div style="font-size:9px;color:var(--grey);">${sc.days||0} días · ${sc.surfH?.toFixed(1)||0}h surf · ${sc.goals||0} obj.</div>
-          </div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:18px;font-weight:900;color:${sc.compScore>=80?'var(--green)':sc.compScore>=50?'var(--amber)':'var(--red)'};font-family:'Space Mono',monospace;">${sc.compScore||0}%</div>
-          <div style="font-size:8px;color:var(--grey);">Score</div>
-        </div>
-      </div>`;
-    };
-
-    let html=`<div class="card" style="margin-bottom:12px;border:1px solid rgba(245,158,11,.2);background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(0,201,232,.04));">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div>
-          <div style="font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.5px;">🏆 RANKING OFICIAL · TOP ${Math.min(TOP_N, ranked.length)}</div>
-          <div style="font-size:9px;color:var(--grey);">Cumplimiento últimos 7 días · ${ranked.length} atletas</div>
-        </div>
-        ${myPos>0?`<div style="background:${myPos<=3?'rgba(245,158,11,.15)':myPos<=TOP_N?'rgba(0,201,232,.1)':'rgba(168,85,247,.12)'};padding:4px 10px;border-radius:20px;">
-          <span style="font-size:11px;font-weight:900;color:${myPos===1?'var(--amber)':myPos<=3?'var(--green)':myPos<=TOP_N?'var(--cyan)':'var(--purple)'};">${myPos<=3?medals[myPos-1]:''} #${myPos}/${ranked.length}</span>
-        </div>`:''}
-      </div>`;
-
-    top.forEach((aid,i)=>{ html += renderRow(aid, i); });
-
-    if(showMyRowSeparate){
-      html+=`<div style="text-align:center;color:var(--grey);font-size:10px;margin:8px 0 4px;letter-spacing:1px;">· · ·</div>`;
-      html+= renderRow(S.user.id, myPos-1);
-    }
-
-    html+=`</div>`;
-    el.innerHTML=html;
+    // Default: cargar la semana actual
+    el.innerHTML = `<div id="rankingTabsArea">
+      <div class="itab-wrap" style="display:flex;gap:6px;margin-bottom:12px;">
+        <button class="itab active" id="it-rk-week" onclick="rankingTab('week')">🔥 Esta Semana</button>
+        <button class="itab" id="it-rk-prev" onclick="rankingTab('prev')">🏆 Semana Pasada</button>
+        <button class="itab" id="it-rk-all" onclick="rankingTab('all')">📊 General</button>
+      </div>
+      <div id="rankingBody"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>
+    </div>`;
+    await rankingTab('week');
   } catch(e){ console.error('Ranking error',e); el.innerHTML=''; }
+}
+
+async function rankingTab(mode){
+  document.querySelectorAll('#it-rk-week,#it-rk-prev,#it-rk-all').forEach(b=>b.classList.remove('active'));
+  document.getElementById('it-rk-'+mode)?.classList.add('active');
+  const body = document.getElementById('rankingBody'); if(!body) return;
+  body.innerHTML = '<p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p>';
+
+  const allAthletes = (S.athletes||[]).filter(a=>a.active!==false);
+  const aIds = allAthletes.map(a=>a.id);
+  if(!aIds.length){ body.innerHTML=''; return; }
+
+  if(mode === 'prev'){
+    // Cargar snapshot de la semana pasada
+    try {
+      const{data:snapshots}=await db.from('tss_weekly_rankings').select('*').order('week_start',{ascending:false}).limit(1);
+      if(!snapshots||!snapshots.length){
+        body.innerHTML = '<div class="card" style="text-align:center;padding:30px;"><div style="font-size:32px;margin-bottom:6px;">📅</div><p style="font-size:12px;color:var(--grey);">Aún no hay snapshot de semana cerrada. El primer snapshot se hace el próximo lunes.</p></div>';
+        return;
+      }
+      const snap = snapshots[0];
+      const list = (snap.rankings_json || []).filter(r=>r.points>0);
+      renderRankingTable(body, list, S.user.id, '🏆 SEMANA PASADA', `${fmtDate(snap.week_start)} → ${fmtDate(snap.week_end)}`);
+    } catch(e){ console.error(e); body.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; }
+    return;
+  }
+
+  // 'week' o 'all'
+  let from, to, title, subtitle;
+  if(mode === 'week'){
+    const wk = getWeekBoundaries();
+    from = wk.mon < OFFICIAL_START ? OFFICIAL_START : wk.mon;
+    to   = todayStr() < wk.sun ? todayStr() : wk.sun;
+    title = '🔥 ESTA SEMANA';
+    subtitle = `Lunes ${fmtDate(wk.mon)} → ahora`;
+  } else {
+    from = OFFICIAL_START;
+    to   = todayStr();
+    title = '📊 RANKING GENERAL';
+    subtitle = `Desde ${fmtDate(OFFICIAL_START)}`;
+  }
+
+  try {
+    const{data:cis}=await db.from('tss_daily_checkins').select('*').in('athlete_id',aIds).gte('date',from).lte('date',to);
+    const totals = {};
+    aIds.forEach(aid=>totals[aid]=0);
+    (cis||[]).forEach(ci=>{ totals[ci.athlete_id] = (totals[ci.athlete_id]||0) + calcDailyPoints(ci); });
+    const list = allAthletes
+      .map(a=>({athlete_id:a.id, name:a.name, points:Math.round(totals[a.id]||0)}))
+      .sort((x,y)=>y.points-x.points)
+      .map((r,i)=>({...r, position:i+1}));
+    renderRankingTable(body, list, S.user.id, title, subtitle);
+  } catch(e){ console.error(e); body.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; }
+}
+
+function renderRankingTable(container, list, myId, title, subtitle){
+  if(!list.length){ container.innerHTML='<p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Sin datos</p>'; return; }
+  const medals=['🥇','🥈','🥉'];
+  const TOP_N=10;
+  const top = list.slice(0,TOP_N);
+  const myPos = list.findIndex(r=>r.athlete_id===myId)+1;
+  const showMe = myPos > TOP_N;
+
+  const row = (r, i) => {
+    const isMe = r.athlete_id === myId;
+    const medal = i<3?medals[i]:'';
+    const bgMe = isMe?'background:rgba(0,201,232,.08);border:1px solid rgba(0,201,232,.25);':'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);';
+    return `<div style="${bgMe}border-radius:10px;padding:8px 12px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:${i<3?'16':'13'}px;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};width:24px;text-align:center;">${medal||'#'+(i+1)}</span>
+        <div style="font-size:12px;font-weight:${isMe?'800':'600'};color:${isMe?'var(--cyan)':'var(--white)'};">${esc(r.name)}${isMe?' (Tú)':''}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:18px;font-weight:900;color:${r.points>=400?'var(--green)':r.points>=200?'var(--amber)':r.points>0?'var(--white)':'var(--grey)'};font-family:'Space Mono',monospace;">${r.points||0}</div>
+        <div style="font-size:8px;color:var(--grey);">pts</div>
+      </div>
+    </div>`;
+  };
+
+  let html = `<div class="card" style="margin-bottom:12px;border:1px solid rgba(245,158,11,.2);background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(0,201,232,.04));">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div>
+        <div style="font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.5px;">${title}</div>
+        <div style="font-size:9px;color:var(--grey);">${subtitle} · ${list.length} atletas</div>
+      </div>
+      ${myPos>0?`<div style="background:${myPos<=3?'rgba(245,158,11,.15)':myPos<=TOP_N?'rgba(0,201,232,.1)':'rgba(168,85,247,.12)'};padding:4px 10px;border-radius:20px;">
+        <span style="font-size:11px;font-weight:900;color:${myPos===1?'var(--amber)':myPos<=3?'var(--green)':myPos<=TOP_N?'var(--cyan)':'var(--purple)'};">${myPos<=3?medals[myPos-1]:''} #${myPos}/${list.length}</span>
+      </div>`:''}
+    </div>`;
+  top.forEach((r,i)=>{ html += row(r, i); });
+  if(showMe){
+    html += `<div style="text-align:center;color:var(--grey);font-size:10px;margin:8px 0 4px;letter-spacing:1px;">· · ·</div>`;
+    html += row(list[myPos-1], myPos-1);
+  }
+  html += `</div>`;
+  container.innerHTML = html;
 }
 
 async function loadHoy(date){
@@ -1597,8 +1733,57 @@ async function loadHoy(date){
       },100);
     }
 
-    el.innerHTML=`<div id="plansSection">${planHtml}</div>`+ciHtml;
+    // Widget de sueño — destacado arriba del plan
+    const sleepHrs = ci?.sleep_hours;
+    const sleepColor = sleepHrs ? (sleepHrs>=7.5?'var(--green)':sleepHrs>=6?'var(--amber)':'var(--red)') : 'var(--grey)';
+    const sleepLabel = sleepHrs ? (sleepHrs>=7.5?'✅ Bien descansado':sleepHrs>=6?'⚡ Sueño limitado':'❌ Riesgo de fatiga') : '';
+    const sleepPct = sleepHrs ? Math.min((sleepHrs/8)*100, 100) : 0;
+    const sleepHtml = `<div class="card anim-up" style="margin-bottom:12px;border:1px solid ${sleepHrs?'var(--border)':'rgba(245,158,11,.3)'};background:${sleepHrs?'var(--bg2)':'rgba(245,158,11,.05)'};">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:18px;">😴</span>
+            <span style="font-size:11px;font-weight:700;color:var(--white);letter-spacing:.5px;">¿Cuántas horas dormiste anoche?</span>
+          </div>
+          ${sleepHrs?`<div style="font-size:10px;color:var(--grey);">Meta: 8h · incluye siestas</div>`:`<div style="font-size:10px;color:var(--amber);">Meta: 8h diarias (incluye siestas)</div>`}
+        </div>
+        ${sleepHrs?`<div style="text-align:right;">
+          <div style="font-size:22px;font-weight:900;color:${sleepColor};font-family:'Space Mono',monospace;line-height:1;">${sleepHrs}<span style="font-size:11px;">h</span></div>
+          <div style="font-size:9px;color:${sleepColor};margin-top:2px;">${sleepLabel}</div>
+        </div>`:''}
+      </div>
+      ${sleepHrs?`<div style="height:6px;background:var(--bg3);border-radius:6px;margin-top:8px;overflow:hidden;">
+        <div style="height:100%;width:${sleepPct}%;background:${sleepColor};border-radius:6px;transition:width .5s;"></div>
+      </div>`:''}
+      <div style="display:flex;gap:4px;margin-top:8px;">
+        ${[5,6,7,7.5,8,8.5,9,10].map(h=>`<button type="button" onclick="saveSleepHours(${h})" style="flex:1;padding:6px 0;background:${sleepHrs==h?sleepColor:'var(--bg3)'};color:${sleepHrs==h?'#000':'var(--white)'};border:1px solid ${sleepHrs==h?sleepColor:'var(--border2)'};border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">${h}h</button>`).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+        <input type="number" step="0.5" min="0" max="24" id="sleep-custom" placeholder="Otra (ej 6.5)" value="${sleepHrs||''}" style="flex:1;padding:6px 8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);font-size:11px;">
+        <button type="button" onclick="saveSleepHours(parseFloat(document.getElementById('sleep-custom').value))" style="padding:6px 10px;background:var(--cyan);color:#000;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">💾</button>
+      </div>
+    </div>`;
+
+    el.innerHTML=`${sleepHtml}<div id="plansSection">${planHtml}</div>`+ciHtml;
   } catch(e){ el.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar</p>'; console.error(e); }
+}
+
+async function saveSleepHours(hours){
+  if(!hours || hours<0 || hours>24){ toast('Valor inválido','error'); return; }
+  const date = todayStr();
+  showLoad(true);
+  try {
+    // Si ya existe checkin, update; si no, insert
+    const{data:existing}=await db.from('tss_daily_checkins').select('id').eq('athlete_id',S.user.id).eq('date',date).maybeSingle();
+    if(existing){
+      await db.from('tss_daily_checkins').update({sleep_hours:hours}).eq('id',existing.id);
+    } else {
+      await db.from('tss_daily_checkins').insert({athlete_id:S.user.id,date,sleep_hours:hours});
+    }
+    toast('✅ '+hours+'h registradas','success');
+    loadHoy(date);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
 }
 
 /* ── COMPLETION TRACKING — saved to Supabase ── */
@@ -4968,13 +5153,17 @@ async function vPanel(){
       const energyColor=(ci?.energy_level>=4)?'var(--green)':(ci?.energy_level>=2)?'var(--amber)':'var(--grey)';
       const focusColor=(ci?.focus_level>=4)?'var(--cyan)':(ci?.focus_level>=2)?'var(--amber)':'var(--grey)';
       const waterColor=(ci?.water_glasses>=6)?'var(--green)':(ci?.water_glasses>=3)?'var(--amber)':'var(--grey)';
+      const sleepH = parseFloat(ci?.sleep_hours)||0;
+      const sleepColor = sleepH>=7.5?'var(--green)':sleepH>=6?'var(--amber)':sleepH>0?'var(--red)':'var(--grey)';
+      const sleepAlert = sleepH>0 && sleepH<7;
       const stateColor=ci?'rgba(0,201,232,.08)':'rgba(255,255,255,.02)';
       const stateBorder=ci?'rgba(0,201,232,.18)':'rgba(255,255,255,.06)';
       return `<div onclick="openDayReport('${a.id}','${escAttr(a.name)}')"
         style="background:${stateColor};border:1px solid ${stateBorder};border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div style="font-size:15px;font-weight:800;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;">${a.name}</div>
-          <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+          <div style="font-size:15px;font-weight:800;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50%;">${a.name}</div>
+          <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+            ${sleepH>0?`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:${sleepAlert?'rgba(239,68,68,.15)':'rgba(34,197,94,.15)'};color:${sleepColor};white-space:nowrap;">😴 ${sleepH}h${sleepAlert?' ⚠️':''}</span>`:''}
             ${ci?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);white-space:nowrap;">✅ Check-in</span>'
                :'<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--grey);white-space:nowrap;">Sin check-in</span>'}
             ${pct===100?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);white-space:nowrap;">🏆 100%</span>'
@@ -6031,77 +6220,111 @@ async function loadUpcomingApptsBanner(){
 
 async function loadCoachGroupRanking(){
   const el=document.getElementById('coachGroupRanking'); if(!el) return;
+  await ensureWeeklySnapshot();
+  el.innerHTML = `<div id="coachRankingWrap">
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--amber);margin-bottom:8px;">🏆 RANKING OFICIAL</div>
+    <div class="itab-wrap" style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="itab active" id="it-crk-week" onclick="coachRankingTab('week')">🔥 Esta Semana</button>
+      <button class="itab" id="it-crk-prev" onclick="coachRankingTab('prev')">🏆 Pasada</button>
+      <button class="itab" id="it-crk-all" onclick="coachRankingTab('all')">📊 General</button>
+    </div>
+    <div id="coachRankingBody"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>
+  </div>`;
+  coachRankingTab('week');
+}
+
+async function coachRankingTab(mode){
+  document.querySelectorAll('#it-crk-week,#it-crk-prev,#it-crk-all').forEach(b=>b.classList.remove('active'));
+  document.getElementById('it-crk-'+mode)?.classList.add('active');
+  const body = document.getElementById('coachRankingBody'); if(!body) return;
+  body.innerHTML = '<p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p>';
+
+  const allAthletes = (S.athletes||[]).filter(a=>a.active!==false);
+  const aIds = allAthletes.map(a=>a.id);
+  if(!aIds.length){ body.innerHTML=''; return; }
+
+  if(mode === 'prev'){
+    try {
+      const{data:snapshots}=await db.from('tss_weekly_rankings').select('*').order('week_start',{ascending:false}).limit(1);
+      if(!snapshots||!snapshots.length){
+        body.innerHTML = '<div class="card" style="text-align:center;padding:30px;"><p style="font-size:12px;color:var(--grey);">Sin snapshot de semana cerrada todavía</p></div>';
+        return;
+      }
+      const snap = snapshots[0];
+      const list = (snap.rankings_json || []).filter(r=>r.points>0);
+      renderCoachRanking(body, list, `🏆 SEMANA PASADA · ${fmtDate(snap.week_start)} → ${fmtDate(snap.week_end)}`);
+    } catch(e){ console.error(e); body.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; }
+    return;
+  }
+
+  let from, to, title;
+  if(mode === 'week'){
+    const wk = getWeekBoundaries();
+    from = wk.mon < OFFICIAL_START ? OFFICIAL_START : wk.mon;
+    to   = todayStr() < wk.sun ? todayStr() : wk.sun;
+    title = `🔥 ESTA SEMANA · Lunes ${fmtDate(wk.mon)} → ahora`;
+  } else {
+    from = OFFICIAL_START;
+    to   = todayStr();
+    title = `📊 GENERAL · Desde ${fmtDate(OFFICIAL_START)}`;
+  }
+
   try {
-    // Ranking oficial unificado: TODOS los atletas activos en una sola lista.
-    // Periodo: desde OFFICIAL_START (miercoles 6 may 2026) hasta hoy.
-    const allAthletes = (S.athletes||[]).filter(a=>a.active!==false);
-    if(!allAthletes.length){ el.innerHTML=''; return; }
-    const allAthIds = allAthletes.map(a=>a.id);
+    const{data:cis}=await db.from('tss_daily_checkins').select('*').in('athlete_id',aIds).gte('date',from).lte('date',to);
+    const totals = {}; const days = {};
+    aIds.forEach(aid=>{totals[aid]=0; days[aid]=0;});
+    (cis||[]).forEach(ci=>{ totals[ci.athlete_id] = (totals[ci.athlete_id]||0) + calcDailyPoints(ci); days[ci.athlete_id] = (days[ci.athlete_id]||0)+1; });
+    const list = allAthletes
+      .map(a=>({athlete_id:a.id, name:a.name, points:Math.round(totals[a.id]||0), days:days[a.id]||0}))
+      .sort((x,y)=>y.points-x.points)
+      .map((r,i)=>({...r, position:i+1}));
+    renderCoachRanking(body, list, title);
+  } catch(e){ console.error(e); body.innerHTML='<p style="padding:20px;color:var(--red);">Error</p>'; }
+}
 
-    // Ventana: ultimos 7 dias o desde OFFICIAL_START (lo mas reciente de los dos)
-    const d7=new Date(); d7.setDate(d7.getDate()-7);
-    const date7=d7.toISOString().split('T')[0];
-    const floorDate=date7>OFFICIAL_START?date7:OFFICIAL_START;
-    const{data:allCI}=await db.from('tss_daily_checkins')
-      .select('athlete_id,date,progress_pct,energy_level,surf_hours,goal_achieved')
-      .in('athlete_id',allAthIds).gte('date',floorDate);
+function renderCoachRanking(body, list, title){
+  if(!list.length){ body.innerHTML='<p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Sin datos</p>'; return; }
+  const teamAvg = Math.round(list.reduce((s,r)=>s+(r.points||0),0)/list.length);
+  const medals=['🥇','🥈','🥉'];
+  const TOP_N = 10;
+  const showAll = !!window._coachRankShowAll;
+  const visible = showAll ? list : list.slice(0, TOP_N);
+  const hidden = list.length - visible.length;
 
-    // Score per athlete (misma formula que el ranking del atleta)
-    const scores={};
-    allAthIds.forEach(aid=>{
-      const ci=(allCI||[]).filter(c=>c.athlete_id===aid);
-      const days=ci.length;
-      const avgPct=days?Math.round(ci.reduce((s,c)=>s+(c.progress_pct||0),0)/days):0;
-      const surfH=ci.reduce((s,c)=>s+(parseFloat(c.surf_hours)||0),0);
-      const goals=ci.filter(c=>c.goal_achieved==='Si').length;
-      const compScore=Math.round(avgPct*0.4+Math.min(days/7*100,100)*0.2+(days?goals/days*100:0)*0.2+Math.min(surfH/10*100,100)*0.2);
-      scores[aid]={compScore,avgPct,days,surfH,goals};
-    });
+  let html=`<div class="card" style="margin-bottom:10px;border:1px solid rgba(245,158,11,.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:11px;font-weight:700;color:var(--amber);">${title}</div>
+      <span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(245,158,11,.1);color:var(--amber);font-weight:700;">Prom: ${teamAvg} pts</span>
+    </div>`;
 
-    const ranked=[...allAthIds].sort((a,b)=>(scores[b]?.compScore||0)-(scores[a]?.compScore||0));
-    const teamAvg=ranked.length?Math.round(ranked.reduce((s,id)=>s+(scores[id]?.compScore||0),0)/ranked.length):0;
-    const medals=['🥇','🥈','🥉'];
-    const TOP_N = 10;
-    const showAll = !!window._coachRankShowAll;
-    const visible = showAll ? ranked : ranked.slice(0, TOP_N);
-    const hidden = ranked.length - visible.length;
-
-    let html=`<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--amber);margin-bottom:10px;">🏆 RANKING OFICIAL · ${showAll?'EQUIPO COMPLETO':'TOP '+TOP_N}</div>
-      <div class="card" style="margin-bottom:10px;border:1px solid rgba(245,158,11,.15);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div style="font-size:13px;font-weight:800;color:var(--amber);">🏆 Cumplimiento últimos 7 días</div>
-          <span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(245,158,11,.1);color:var(--amber);font-weight:700;">Prom: ${teamAvg}% · ${ranked.length} atletas</span>
-        </div>`;
-
-    visible.forEach((aid,i)=>{
-      const ath=allAthletes.find(a=>a.id===aid);
-      const sc=scores[aid]||{};
-      const medal=i<3?medals[i]:'';
-      const barColor=sc.compScore>=80?'var(--green)':sc.compScore>=50?'var(--amber)':'var(--red)';
-      html+=`<div onclick="openAthProfile('${aid}','${esc(ath?.name||'')}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:8px;cursor:pointer;background:${i===0?'rgba(245,158,11,.06)':'rgba(255,255,255,.02)'};">
-        <span style="font-size:${i<3?'15':'12'}px;width:22px;text-align:center;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};">${medal||'#'+(i+1)}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ath?.name||'Atleta'}</div>
-          <div style="height:4px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:3px;">
-            <div style="height:100%;width:${sc.compScore||0}%;border-radius:3px;background:${barColor};transition:width .5s;"></div>
-          </div>
+  visible.forEach((r,i)=>{
+    const medal=i<3?medals[i]:'';
+    const barColor=r.points>=400?'var(--green)':r.points>=200?'var(--amber)':r.points>0?'var(--cyan)':'var(--grey)';
+    const maxPts = list[0]?.points || 100;
+    const pct = maxPts ? Math.min(100, (r.points/maxPts)*100) : 0;
+    html+=`<div onclick="openAthProfile('${r.athlete_id}','${esc(r.name)}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:8px;cursor:pointer;background:${i===0?'rgba(245,158,11,.06)':'rgba(255,255,255,.02)'};">
+      <span style="font-size:${i<3?'15':'12'}px;width:22px;text-align:center;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};">${medal||'#'+(i+1)}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.name)}</div>
+        <div style="height:4px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:3px;">
+          <div style="height:100%;width:${pct}%;border-radius:3px;background:${barColor};transition:width .5s;"></div>
         </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:16px;font-weight:900;color:${barColor};font-family:'Space Mono',monospace;">${sc.compScore||0}%</div>
-          <div style="font-size:8px;color:var(--grey);">${sc.days||0}d · ${sc.surfH?.toFixed(1)||0}h</div>
-        </div>
-      </div>`;
-    });
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:16px;font-weight:900;color:${barColor};font-family:'Space Mono',monospace;">${r.points||0}</div>
+        <div style="font-size:8px;color:var(--grey);">pts${r.days?' · '+r.days+'d':''}</div>
+      </div>
+    </div>`;
+  });
 
-    if(hidden > 0){
-      html+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:11px;" onclick="window._coachRankShowAll=true;loadCoachGroupRanking();">Ver los ${hidden} restantes ↓</button>`;
-    } else if(showAll && ranked.length > TOP_N){
-      html+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:11px;" onclick="window._coachRankShowAll=false;loadCoachGroupRanking();">Mostrar solo top ${TOP_N} ↑</button>`;
-    }
+  if(hidden > 0){
+    html+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:11px;" onclick="window._coachRankShowAll=true;coachRankingTab(document.querySelector('.itab.active')?.id.replace('it-crk-','')||'week');">Ver los ${hidden} restantes ↓</button>`;
+  } else if(showAll && list.length > TOP_N){
+    html+=`<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:11px;" onclick="window._coachRankShowAll=false;coachRankingTab(document.querySelector('.itab.active')?.id.replace('it-crk-','')||'week');">Mostrar solo top ${TOP_N} ↑</button>`;
+  }
 
-    html+=`</div>`;
-    el.innerHTML=html;
-  } catch(e){ console.error('Coach ranking error',e); }
+  html+=`</div>`;
+  body.innerHTML = html;
 }
 
 // F1: openEditBio ahora redirige al modal unificado (incluye nombre+PIN+rol+físicos)
