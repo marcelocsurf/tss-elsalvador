@@ -3625,7 +3625,7 @@ const EVAL_FULL_ITEMS = {
         {id:'rotation_bs',     label:'Full Rotation (360) BS'},
       ]},
       {key:'transversal', label:'Indicadores transversales', items:[
-        {id:'completion_rate', label:'Completion rate (%)', hint:'% de maniobras intentadas que se completan'},
+        {id:'completion_rate', label:'Completion rate (0–100%)', hint:'% de maniobras intentadas que se completan', type:'number'},
         {id:'psf',             label:'Power, Speed & Flow', hint:'Criterio WSL: potencia + velocidad + flow encadenados'},
         {id:'critical_diff',   label:'Difficulty in critical section', hint:'Ataca sección crítica vs jugar seguro'},
         {id:'variety',         label:'Variety of maneuvers', hint:'Repertorio variado misma ola/sesión'},
@@ -4028,29 +4028,18 @@ function renderEvalFullForm(){
       <input type="text" class="inp" id="ef-improve2" placeholder="2..." style="margin-top:6px;">
       <input type="text" class="inp" id="ef-improve3" placeholder="3..." style="margin-top:6px;">
 
-      <div class="sec-title" style="margin-top:14px;">🎯 Plan de Acción (próximas 4 semanas)</div>
-      <label class="inp-label">Performance Goal (lo que se puede controlar)</label>
-      <textarea class="ta" id="ef-perf-goal" placeholder="Lo que el atleta puede controlar..."></textarea>
-      <label class="inp-label">Outcome Goal (resultado externo deseado)</label>
-      <textarea class="ta" id="ef-outcome-goal" placeholder="Resultado deseado..."></textarea>
-      <label class="inp-label">Drills / Misiones asignadas</label>
-      <textarea class="ta" id="ef-drills" placeholder="Drills específicos..."></textarea>
-      <label class="inp-label">Frecuencia / volumen semanal</label>
-      <input type="text" class="inp" id="ef-frequency" placeholder="Ej: 3x semana · 2h">
-      <label class="inp-label">Próxima fecha de re-evaluación</label>
+      <div class="sec-title" style="margin-top:14px;">🔍 Diagnóstico y Recomendación</div>
+      <p style="font-size:10px;color:var(--grey);margin-bottom:6px;">Esto sirve después para armar el plan de acción del atleta.</p>
+      <label class="inp-label">¿Qué observaste hoy?</label>
+      <textarea class="ta" id="ef-observation" placeholder="Diagnóstico libre: lo que viste, patrones, contexto..." style="min-height:80px;"></textarea>
+      <label class="inp-label" style="margin-top:10px;">💡 Solución / acción recomendada</label>
+      <textarea class="ta" id="ef-recommendation" placeholder="Qué sugieres para trabajar..." style="min-height:80px;"></textarea>
+
+      <label class="inp-label" style="margin-top:10px;">📅 Próxima fecha de re-evaluación</label>
       <input type="date" class="inp" id="ef-next-eval">
 
-      <div class="sec-title" style="margin-top:14px;">🔬 Diagnóstico TSS (Jerarquía de Impacto)</div>
-      <p style="font-size:10px;color:var(--grey);margin-bottom:6px;">Nivel 1 CRÍTICO · 2 ALTO · 3 PERFORMANCE · 4 MULTIPLICADOR · 5 OPTIMIZACIÓN</p>
-      <label class="inp-label">Dificultad dominante hoy</label>
-      <input type="text" class="inp" id="ef-diag-difficulty" placeholder="Ej: Connection, Speed, Switch Rail...">
-      <label class="inp-label">Bloque(s) de solución</label>
-      <input type="text" class="inp" id="ef-diag-blocks" placeholder="Ej: Físico-cadera, Técnica-PRCH">
-      <label class="inp-label">Drill TSS recomendado</label>
-      <input type="text" class="inp" id="ef-diag-drill" placeholder="Nombre del drill prioritario">
-
-      <label class="inp-label" style="margin-top:10px;">Comentario del coach (narrativa)</label>
-      <textarea class="ta" id="ef-narrative" placeholder="Observación general, contexto..." style="min-height:80px;"></textarea>
+      <label class="inp-label" style="margin-top:10px;">💬 Comentario adicional (opcional)</label>
+      <textarea class="ta" id="ef-narrative" placeholder="Otra observación, contexto..."></textarea>
 
       ${s.evalType==='promocion_cinta'?`
         <div style="margin-top:14px;padding:12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;">
@@ -4178,16 +4167,12 @@ async function saveEvalFull(){
     improvements: [gv('ef-improve1'),gv('ef-improve2'),gv('ef-improve3')].filter(Boolean),
   };
   const actionPlan = {
-    performance_goal: gv('ef-perf-goal'),
-    outcome_goal: gv('ef-outcome-goal'),
-    drills: gv('ef-drills'),
-    frequency: gv('ef-frequency'),
     next_eval_date: gv('ef-next-eval'),
   };
+  // Nuevo formato simplificado: diagnóstico libre + solución recomendada
   const diagnosis = {
-    dominant_difficulty: gv('ef-diag-difficulty'),
-    solution_blocks: gv('ef-diag-blocks'),
-    recommended_drill: gv('ef-diag-drill'),
+    observation: gv('ef-observation'),
+    recommendation: gv('ef-recommendation'),
   };
   const belt = gv('ef-belt');
 
@@ -4360,22 +4345,17 @@ async function openEvalFullDetail(evalId){
         ${summary.improvements?.length?`<div><div style="font-size:10px;color:var(--amber);font-weight:700;margin-bottom:3px;">ÁREAS DE MEJORA:</div>${summary.improvements.map(s=>`<div style="font-size:11px;color:var(--white);">• ${esc(s)}</div>`).join('')}</div>`:''}
       </div>`:''}
 
-      ${plan && Object.values(plan).some(v=>v) ? `
-      <div class="card card-cyan" style="margin-bottom:10px;">
-        <div style="font-size:13px;font-weight:800;color:var(--cyan);margin-bottom:6px;">🎯 Plan de Acción</div>
-        ${plan.performance_goal?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Performance Goal:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.performance_goal)}</span></div>`:''}
-        ${plan.outcome_goal?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Outcome Goal:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.outcome_goal)}</span></div>`:''}
-        ${plan.drills?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Drills:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.drills)}</span></div>`:''}
-        ${plan.frequency?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Frecuencia:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.frequency)}</span></div>`:''}
-        ${plan.next_eval_date?`<div><span style="font-size:10px;color:var(--grey);">Próxima eval:</span> <span style="font-size:11px;color:var(--cyan);">${fmtDate(plan.next_eval_date)}</span></div>`:''}
+      ${diag && (diag.observation || diag.recommendation) ? `
+      <div class="card card-amber" style="margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:800;color:var(--amber);margin-bottom:6px;">🔍 Diagnóstico y Recomendación</div>
+        ${diag.observation?`<div style="margin-bottom:8px;"><div style="font-size:10px;color:var(--grey);margin-bottom:3px;">¿Qué observó el coach?</div><div style="font-size:12px;color:var(--white);line-height:1.5;white-space:pre-wrap;">${esc(diag.observation)}</div></div>`:''}
+        ${diag.recommendation?`<div style="padding:8px;background:rgba(0,201,232,.06);border-radius:8px;border-left:3px solid var(--cyan);"><div style="font-size:10px;color:var(--cyan);margin-bottom:3px;">💡 SOLUCIÓN / ACCIÓN RECOMENDADA</div><div style="font-size:12px;color:var(--white);line-height:1.5;white-space:pre-wrap;">${esc(diag.recommendation)}</div></div>`:''}
       </div>`:''}
 
-      ${diag && Object.values(diag).some(v=>v) ? `
-      <div class="card card-amber" style="margin-bottom:10px;">
-        <div style="font-size:13px;font-weight:800;color:var(--amber);margin-bottom:6px;">🔬 Diagnóstico TSS</div>
-        ${diag.dominant_difficulty?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Dificultad dominante:</span> <span style="font-size:11px;color:var(--white);">${esc(diag.dominant_difficulty)}</span></div>`:''}
-        ${diag.solution_blocks?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Bloques de solución:</span> <span style="font-size:11px;color:var(--white);">${esc(diag.solution_blocks)}</span></div>`:''}
-        ${diag.recommended_drill?`<div><span style="font-size:10px;color:var(--grey);">Drill recomendado:</span> <span style="font-size:11px;color:var(--white);">${esc(diag.recommended_drill)}</span></div>`:''}
+      ${plan && plan.next_eval_date ? `
+      <div class="card card-cyan" style="margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:800;color:var(--cyan);margin-bottom:6px;">📅 Próxima Re-evaluación</div>
+        <div style="font-size:14px;color:var(--white);">${fmtDate(plan.next_eval_date)}</div>
       </div>`:''}
 
       ${ev.coach_narrative?`<div class="card" style="margin-bottom:10px;border-left:3px solid var(--cyan);">
@@ -6337,7 +6317,7 @@ async function vPerfil(athleteId=null,athleteName=null){
       </div>
     </div>
     ${isCoach?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn btn-cyan btn-sm" onclick="genAnalyticsPDF('${id}','${escAttr(name)}')">📈 Reporte PDF</button>
+      <button class="btn btn-cyan btn-sm" onclick="openPdfRangeModal('${id}','${escAttr(name)}')">📈 Reporte PDF</button>
       <button class="btn btn-sm" style="background:rgba(0,201,232,.08);color:var(--cyan);border:1px solid rgba(0,201,232,.2);" onclick="openWeeklyReport('${id}','${escAttr(name)}')">📊 Semana</button>
       <button class="btn btn-sm" style="background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);" onclick="openEditBio('${id}')">✏️ Bio</button>
       <button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="confirmDeactivate('${id}','${escAttr(name)}')">🗑 Desactivar</button>
@@ -8310,7 +8290,570 @@ async function genMonthlyPDF(athleteIdOrTeam){
 
 
 
-async function genAnalyticsPDF(athleteId, athleteName){
+/* ════════════════════════════════════════════════════════════════════
+   PDF · MODAL SELECTOR DE FECHAS + REPORTE INDIVIDUAL REDISEÑADO
+   ════════════════════════════════════════════════════════════════════ */
+function openPdfRangeModal(athleteId, athleteName){
+  let m = document.getElementById('pdfRangeModal'); if(m) m.remove();
+  const today = todayStr();
+  const ago30 = new Date(); ago30.setDate(ago30.getDate()-30);
+  const ago30s = ago30.toISOString().split('T')[0];
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='pdfRangeModal';
+  m.innerHTML = `<div class="modal-sheet">
+    <div class="modal-head"><div class="modal-title">📈 Reporte PDF</div><button class="btn-icon" onclick="closeModal('pdfRangeModal')">✕</button></div>
+    <div style="padding:6px 0;">
+      <p style="font-size:12px;color:var(--grey);margin-bottom:12px;">Período del reporte para <strong style="color:var(--white);">${esc(athleteName)}</strong></p>
+
+      <label class="inp-label">Desde</label>
+      <input type="date" class="inp" id="pdf-from" value="${ago30s}" max="${today}">
+
+      <label class="inp-label" style="margin-top:10px;">Hasta</label>
+      <input type="date" class="inp" id="pdf-to" value="${today}" max="${today}">
+
+      <div style="margin-top:14px;">
+        <div style="font-size:10px;color:var(--grey);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;">Atajos rápidos</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <button type="button" class="btn-xs btn-outline" onclick="setPdfRange(7)" style="padding:6px 12px;">Últimos 7 días</button>
+          <button type="button" class="btn-xs btn-outline" onclick="setPdfRange(30)" style="padding:6px 12px;">Últimos 30 días</button>
+          <button type="button" class="btn-xs btn-outline" onclick="setPdfRange(90)" style="padding:6px 12px;">Últimos 90 días</button>
+          <button type="button" class="btn-xs btn-outline" onclick="setPdfRange('season')" style="padding:6px 12px;">Toda la temporada</button>
+        </div>
+      </div>
+
+      <button class="btn btn-cyan" style="margin-top:18px;" onclick="genAnalyticsPDFv2('${athleteId}','${escAttr(athleteName)}', gv('pdf-from'), gv('pdf-to'))">📄 Generar PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('pdfRangeModal'); };
+}
+
+function setPdfRange(daysOrSeason){
+  const to = todayStr();
+  let from;
+  if(daysOrSeason === 'season'){
+    from = OFFICIAL_START;
+  } else {
+    const d = new Date(); d.setDate(d.getDate() - daysOrSeason);
+    from = d.toISOString().split('T')[0];
+  }
+  document.getElementById('pdf-from').value = from;
+  document.getElementById('pdf-to').value = to;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PDF V2 · DISEÑO PROFESIONAL · 4 páginas con gráficos
+   Paleta clara · navy + cyan · gris medio · cards de fondo claro
+   ════════════════════════════════════════════════════════════════════ */
+async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
+  closeModal('pdfRangeModal');
+  if(!fromDate || !toDate){ toast('Selecciona fechas','error'); return; }
+  if(fromDate > toDate){ toast('Fecha inicio > fecha fin','error'); return; }
+  toast('Generando reporte...','info');
+  showLoad(true);
+
+  try {
+    // Fetch data en el rango seleccionado
+    const [{data:checkins},{data:evals},{data:compEvals},{data:sessions},{data:profile},{data:competitions},{data:appts},{data:evalsFull}] = await Promise.all([
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:true}),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
+      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
+      db.from('tss_presencial_sessions').select('id,date,title,athlete_ids,status').gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
+      db.from('tss_profiles').select('*').eq('id',athleteId).maybeSingle(),
+      db.from('tss_competitions').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
+      db.from('tss_appointments').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date'),
+      db.from('tss_evaluations_full').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
+    ]);
+    const cis = checkins||[], evs = evals||[], comps = compEvals||[], ath = profile||{};
+    const compList = competitions||[], apList = appts||[], efList = evalsFull||[];
+    const attended = (sessions||[]).filter(s=>{ try{ const ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]'); return ids.includes(athleteId); }catch(e){return false;} });
+
+    // ── Stats ────────────────────────────────
+    const avgC = cis.length ? Math.round(cis.reduce((s,c)=>s+(c.progress_pct||0),0)/cis.length) : 0;
+    const totalH = cis.reduce((s,c)=>s+(c.surf_hours||0),0);
+    const checkinDays = cis.filter(c=>c.water_glasses||c.energy_level||c.notes).length;
+    const energyVals = cis.filter(c=>c.energy_level>0).map(c=>c.energy_level);
+    const avgEnergy = energyVals.length ? (energyVals.reduce((a,b)=>a+b,0)/energyVals.length) : 0;
+    const focusVals = cis.filter(c=>c.focus_level>0).map(c=>c.focus_level);
+    const avgFocus = focusVals.length ? (focusVals.reduce((a,b)=>a+b,0)/focusVals.length) : 0;
+    const goalsYes = cis.filter(c=>c.goal_achieved==='Si').length;
+
+    // Pillar averages (4 pilares puros)
+    const pillarAvg = key => {
+      const v = evs.map(e=>e[key]).filter(x=>x&&x>0);
+      return v.length ? (v.reduce((a,b)=>a+b,0)/v.length) : 0;
+    };
+    const pilares = [
+      {label:'Físico',  value:pillarAvg('physical'),  color:[34,197,94]},
+      {label:'Técnico', value:pillarAvg('technique'), color:[0,201,232]},
+      {label:'Táctico', value:pillarAvg('tactical'),  color:[168,85,247]},
+      {label:'Mental',  value:pillarAvg('mindset'),   color:[245,158,11]},
+    ];
+    const nonZeroPilares = pilares.filter(p=>p.value>0);
+    const idxGlobal = nonZeroPilares.length ? (nonZeroPilares.reduce((s,p)=>s+p.value,0)/nonZeroPilares.length) : 0;
+
+    // ── PDF SETUP ────────────────────────────
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210, H=297, M=15, CW=W-M*2;
+
+    // Paleta profesional (fondo claro)
+    const NAVY = [10,37,64], CYAN = [0,180,210], BG_CARD = [245,247,250], BORDER = [220,228,235];
+    const TEXT_DARK = [30,41,59], TEXT_GREY = [100,116,139], TEXT_LIGHT = [148,163,184];
+    const GREEN = [34,197,94], AMBER = [245,158,11], RED = [239,68,68], PURPLE = [168,85,247];
+
+    const setFill = c => doc.setFillColor(...c);
+    const setStroke = c => doc.setDrawColor(...c);
+    const setText = c => doc.setTextColor(...c);
+    const rect = (x,y,w,h,c,r=2) => { setFill(c); doc.roundedRect(x,y,w,h,r,r,'F'); };
+    const stroke = (x,y,w,h,c,r=2,lw=0.4) => { setStroke(c); doc.setLineWidth(lw); doc.roundedRect(x,y,w,h,r,r,'S'); };
+    const txt = (text,x,y,size,color,style='normal',align='left') => {
+      setText(color); doc.setFontSize(size); doc.setFont('helvetica',style);
+      doc.text(String(text), x, y, {align});
+    };
+    const line = (x1,y1,x2,y2,c=BORDER,lw=0.3) => { setStroke(c); doc.setLineWidth(lw); doc.line(x1,y1,x2,y2); };
+
+    // Helper para nuevas páginas con header
+    let pageNum = 0;
+    const drawPageHeader = (subtitle) => {
+      // Header navy thin
+      rect(0,0,W,16,NAVY,0);
+      txt('TSS · THE SURF SEQUENCE®', M, 7, 8, [200,210,220], 'normal');
+      txt('REPORTE INDIVIDUAL DE ATLETA', M, 12, 11, [255,255,255], 'bold');
+      txt(subtitle, W-M, 12, 9, CYAN, 'bold', 'right');
+      // Sub-header bar
+      rect(0,16,W,1.5,CYAN,0);
+    };
+    const drawPageFooter = () => {
+      pageNum++;
+      txt(athleteName + '  ·  Reporte ' + fmtDate(fromDate) + ' → ' + fmtDate(toDate), M, H-7, 7, TEXT_LIGHT);
+      txt('Página ' + pageNum, W-M, H-7, 7, TEXT_LIGHT, 'normal', 'right');
+      line(M, H-12, W-M, H-12, BORDER, 0.2);
+    };
+
+    // ═══ PÁGINA 1 · PORTADA EJECUTIVA ═══════════════
+    drawPageHeader('PORTADA EJECUTIVA');
+    let y = 26;
+
+    // Bloque atleta — nombre grande + cinta
+    txt(athleteName, M, y+6, 22, NAVY, 'bold'); y+=10;
+    const belt = ath.current_belt ? getBelt(ath.current_belt) : null;
+    if(belt){
+      const beltColor = {white:[232,232,232],yellow:[245,197,24],blue:[30,111,191],purple:[123,79,190],brown:[125,78,39],black:[17,17,17]}[ath.current_belt];
+      const txtColor = (ath.current_belt==='white'||ath.current_belt==='yellow') ? TEXT_DARK : [255,255,255];
+      const beltLabel = '🎗 CINTA ' + belt.name.toUpperCase();
+      const beltW = doc.getTextWidth(beltLabel) + 10;
+      rect(M, y-2, beltW, 7, beltColor, 1.5);
+      txt(beltLabel, M+5, y+3, 8, txtColor, 'bold');
+      y+=10;
+    }
+
+    // Bio compacta + período
+    const birthDate = ath.birth_date ? new Date(ath.birth_date+'T00:00:00') : null;
+    const age = birthDate ? Math.floor((new Date()-birthDate)/(1000*60*60*24*365.25)) : null;
+    const bioItems = [];
+    if(age) bioItems.push(age + ' años');
+    if(ath.height_cm) bioItems.push(ath.height_cm + ' cm');
+    if(ath.weight_kg) bioItems.push(ath.weight_kg + ' kg');
+    if(ath.stance) bioItems.push(ath.stance);
+    if(ath.discipline) bioItems.push(ath.discipline==='both'?'Ambas':(ath.discipline.charAt(0).toUpperCase()+ath.discipline.slice(1)));
+    if(bioItems.length){ txt(bioItems.join(' · '), M, y, 9, TEXT_GREY); y+=5; }
+
+    // Period card
+    rect(M, y, CW, 12, BG_CARD); stroke(M, y, CW, 12, BORDER);
+    txt('PERÍODO', M+4, y+5, 7, TEXT_LIGHT, 'bold');
+    txt(fmtDate(fromDate) + '  →  ' + fmtDate(toDate), M+4, y+10, 10, NAVY, 'bold');
+    const daysSpan = Math.ceil((new Date(toDate)-new Date(fromDate))/(1000*60*60*24)) + 1;
+    txt(daysSpan + ' días', W-M-4, y+8, 9, CYAN, 'bold', 'right');
+    y+=18;
+
+    // Lesión activa (si tiene)
+    if(ath.injury){
+      rect(M, y, CW, 12, [254,226,226]); stroke(M, y, CW, 12, [248,113,113]);
+      txt('🚨 LESIÓN ACTIVA', M+4, y+5, 7, RED, 'bold');
+      txt(ath.injury + (ath.injury_since?' · desde ' + ath.injury_since:''), M+4, y+10, 9, TEXT_DARK);
+      y+=16;
+    }
+
+    // ── KPI CARDS (4 grandes) ────────────────
+    txt('INDICADORES CLAVE', M, y, 9, TEXT_GREY, 'bold'); y+=5;
+    const kpis = [
+      {label:'CUMPLIMIENTO', val:avgC+'%', color:avgC>=80?GREEN:avgC>=50?AMBER:RED, sub:cis.length+' días'},
+      {label:'ÍNDICE',       val:idxGlobal>0?idxGlobal.toFixed(1):'—', color:CYAN, sub:evs.length+' evals'},
+      {label:'HORAS SURF',   val:totalH.toFixed(1)+'h', color:CYAN, sub:cis.filter(c=>c.surf_hours).length+' sesiones'},
+      {label:'ASISTENCIA',   val:attended.length, color:PURPLE, sub:'sesiones'},
+    ];
+    const kw = (CW-9)/4, kh = 26;
+    kpis.forEach((k,i)=>{
+      const kx = M+i*(kw+3);
+      rect(kx, y, kw, kh, BG_CARD, 3);
+      stroke(kx, y, kw, kh, BORDER, 3);
+      // Barra superior del color
+      rect(kx, y, kw, 3, k.color, 0);
+      txt(k.label, kx+kw/2, y+9, 7, TEXT_GREY, 'bold', 'center');
+      txt(k.val, kx+kw/2, y+18, 16, NAVY, 'bold', 'center');
+      txt(k.sub, kx+kw/2, y+23, 7, TEXT_LIGHT, 'normal', 'center');
+    });
+    y += kh + 8;
+
+    // ── RADAR / BARRAS DE PILARES ────────────
+    txt('PERFIL POR PILAR', M, y, 9, TEXT_GREY, 'bold'); y+=5;
+    rect(M, y, CW, 56, BG_CARD, 3);
+    stroke(M, y, CW, 56, BORDER, 3);
+    let py = y+8;
+    pilares.forEach((p,i)=>{
+      const px = M+8;
+      const labelW = 30, valueW = 20;
+      txt(p.label, px, py+3, 9, TEXT_DARK, 'bold');
+      // Barra
+      const barX = px+labelW, barW = CW-labelW-valueW-16, barH = 4;
+      rect(barX, py, barW, barH, [230,236,242], 1);
+      if(p.value>0){
+        rect(barX, py, barW*(p.value/5), barH, p.color, 1);
+      }
+      // Value
+      const valTxt = p.value>0 ? p.value.toFixed(1)+' / 5' : '—';
+      txt(valTxt, W-M-8, py+3, 9, NAVY, 'bold', 'right');
+      py+=10;
+    });
+    // Score global destacado
+    rect(M+CW-50, y+44, 40, 8, NAVY, 1);
+    txt('ÍNDICE GLOBAL', M+CW-46, y+49, 6, [200,210,220], 'bold');
+    txt(idxGlobal>0?idxGlobal.toFixed(1)+'/5':'—', M+CW-12, y+49, 9, [255,255,255], 'bold', 'right');
+    y += 60;
+
+    // ── WELLNESS QUICK ────────────────────────
+    if(cis.length){
+      txt('BIENESTAR PROMEDIO', M, y, 9, TEXT_GREY, 'bold'); y+=5;
+      const wItems = [
+        {l:'Energía',  v:avgEnergy>0?avgEnergy.toFixed(1)+'/5':'—', c:AMBER},
+        {l:'Enfoque',  v:avgFocus>0?avgFocus.toFixed(1)+'/5':'—',  c:CYAN},
+        {l:'Logros',   v:goalsYes + '/' + cis.length, c:GREEN},
+      ];
+      const ww = (CW-6)/3;
+      wItems.forEach((wi,i)=>{
+        const wx = M+i*(ww+3);
+        rect(wx, y, ww, 16, BG_CARD, 2);
+        stroke(wx, y, ww, 16, BORDER, 2);
+        txt(wi.l, wx+ww/2, y+5, 7, TEXT_LIGHT, 'bold', 'center');
+        txt(wi.v, wx+ww/2, y+12, 11, wi.c, 'bold', 'center');
+      });
+      y+=20;
+    }
+
+    drawPageFooter();
+
+    // ═══ PÁGINA 2 · TENDENCIAS Y GRÁFICOS ═══════════
+    doc.addPage();
+    drawPageHeader('TENDENCIAS · ' + daysSpan + ' DÍAS');
+    y = 22;
+
+    // ── LINE CHART de pilares en el tiempo ───
+    txt('EVOLUCIÓN DE PILARES POR EVALUACIÓN', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
+    if(evs.length >= 2){
+      const chartH = 60, padL = 12, padR = 8, padT = 4, padB = 12;
+      rect(M, y, CW, chartH, [252,253,254], 3);
+      stroke(M, y, CW, chartH, BORDER, 3, 0.3);
+      // Y-axis labels (1-5)
+      for(let v=1; v<=5; v++){
+        const yy = y+padT + (chartH-padT-padB)*(1 - (v-1)/4);
+        txt(String(v), M+padL-4, yy+1, 6, TEXT_LIGHT, 'normal', 'right');
+        line(M+padL, yy, M+CW-padR, yy, [240,244,248], 0.2);
+      }
+      // Sorted ascending for line
+      const sorted = [...evs].reverse();
+      const N = sorted.length;
+      const stepX = (CW-padL-padR)/Math.max(1,N-1);
+      const keys = [
+        {key:'physical', color:GREEN},
+        {key:'technique', color:CYAN},
+        {key:'tactical', color:PURPLE},
+        {key:'mindset', color:AMBER},
+      ];
+      keys.forEach(k=>{
+        setStroke(k.color); doc.setLineWidth(0.8);
+        let prevX=null, prevY=null;
+        sorted.forEach((e,i)=>{
+          const v = e[k.key];
+          if(!v||v<=0) return;
+          const x = M+padL + i*stepX;
+          const yy = y+padT + (chartH-padT-padB)*(1 - (v-1)/4);
+          if(prevX!==null){ doc.line(prevX, prevY, x, yy); }
+          // Dot
+          setFill(k.color);
+          doc.circle(x, yy, 1.2, 'F');
+          prevX = x; prevY = yy;
+        });
+      });
+      // X-axis labels (first, middle, last)
+      if(sorted.length){
+        txt(fmtDateShort(sorted[0].date), M+padL, y+chartH-2, 6, TEXT_LIGHT);
+        if(sorted.length>2) txt(fmtDateShort(sorted[Math.floor(sorted.length/2)].date), M+CW/2, y+chartH-2, 6, TEXT_LIGHT, 'normal', 'center');
+        txt(fmtDateShort(sorted[sorted.length-1].date), M+CW-padR, y+chartH-2, 6, TEXT_LIGHT, 'normal', 'right');
+      }
+      // Legend
+      const legY = y+chartH+4;
+      let legX = M;
+      keys.forEach(k=>{
+        setFill(k.color); doc.rect(legX, legY-2.5, 4, 2.5, 'F');
+        const label = {physical:'Físico',technique:'Técnico',tactical:'Táctico',mindset:'Mental'}[k.key];
+        txt(label, legX+6, legY, 7, TEXT_GREY);
+        legX += 26;
+      });
+      y += chartH+10;
+    } else {
+      rect(M, y, CW, 24, BG_CARD, 3);
+      txt('Solo hay ' + evs.length + ' evaluación(es) en este período. Necesitas al menos 2 para mostrar tendencia.', M+CW/2, y+13, 8, TEXT_LIGHT, 'normal', 'center');
+      y+=28;
+    }
+
+    // ── BAR CHART · Horas surf por semana ────
+    txt('HORAS DE SURF POR SEMANA', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
+    // Group cis by ISO week
+    const weeks = {};
+    cis.forEach(c => {
+      if(!c.surf_hours) return;
+      const d = new Date(c.date+'T00:00:00');
+      const dn = d.getUTCDay()||7;
+      const mon = new Date(d); mon.setDate(d.getDate()-(dn-1));
+      const wk = mon.toISOString().split('T')[0];
+      weeks[wk] = (weeks[wk]||0) + (parseFloat(c.surf_hours)||0);
+    });
+    const weekEntries = Object.entries(weeks).sort();
+    if(weekEntries.length){
+      const chartH = 40, padL = 12, padR = 8, padT = 4, padB = 10;
+      rect(M, y, CW, chartH, [252,253,254], 3);
+      stroke(M, y, CW, chartH, BORDER, 3, 0.3);
+      const maxH = Math.max(...weekEntries.map(e=>e[1]), 10);
+      const bw = Math.min(14, (CW-padL-padR-(weekEntries.length-1)*3)/weekEntries.length);
+      weekEntries.forEach(([wk,h],i)=>{
+        const bx = M+padL + i*(bw+3);
+        const bh = (chartH-padT-padB)*(h/maxH);
+        const by = y+padT+(chartH-padT-padB)-bh;
+        rect(bx, by, bw, bh, CYAN, 1.5);
+        txt(h.toFixed(1)+'h', bx+bw/2, by-1, 6, NAVY, 'bold', 'center');
+        txt(fmtDateShort(wk), bx+bw/2, y+chartH-2, 5, TEXT_LIGHT, 'normal', 'center');
+      });
+      y += chartH+8;
+    } else {
+      rect(M, y, CW, 20, BG_CARD, 3);
+      txt('Sin horas de surf registradas en el período', M+CW/2, y+12, 8, TEXT_LIGHT, 'normal', 'center');
+      y+=24;
+    }
+
+    // ── CHECK-INS HEATMAP CALENDARIO ───────
+    txt('ASISTENCIA · DÍAS CON CHECK-IN', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
+    // Build map of check-in dates
+    const ciMap = {}; cis.forEach(c=>{ ciMap[c.date] = c.progress_pct||0; });
+    // Calendar grid - últimos N días (max 56 días)
+    const totalDays = Math.min(daysSpan, 56);
+    const cellW = (CW-2)/14, cellH = 7;
+    const startCal = new Date(toDate+'T00:00:00');
+    startCal.setDate(startCal.getDate() - (totalDays-1));
+    rect(M, y, CW, Math.ceil(totalDays/14)*cellH+4, [252,253,254], 2);
+    let cx = M+1, cy = y+2;
+    for(let i=0; i<totalDays; i++){
+      const d = new Date(startCal); d.setDate(startCal.getDate()+i);
+      const ds = d.toISOString().split('T')[0];
+      const pct = ciMap[ds];
+      let color;
+      if(pct === undefined) color = [230,236,242];
+      else if(pct >= 80) color = GREEN;
+      else if(pct >= 50) color = AMBER;
+      else color = [200,210,220];
+      rect(cx, cy, cellW-1, cellH-1, color, 1);
+      cx += cellW;
+      if((i+1) % 14 === 0){ cx = M+1; cy += cellH; }
+    }
+    y += Math.ceil(totalDays/14)*cellH+8;
+    // Leyenda
+    [[GREEN,'≥80%'],[AMBER,'50-79%'],[[200,210,220],'<50%'],[[230,236,242],'Sin check-in']].forEach((it,i)=>{
+      const lx = M+i*36;
+      rect(lx, y, 3, 3, it[0], 0.5);
+      txt(it[1], lx+5, y+2.5, 6, TEXT_LIGHT);
+    });
+    y += 8;
+
+    drawPageFooter();
+
+    // ═══ PÁGINA 3 · EVALUACIONES + COMPETENCIAS ═══════
+    doc.addPage();
+    drawPageHeader('EVALUACIONES Y COMPETENCIAS');
+    y = 22;
+
+    // Evals generales (rápidas)
+    if(evs.length){
+      txt('EVALUACIONES GENERALES (' + evs.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
+      // Table header
+      rect(M, y, CW, 7, NAVY, 1);
+      txt('FECHA', M+3, y+5, 7, [255,255,255], 'bold');
+      txt('FÍS', M+38, y+5, 7, [255,255,255], 'bold', 'center');
+      txt('TÉC', M+53, y+5, 7, [255,255,255], 'bold', 'center');
+      txt('TÁC', M+68, y+5, 7, [255,255,255], 'bold', 'center');
+      txt('MEN', M+83, y+5, 7, [255,255,255], 'bold', 'center');
+      txt('COMP', M+98, y+5, 7, [255,255,255], 'bold', 'center');
+      txt('ÍNDICE', W-M-3, y+5, 7, [255,255,255], 'bold', 'right');
+      y+=8;
+      evs.slice(0,12).forEach((e,i)=>{
+        if(y>270){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+        if(i%2===0){ rect(M, y, CW, 6, [248,250,252], 0); }
+        txt(fmtDateShort(e.date), M+3, y+4, 7, TEXT_DARK);
+        ['physical','technique','tactical','mindset','competitive'].forEach((k,j)=>{
+          const v = e[k];
+          const x = [M+38,M+53,M+68,M+83,M+98][j];
+          const color = v>=4?GREEN:v>=3?AMBER:v>0?RED:TEXT_LIGHT;
+          txt(v||'—', x, y+4, 8, color, 'bold', 'center');
+        });
+        const _v=[e.physical,e.technique,e.tactical,e.mindset].filter(x=>x&&x>0);
+        const idx = _v.length?(_v.reduce((a,b)=>a+b,0)/_v.length).toFixed(1):'—';
+        txt(idx, W-M-3, y+4, 8, NAVY, 'bold', 'right');
+        y+=6;
+      });
+      y+=5;
+    }
+
+    // Evals completas
+    if(efList.length){
+      if(y>240){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+      txt('EVALUACIONES COMPLETAS TSS CANON v8.1 (' + efList.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
+      efList.slice(0,5).forEach(ef=>{
+        if(y>260){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+        rect(M, y, CW, 16, BG_CARD, 2);
+        stroke(M, y, CW, 16, BORDER, 2);
+        const typeLabel = ef.eval_type==='inicial'?'Inicial':ef.eval_type==='promocion_cinta'?'🎗 Promoción':'Periódica';
+        const discLabel = ef.discipline==='shortboard'?'Shortboard':ef.discipline==='longboard'?'Longboard':'Ambas';
+        txt(fmtDate(ef.date), M+3, y+5, 8, NAVY, 'bold');
+        txt(typeLabel + ' · ' + discLabel, M+3, y+10, 7, TEXT_GREY);
+        const blocksTxt = (ef.blocks_evaluated||[]).map(b => ({fisico:'Físico',tecnica:'Técnica',maniobras:'Maniobras',longboard:'Longboard',tactica:'Táctica',mental:'Mental'})[b] || b).join(' · ');
+        txt(blocksTxt, M+3, y+14, 6, TEXT_LIGHT);
+        if(ef.belt_assigned){
+          const b = getBelt(ef.belt_assigned);
+          if(b) txt('🎗 '+b.name, W-M-3, y+5, 7, AMBER, 'bold', 'right');
+        }
+        y+=20;
+      });
+    }
+
+    // Competencias + heats
+    if(compList.length){
+      if(y>240){doc.addPage();drawPageHeader('COMPETENCIAS');y=22;}
+      txt('COMPETENCIAS (' + compList.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
+      // Load heats
+      const compIds = compList.map(c=>c.id);
+      let heatsByComp = {};
+      try {
+        const{data:hs} = await db.from('tss_competition_heats').select('*').in('competition_id', compIds).order('heat_number');
+        (hs||[]).forEach(h=>{ (heatsByComp[h.competition_id]=heatsByComp[h.competition_id]||[]).push(h); });
+      } catch(e){}
+      compList.forEach(c=>{
+        if(y>250){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
+        const heats = heatsByComp[c.id]||[];
+        rect(M, y, CW, 12, BG_CARD, 2);
+        stroke(M, y, CW, 12, BORDER, 2);
+        txt('🏆 '+c.name, M+3, y+5, 9, NAVY, 'bold');
+        const sub = [fmtDate(c.date), c.place, c.category].filter(Boolean).join(' · ');
+        txt(sub, M+3, y+10, 7, TEXT_GREY);
+        const statusColor = c.status==='finalizada'?GREEN:c.status==='en_curso'?CYAN:AMBER;
+        const statusLabel = c.status==='finalizada'?'FINALIZADA':c.status==='en_curso'?'EN CURSO':'PROGRAMADA';
+        txt(statusLabel, W-M-3, y+5, 7, statusColor, 'bold', 'right');
+        txt(heats.length+' heat(s)', W-M-3, y+10, 6, TEXT_LIGHT, 'normal', 'right');
+        y+=14;
+        // Auto-eval del atleta
+        let fe=null; try{fe=c.athlete_final_eval?(typeof c.athlete_final_eval==='object'?c.athlete_final_eval:JSON.parse(c.athlete_final_eval)):null;}catch(e){}
+        if(fe){
+          const feLabels = [['Físico','fisico'],['Técnica','tecnica'],['Táctica','tactica'],['Olas','eleccion_olas'],['Equipo','equipo'],['Mental','mental']];
+          const feW = CW/6;
+          feLabels.forEach((it,i)=>{
+            const fx = M+i*feW;
+            const v = fe[it[1]]||0;
+            const col = v>=4?GREEN:v>=3?AMBER:v>0?RED:TEXT_LIGHT;
+            txt(it[0], fx+feW/2, y+2, 5, TEXT_LIGHT, 'normal', 'center');
+            txt((v||'—')+'/5', fx+feW/2, y+6, 8, col, 'bold', 'center');
+          });
+          y+=10;
+        }
+        y+=3;
+      });
+    }
+
+    drawPageFooter();
+
+    // ═══ PÁGINA 4 · INFO DEL ATLETA ════════════
+    const hasPersonalInfo = ath.email||ath.phone||ath.address||ath.blood_type||ath.emergency_name||ath.goal_short_term||ath.goal_mid_term||ath.goal_long_term||ath.medical_conditions||ath.allergies||ath.medications;
+    if(hasPersonalInfo){
+      doc.addPage();
+      drawPageHeader('INFORMACIÓN DEL ATLETA');
+      y = 22;
+
+      const subSection = (title, items) => {
+        if(!items.length) return;
+        if(y>250){doc.addPage();drawPageHeader('INFO (cont.)');y=22;}
+        txt(title.toUpperCase(), M, y+4, 8, TEXT_GREY, 'bold'); y+=7;
+        rect(M, y, CW, items.length*7+4, BG_CARD, 2);
+        stroke(M, y, CW, items.length*7+4, BORDER, 2);
+        items.forEach((it,i)=>{
+          if(i>0) line(M+3, y+4+i*7, W-M-3, y+4+i*7, [232,238,244], 0.2);
+          txt(it.label, M+5, y+4+i*7+4, 7, TEXT_GREY);
+          const lines = doc.splitTextToSize(String(it.value||''), CW-50);
+          txt(lines.join(' '), M+50, y+4+i*7+4, 8, TEXT_DARK, 'normal');
+        });
+        y += items.length*7+8;
+      };
+
+      subSection('Contacto', [
+        ath.email && {label:'Email', value:ath.email},
+        ath.phone && {label:'Teléfono', value:ath.phone},
+        ath.dui && {label:'DUI/Pasaporte', value:ath.dui},
+        ath.address && {label:'Dirección', value:ath.address},
+      ].filter(Boolean));
+
+      subSection('Datos físicos', [
+        ath.weight_kg && {label:'Peso', value:ath.weight_kg+' kg'},
+        ath.height_cm && {label:'Altura', value:ath.height_cm+' cm'},
+        ath.stance && {label:'Stance', value:ath.stance},
+        ath.discipline && {label:'Disciplina', value:ath.discipline==='both'?'Ambas':(ath.discipline.charAt(0).toUpperCase()+ath.discipline.slice(1))},
+        ath.years_surfing && {label:'Años surfeando', value:ath.years_surfing},
+        ath.score_capacity && {label:'Score Cap', value:ath.score_capacity+'/10'},
+      ].filter(Boolean));
+
+      subSection('Información médica', [
+        ath.blood_type && {label:'Tipo de sangre', value:'🩸 '+ath.blood_type},
+        ath.allergies && {label:'Alergias', value:ath.allergies},
+        ath.medications && {label:'Medicamentos', value:ath.medications},
+        ath.medical_conditions && {label:'Condiciones', value:ath.medical_conditions},
+        ath.medical_history && {label:'Historial', value:ath.medical_history},
+        ath.doctor_name && {label:'Médico', value:ath.doctor_name+(ath.doctor_phone?' · '+ath.doctor_phone:'')},
+        ath.insurance_provider && {label:'Seguro', value:ath.insurance_provider+(ath.insurance_number?' ('+ath.insurance_number+')':'')},
+      ].filter(Boolean));
+
+      subSection('Contacto de emergencia', [
+        ath.emergency_name && {label:'Nombre', value:ath.emergency_name+(ath.emergency_relationship?' ('+ath.emergency_relationship+')':'')},
+        ath.emergency_phone && {label:'Teléfono', value:ath.emergency_phone},
+        ath.emergency_phone_alt && {label:'Teléfono alt.', value:ath.emergency_phone_alt},
+      ].filter(Boolean));
+
+      subSection('Metas', [
+        ath.goal_short_term && {label:'Corto (1 mes)', value:ath.goal_short_term},
+        ath.goal_mid_term && {label:'Mediano (6m)', value:ath.goal_mid_term},
+        ath.goal_long_term && {label:'Largo (4 años)', value:ath.goal_long_term},
+        ath.why_train && {label:'¿Por qué?', value:ath.why_train},
+      ].filter(Boolean));
+
+      drawPageFooter();
+    }
+
+    // Save
+    doc.save('TSS_'+athleteName.replace(/[^\w]/g,'_')+'_'+fromDate+'_to_'+toDate+'.pdf');
+    toast('✅ Reporte generado','success');
+  } catch(e){
+    toast('Error: '+e.message,'error');
+    console.error(e);
+  } finally {
+    showLoad(false);
+  }
+}
+
+async function genAnalyticsPDF(athleteId, athleteName, fromDate, toDate){
+  closeModal('pdfRangeModal');
   toast('Generando reporte...','info');
   try {
     const today = todayStr();
