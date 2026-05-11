@@ -3527,6 +3527,254 @@ function pickVideoFromLib(videoId){
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   EVAL COMPLETA TSS · Canon v8.1 · Items por bloque
+   ════════════════════════════════════════════════════════════════════ */
+const EVAL_FULL_BLOCKS = [
+  {id:'fisico',    label:'Físico',    icon:'💪', color:'green',  applies:['shortboard','longboard','both']},
+  {id:'tecnica',   label:'Técnica · 3 Círculos', icon:'🎯', color:'cyan', applies:['shortboard','longboard','both']},
+  {id:'maniobras', label:'Maniobras (FS/BS)', icon:'🏄', color:'amber', applies:['shortboard','both']},
+  {id:'longboard', label:'Longboard',  icon:'🌊', color:'purple', applies:['longboard','both']},
+  {id:'tactica',   label:'Táctica',    icon:'♟️', color:'purple', applies:['shortboard','longboard','both']},
+  {id:'mental',    label:'Mental',     icon:'🧠', color:'amber',  applies:['shortboard','longboard','both']},
+];
+
+const EVAL_FULL_ITEMS = {
+  fisico: {
+    sections: [
+      {key:'capacidades', label:'A · Capacidades surf-específicas', items:[
+        {id:'aerobic',   label:'Capacidad aeróbica de sesión',  hint:'Sostiene >70% calidad técnica toda la sesión'},
+        {id:'recovery',  label:'Recuperación entre esfuerzos', hint:'Vuelve a esfuerzo máx en 60-90s tras ola/set'},
+        {id:'paddle_power', label:'Potencia de paddle (sprint)', hint:'5-10 paladas máx para take-off sin descomponer técnica'},
+        {id:'popup_power',  label:'Potencia de pop-up',         hint:'Una sola fase <1s, sin rodillazo, sin pasos'},
+        {id:'specific_strength', label:'Fuerza específica al patrón', hint:'Cadena tracción-empuje-core-glúteo-isquios'},
+        {id:'hip_ankle_mobility', label:'Movilidad cadera y tobillo', hint:'Compresión profunda, BT profundo sin compensar'},
+        {id:'thorax_shoulder_mobility', label:'Movilidad torácica y hombro', hint:'Rotación completa de torso, braceada eficiente'},
+        {id:'breathing', label:'Respiración (apnea·sincronía·recuperación)', hint:'Tolera two-wave hold-down sin pánico'},
+      ]},
+      {key:'motor', label:'B · Coordinación y control motor', items:[
+        {id:'body_awareness', label:'Body awareness / propiocepción', hint:'Conciencia de cada segmento corporal en agua, aire, tabla'},
+        {id:'dynamic_balance', label:'Balance dinámico bajo carga', hint:'Estable en cambios de rail, turbulencia, aterrizajes asimétricos'},
+      ]},
+      {key:'tests', label:'C · Tests de campo (opcional, valor numérico)', type:'number', items:[
+        {id:'sprint_25m',      label:'Sprint paddle 25m (s)',         hint:'Potencia anaeróbica + técnica de paddle'},
+        {id:'continuous_800m', label:'Continuous paddle 800m (min:s)', hint:'Capacidad aeróbica surf-específica', type:'text'},
+        {id:'apnea_static',    label:'Apnea estática (s)',            hint:'Control respiratorio · tolerancia a hipoxia'},
+        {id:'apnea_dynamic',   label:'Apnea dinámica con tabla (m)',  hint:'Capacidad funcional bajo agua con equipo'},
+        {id:'popup_x40',       label:'Pop-up x40 (s)',                hint:'Potencia repetida + degradación bajo fatiga'},
+        {id:'broad_jump',      label:'Broad jump / single-leg hop (cm)', hint:'Potencia tren inferior · simetría L/R'},
+      ]},
+      {key:'medical', label:'D · Histórico médico (info)', type:'text', items:[
+        {id:'injuries_active',   label:'Lesiones activas / restricciones del día'},
+        {id:'injuries_history',  label:'Lesiones históricas relevantes'},
+        {id:'fragile_areas',     label:'Áreas frágiles · zonas de cuidado'},
+        {id:'medication',        label:'Medicación o tratamiento en curso'},
+        {id:'bottleneck',        label:'🚨 Cuello de botella físico que limita lo técnico hoy'},
+      ]},
+    ]
+  },
+  tecnica: {
+    sections: [
+      {key:'prch', label:'Círculo 1 · P·R·C·H (Cuerpo)', items:[
+        {id:'posture',    label:'P — Posture (Postura)',    hint:'Espalda recta, cabeza arriba, peso centrado'},
+        {id:'rotation',   label:'R — Rotation (Rotación)',  hint:'Ojos → cuello → torso → oblicuos → caderas'},
+        {id:'compression',label:'C — Compression (Compresión)', hint:'Baja CG, comprime/extiende = fuente de velocidad'},
+        {id:'hold',       label:'H — Hold (Sostén)',        hint:'Sostiene el ápex más tiempo del natural'},
+      ]},
+      {key:'feet', label:'Círculo 2 · Feet Position (Tabla)', items:[
+        {id:'fp1', label:'FP1 · Full Tail',     hint:'Pie trasero al borde del tail · máxima palanca'},
+        {id:'fp2', label:'FP2 · Neutral',       hint:'Pie trasero sobre pad/quillas · default para wave-face'},
+        {id:'fp3', label:'FP3 · Forward',       hint:'Pie trasero adelantado · estabilidad, glide, secciones rápidas'},
+        {id:'fp_transition', label:'Transición consciente entre FP', hint:'Cambia FP intencional según objetivo y sección'},
+      ]},
+      {key:'wave', label:'Círculo 3 · Wave Dynamic (Ola)', items:[
+        {id:'pocket',     label:'Identificar el pocket',  hint:'Reconoce dónde vive la energía'},
+        {id:'wall_read',  label:'Lectura de pared',       hint:'Lee velocidad y forma antes que llegue'},
+        {id:'section_read', label:'Lectura de secciones', hint:'Anticipa cierre, plateau, rampa, hueco'},
+        {id:'wave_stages', label:'Etapas de la ola (1-4)', hint:'Swell → set-up → break → reform'},
+        {id:'energy', label:'Energía interna ↔ externa', hint:'Une fuerza del cuerpo con energía de la ola'},
+      ]},
+      {key:'flow', label:'Síntesis · FLOW', items:[
+        {id:'flow_align', label:'Alineación visible FLOW', hint:'Cuerpo + Tabla + Ola alineados (observable)'},
+        {id:'flow_consistency', label:'Consistencia de FLOW', hint:'Repite el estado a lo largo de la sesión'},
+      ]},
+    ]
+  },
+  maniobras: {
+    sections: [
+      {key:'fs', label:'FRONTSIDE (FS)', items:[
+        {id:'bt_fs',      label:'Bottom Turn FS'},
+        {id:'cutback_fs', label:'Cutback FS'},
+        {id:'reentry_fs', label:'Reentry FS'},
+        {id:'carve_fs',   label:'Carve FS'},
+        {id:'floater_fs', label:'Floater FS'},
+        {id:'tube_fs',    label:'Tube FS'},
+        {id:'straight_air_fs', label:'Straight Air FS'},
+        {id:'reverse_air_fs',  label:'Reverse Air FS'},
+        {id:'rotation_fs',     label:'Full Rotation (360) FS'},
+        {id:'alleyoop_fs',     label:'Alley-Oop FS'},
+      ]},
+      {key:'bs', label:'BACKSIDE (BS)', items:[
+        {id:'bt_bs',      label:'Bottom Turn BS'},
+        {id:'cutback_bs', label:'Cutback BS'},
+        {id:'reentry_bs', label:'Reentry BS'},
+        {id:'carve_bs',   label:'Carve BS'},
+        {id:'floater_bs', label:'Floater BS'},
+        {id:'tube_bs',    label:'Tube BS'},
+        {id:'straight_air_bs', label:'Straight Air BS'},
+        {id:'reverse_air_bs',  label:'Reverse Air BS'},
+        {id:'rotation_bs',     label:'Full Rotation (360) BS'},
+      ]},
+      {key:'transversal', label:'Indicadores transversales', items:[
+        {id:'completion_rate', label:'Completion rate (%)', hint:'% de maniobras intentadas que se completan'},
+        {id:'psf',             label:'Power, Speed & Flow', hint:'Criterio WSL: potencia + velocidad + flow encadenados'},
+        {id:'critical_diff',   label:'Difficulty in critical section', hint:'Ataca sección crítica vs jugar seguro'},
+        {id:'variety',         label:'Variety of maneuvers', hint:'Repertorio variado misma ola/sesión'},
+        {id:'combination',     label:'Combination of major maneuvers', hint:'Combina 2+ maniobras mayores en la misma ola'},
+        {id:'commitment',      label:'Commitment', hint:'Compromiso visible · no hay duda en iniciación'},
+        {id:'innovation',      label:'Innovation / progression', hint:'Aporte personal, riesgo, intento más allá'},
+      ]},
+    ]
+  },
+  longboard: {
+    sections: [
+      {key:'presurf', label:'1) Pre-Surf · Manejo', items:[
+        {id:'board_handling', label:'Board handling (longboard)'},
+        {id:'walk_entry',     label:'Walk out & entry'},
+        {id:'get_on_board',   label:'Get on board'},
+      ]},
+      {key:'paddling', label:'2) Paddling', items:[
+        {id:'sweet_spot',       label:'Sweet spot (longboard)'},
+        {id:'paddle_efficiency', label:'Paddling efficiency · usa glide más que fuerza'},
+        {id:'entry_timing',     label:'Wave entry timing'},
+        {id:'turtle_roll',      label:'Turtle roll · manejo del whitewater'},
+      ]},
+      {key:'reading_lb', label:'3) Wave Reading', items:[
+        {id:'wave_selection_lb', label:'Wave selection · olas con potencial de flow'},
+        {id:'wave_anticipation_lb', label:'Wave shape anticipation'},
+      ]},
+      {key:'takeoff_lb', label:'4) Take-Off', items:[
+        {id:'angle_trim_to', label:'Angle & trim take-off'},
+        {id:'to_commitment', label:'Commitment al take-off'},
+      ]},
+      {key:'foundation_lb', label:'5) Foundation / Stance', items:[
+        {id:'popup_fluidity', label:'Pop-up fluidity · suave, silencioso, balanceado'},
+        {id:'stance_placement', label:'Stance placement'},
+        {id:'posture_lb',  label:'Posture · estética y funcional clásica'},
+        {id:'trim_awareness', label:'Trim awareness · usa trim para mantener glide'},
+      ]},
+      {key:'footwork', label:'6) Footwork (clave en longboard)', items:[
+        {id:'cross_step',      label:'Cross-step técnica · pie sobre pie sin shuffles'},
+        {id:'step_back',       label:'Step-back control'},
+        {id:'foot_placement',  label:'Foot placement accuracy'},
+        {id:'walking_board',   label:'Walking the board · ambas direcciones'},
+      ]},
+      {key:'nose', label:'7) Noseriding (corazón del longboard)', items:[
+        {id:'nose_entry',   label:'Nose entry timing'},
+        {id:'time_on_nose', label:'Time on the nose · sostenido, no dab fives'},
+        {id:'hang_five',    label:'Hang five · 5 dedos sobre la nariz'},
+        {id:'hang_ten',     label:'Hang ten · Holy Grail'},
+        {id:'nose_stability', label:'Stability on the nose'},
+        {id:'nose_section_choice', label:'Section choice · noseridea en secciones críticas'},
+      ]},
+      {key:'rail', label:'8) Rail Control', items:[
+        {id:'trim_turns',  label:'Trim turns · usa rail sutilmente'},
+        {id:'drop_knee',   label:'Drop-knee turn'},
+        {id:'cutback_open', label:'Cutback (open face)'},
+        {id:'functional_carving', label:'Functional carving'},
+      ]},
+      {key:'flow_lb', label:'9) Flow', items:[
+        {id:'wave_connection', label:'Wave connection · sin dead spots'},
+        {id:'speed_mgmt_lb',   label:'Speed management'},
+        {id:'transitions_lb',  label:'Transitions'},
+        {id:'use_entire_board', label:'Use of entire board · nariz, centro, tail'},
+      ]},
+      {key:'style', label:'10) Style & Grace (ISA/WSL Longboard)', items:[
+        {id:'body_language', label:'Body language'},
+        {id:'control_appearance', label:'Board control appearance · hace ver fácil lo difícil'},
+        {id:'style_flow',    label:'Style & flow · criterio explícito de juez'},
+        {id:'aesthetic_nose', label:'Aesthetic posture on nose'},
+      ]},
+      {key:'finish', label:'11) Finish & Safety', items:[
+        {id:'dismount',   label:'Dismount / ride-out'},
+        {id:'fall_mgmt',  label:'Fall management · longboard peligroso al caer'},
+        {id:'recovery',   label:'Recovery for next wave'},
+      ]},
+      {key:'judging', label:'12) Alineación de Jueces', items:[
+        {id:'traditional_progressive', label:'Traditional vs progressive'},
+        {id:'score_visibility',        label:'Score visibility · hace obvios elementos que marcan score'},
+        {id:'consistency_lb',          label:'Consistency / repetition'},
+        {id:'critical_difficulty_lb',  label:'Critical-section difficulty'},
+      ]},
+    ]
+  },
+  tactica: {
+    sections: [
+      {key:'reading_t', label:'1) Lectura de Olas', items:[
+        {id:'identify_pocket',  label:'Identifica el pocket · anticipadamente'},
+        {id:'wave_form',        label:'Lee la forma de la ola'},
+        {id:'wind_tide',        label:'Lee el viento y la marea'},
+        {id:'set_reading',      label:'Lee la serie (set reading)'},
+      ]},
+      {key:'selection', label:'2) Elección de Olas', items:[
+        {id:'selectivity',      label:'Selectividad · deja pasar olas malas'},
+        {id:'compatibility',    label:'Compatibilidad ola–habilidad'},
+        {id:'wave_quality',     label:'Wave quality score · califica mentalmente'},
+        {id:'heat_selection',   label:'Acierto en condición de heat'},
+      ]},
+      {key:'use', label:'3) Uso de la Ola', items:[
+        {id:'pocket_surf',      label:'Surf en el pocket'},
+        {id:'speed_mgmt_t',     label:'Manejo de velocidad'},
+        {id:'rail_then_push',   label:'First rail, then push'},
+        {id:'speed_timing',     label:'Manage speed and timing'},
+        {id:'use_full_board',   label:'Uso completo de la tabla'},
+      ]},
+      {key:'sections_t', label:'4) Aprovechamiento de Secciones', items:[
+        {id:'setup_section',    label:'Set-up section · carga el BT'},
+        {id:'pocket_section',   label:'Pocket section · su zona de mayor score'},
+        {id:'critical_attack',  label:'Critical section attack'},
+        {id:'ramp_section',     label:'Ramp / lip section'},
+        {id:'closeout_mgmt',    label:'Closeout management'},
+      ]},
+      {key:'vars', label:'5) 4 Variables Tácticas TSS', items:[
+        {id:'distance', label:'Distancia · calibra distancia a la sección'},
+        {id:'cadence',  label:'Cadencia · no congestión ni vacíos'},
+        {id:'speed_var', label:'Rapidez · velocidad ajustada a sección/maniobra'},
+        {id:'escape',   label:'Escape · sabe cuándo abortar'},
+      ]},
+      {key:'closure', label:'6) Finalización (Cierre)', items:[
+        {id:'planned_close',    label:'Cierre planificado'},
+        {id:'granada',          label:'Granada / Touch board'},
+        {id:'safe_exit',        label:'Salida segura'},
+        {id:'setup_next',       label:'Setup para siguiente ola'},
+      ]},
+      {key:'heat', label:'7) Táctica de Heat', items:[
+        {id:'heat_plan',        label:'Plan de heat claro'},
+        {id:'plan_execution',   label:'Ejecución del plan'},
+        {id:'priority_mgmt',    label:'Manejo de prioridad'},
+        {id:'adapt_conditions_t', label:'Adaptación a condiciones'},
+        {id:'adapt_opponent_t', label:'Adaptación a oponente'},
+        {id:'pressure_decisions', label:'Decisiones bajo presión · últimos 5 min'},
+      ]},
+    ]
+  },
+  mental: {
+    sections: [
+      {key:'mental_core', label:'Fundamentos Mentales TSS', items:[
+        {id:'focus',         label:'Enfoque (focus)',  hint:'Sostiene atención en la misión, vuelve rápido al foco'},
+        {id:'relax',         label:'Saber relajarse (auto-regulación)', hint:'Baja arousal cuando lo necesita'},
+        {id:'visualization', label:'Visualización',    hint:'Ensaya mentalmente líneas, maniobras, decisiones'},
+        {id:'motivation',    label:'Motivación intrínseca', hint:'Driver de adentro · proceso/dominio/propósito'},
+        {id:'resilience',    label:'Resiliencia post-error', hint:'Tras error vuelve a esfuerzo máx en la siguiente'},
+        {id:'commitment_m',  label:'Compromiso bajo presión', hint:'Mantiene commitment técnico cuando importa'},
+      ]},
+      {key:'mental_observation', label:'Observación cualitativa', type:'text', items:[
+        {id:'mental_notes', label:'Estado mental del atleta (observación del coach)'},
+      ]},
+    ]
+  },
+};
+
+/* ════════════════════════════════════════════════════════════════════
    SISTEMA DE CINTAS TSS (6 niveles · Canon v8.1)
    ════════════════════════════════════════════════════════════════════ */
 const BELTS = [
@@ -3551,10 +3799,11 @@ function beltChipHtml(beltId, size='md'){
 ============================================================ */
 function vEvaluar(){
   render(`<div class="page-title">Evaluar Atleta</div><div class="page-sub">Evaluaciones formales del equipo</div>
-    <div class="inner-tabs">
-      <button class="itab active" id="it-ev-train" onclick="evalTab('train')">📋 General</button>
+    <div class="itab-wrap" style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;">
+      <button class="itab active" id="it-ev-train" onclick="evalTab('train')">📋 Rápida</button>
+      <button class="itab" id="it-ev-full" onclick="evalTab('full')">📊 Completa</button>
       <button class="itab" id="it-ev-comp" onclick="evalTab('comp')">🏆 Competencia</button>
-      <button class="itab" id="it-ev-hist" onclick="evalTab('hist')">📊 Historial</button>
+      <button class="itab" id="it-ev-hist" onclick="evalTab('hist')">📜 Historial</button>
     </div>
     <div id="evalTabArea"></div>`);
   evalTab('train');
@@ -3564,6 +3813,7 @@ function evalTab(t){
   document.querySelectorAll('.itab').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById(`it-ev-${t}`); if(el) el.classList.add('active');
   if(t==='train') renderEvalTrain();
+  else if(t==='full') renderEvalFullSetup();
   else if(t==='comp') renderEvalCompForm();
   else renderEvalHist();
 }
@@ -3649,6 +3899,522 @@ async function saveEval(athleteId){
     setTimeout(()=>{ if(typeof vPanel==='function') vPanel(); if(typeof renderEvalHist==='function') renderEvalHist(); },300);
   } catch(e){toast('Error al guardar: '+e.message,'error');console.error(e);}
   finally{showLoad(false);}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EVAL COMPLETA · Canon v8.1 — Form modular por bloques
+   renderEvalFullSetup, renderEvalFullForm, saveEvalFull, deleteEvalFull
+   loadEvalFullHist, openEvalFullDetail, loadEvalFullForAthlete
+   ════════════════════════════════════════════════════════════════════ */
+let _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[] };
+
+function renderEvalFullSetup(){
+  const el = document.getElementById('evalTabArea');
+  el.innerHTML = `
+    <div class="card card-cyan" style="margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:800;color:var(--cyan);margin-bottom:4px;">📊 Evaluación Completa TSS</div>
+      <div style="font-size:11px;color:var(--grey);">Canon v8.1 · Llena solo los bloques que vas a evaluar hoy. No es necesario llenarlos todos.</div>
+    </div>
+
+    <label class="inp-label">Atleta</label>
+    <select class="sel" id="ef-athlete">
+      <option value="">— Elige —</option>
+      ${S.athletes.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}
+    </select>
+
+    <label class="inp-label" style="margin-top:10px;">Disciplina</label>
+    <div class="opt-row">
+      <button type="button" class="opt-pill on" id="ef-disc-shortboard" onclick="pickEfDisc('shortboard')">🏄 Shortboard</button>
+      <button type="button" class="opt-pill" id="ef-disc-longboard" onclick="pickEfDisc('longboard')">🌊 Longboard</button>
+      <button type="button" class="opt-pill" id="ef-disc-both" onclick="pickEfDisc('both')">⚡ Ambas</button>
+    </div>
+    <input type="hidden" id="ef-discipline" value="shortboard">
+
+    <label class="inp-label" style="margin-top:10px;">Tipo de evaluación</label>
+    <div class="opt-row">
+      <button type="button" class="opt-pill" id="ef-type-inicial" onclick="pickEfType('inicial')">Inicial</button>
+      <button type="button" class="opt-pill on" id="ef-type-periodica" onclick="pickEfType('periodica')">Periódica</button>
+      <button type="button" class="opt-pill" id="ef-type-promocion_cinta" onclick="pickEfType('promocion_cinta')">🎗 Promoción cinta</button>
+    </div>
+    <input type="hidden" id="ef-evalType" value="periodica">
+
+    <label class="inp-label" style="margin-top:10px;">Fecha</label>
+    <input type="date" class="inp" id="ef-date" value="${todayStr()}">
+
+    <label class="inp-label" style="margin-top:10px;">Spot / Locación (opcional)</label>
+    <input type="text" class="inp" id="ef-location" placeholder="Ej: La Bocana, El Tunco...">
+
+    <label class="inp-label" style="margin-top:10px;">Condición de ola (opcional)</label>
+    <input type="text" class="inp" id="ef-conditions" placeholder="Tamaño · período · viento · marea">
+
+    <div class="sec-title" style="margin-top:18px;">📋 ¿Qué bloques vas a evaluar hoy?</div>
+    <p style="font-size:11px;color:var(--grey);margin-bottom:10px;">Marca solo los bloques que vas a llenar. Los demás quedan sin evaluar y no afectan el promedio.</p>
+
+    <div id="ef-blocks-container" style="display:flex;flex-direction:column;gap:6px;">
+      ${EVAL_FULL_BLOCKS.map(b=>`
+        <label class="card" style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;margin-bottom:0;" data-block="${b.id}" data-applies="${b.applies.join(',')}">
+          <input type="checkbox" class="ef-block-cb" value="${b.id}" style="accent-color:var(--cyan);width:18px;height:18px;flex-shrink:0;">
+          <span style="font-size:20px;">${b.icon}</span>
+          <span style="font-size:14px;font-weight:700;color:var(--white);">${b.label}</span>
+        </label>
+      `).join('')}
+    </div>
+
+    <button class="btn btn-cyan" style="margin-top:18px;" onclick="proceedEvalFull()">➡️ Continuar a Evaluación</button>
+    <div style="height:20px;"></div>
+  `;
+  applyEfDisciplineFilter();
+}
+
+function pickEfDisc(d){
+  document.querySelectorAll('#ef-disc-shortboard,#ef-disc-longboard,#ef-disc-both').forEach(b=>b.classList.remove('on'));
+  document.getElementById('ef-disc-'+d).classList.add('on');
+  document.getElementById('ef-discipline').value = d;
+  applyEfDisciplineFilter();
+}
+
+function pickEfType(t){
+  document.querySelectorAll('#ef-type-inicial,#ef-type-periodica,#ef-type-promocion_cinta').forEach(b=>b.classList.remove('on'));
+  document.getElementById('ef-type-'+t).classList.add('on');
+  document.getElementById('ef-evalType').value = t;
+}
+
+function applyEfDisciplineFilter(){
+  const disc = document.getElementById('ef-discipline').value;
+  document.querySelectorAll('#ef-blocks-container [data-applies]').forEach(el=>{
+    const applies = el.dataset.applies.split(',');
+    if(applies.includes(disc)){
+      el.style.display = 'flex'; el.style.opacity='1';
+    } else {
+      el.style.display = 'none';
+      const cb = el.querySelector('.ef-block-cb'); if(cb) cb.checked = false;
+    }
+  });
+}
+
+function proceedEvalFull(){
+  const athleteId = gv('ef-athlete');
+  if(!athleteId){ toast('Selecciona un atleta','error'); return; }
+  const blocks = Array.from(document.querySelectorAll('.ef-block-cb:checked')).map(cb=>cb.value);
+  if(!blocks.length){ toast('Marca al menos un bloque','error'); return; }
+  _evalFullSetup = {
+    athleteId,
+    discipline: gv('ef-discipline')||'shortboard',
+    evalType: gv('ef-evalType')||'periodica',
+    date: gv('ef-date')||todayStr(),
+    location: gv('ef-location')||'',
+    conditions: gv('ef-conditions')||'',
+    blocks,
+  };
+  renderEvalFullForm();
+}
+
+function renderEvalFullForm(){
+  const s = _evalFullSetup;
+  const ath = (S.athletes||[]).find(a=>a.id===s.athleteId) || {};
+  const el = document.getElementById('evalTabArea');
+  const blockHtml = s.blocks.map(bId => renderEvalFullBlock(bId)).join('');
+
+  // Resumen + plan + diagnóstico siempre al final
+  const summaryHtml = `
+    <div class="card" style="margin-bottom:10px;border:1px solid var(--border);">
+      <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:10px;">📝 Resumen · Diagnóstico · Plan</div>
+      <label class="inp-label">Top 3 Fortalezas observadas</label>
+      <input type="text" class="inp" id="ef-strength1" placeholder="1. ...">
+      <input type="text" class="inp" id="ef-strength2" placeholder="2..." style="margin-top:6px;">
+      <input type="text" class="inp" id="ef-strength3" placeholder="3..." style="margin-top:6px;">
+      <label class="inp-label" style="margin-top:10px;">Top 3 Áreas de mejora</label>
+      <input type="text" class="inp" id="ef-improve1" placeholder="1...">
+      <input type="text" class="inp" id="ef-improve2" placeholder="2..." style="margin-top:6px;">
+      <input type="text" class="inp" id="ef-improve3" placeholder="3..." style="margin-top:6px;">
+
+      <div class="sec-title" style="margin-top:14px;">🎯 Plan de Acción (próximas 4 semanas)</div>
+      <label class="inp-label">Performance Goal (lo que se puede controlar)</label>
+      <textarea class="ta" id="ef-perf-goal" placeholder="Lo que el atleta puede controlar..."></textarea>
+      <label class="inp-label">Outcome Goal (resultado externo deseado)</label>
+      <textarea class="ta" id="ef-outcome-goal" placeholder="Resultado deseado..."></textarea>
+      <label class="inp-label">Drills / Misiones asignadas</label>
+      <textarea class="ta" id="ef-drills" placeholder="Drills específicos..."></textarea>
+      <label class="inp-label">Frecuencia / volumen semanal</label>
+      <input type="text" class="inp" id="ef-frequency" placeholder="Ej: 3x semana · 2h">
+      <label class="inp-label">Próxima fecha de re-evaluación</label>
+      <input type="date" class="inp" id="ef-next-eval">
+
+      <div class="sec-title" style="margin-top:14px;">🔬 Diagnóstico TSS (Jerarquía de Impacto)</div>
+      <p style="font-size:10px;color:var(--grey);margin-bottom:6px;">Nivel 1 CRÍTICO · 2 ALTO · 3 PERFORMANCE · 4 MULTIPLICADOR · 5 OPTIMIZACIÓN</p>
+      <label class="inp-label">Dificultad dominante hoy</label>
+      <input type="text" class="inp" id="ef-diag-difficulty" placeholder="Ej: Connection, Speed, Switch Rail...">
+      <label class="inp-label">Bloque(s) de solución</label>
+      <input type="text" class="inp" id="ef-diag-blocks" placeholder="Ej: Físico-cadera, Técnica-PRCH">
+      <label class="inp-label">Drill TSS recomendado</label>
+      <input type="text" class="inp" id="ef-diag-drill" placeholder="Nombre del drill prioritario">
+
+      <label class="inp-label" style="margin-top:10px;">Comentario del coach (narrativa)</label>
+      <textarea class="ta" id="ef-narrative" placeholder="Observación general, contexto..." style="min-height:80px;"></textarea>
+
+      ${s.evalType==='promocion_cinta'?`
+        <div style="margin-top:14px;padding:12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;">
+          <label class="inp-label" style="color:var(--amber);">🎗 Cinta a otorgar</label>
+          <div class="opt-row" style="flex-wrap:wrap;gap:4px;">
+            ${BELTS.map(b=>`<button type="button" class="opt-pill belt-pill" data-belt="${b.id}" onclick="pickEfBelt('${b.id}',this)" style="border:2px solid ${b.color};">${b.name}</button>`).join('')}
+          </div>
+          <input type="hidden" id="ef-belt" value="">
+        </div>
+      `:''}
+    </div>
+  `;
+
+  el.innerHTML = `
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:10px;" onclick="renderEvalFullSetup()">← Cambiar bloques</button>
+
+    <div class="card card-cyan" style="margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:800;color:var(--cyan);">${esc(ath.name||'Atleta')}</div>
+      <div style="font-size:11px;color:var(--grey);margin-top:4px;">
+        ${s.discipline==='shortboard'?'🏄 Shortboard':s.discipline==='longboard'?'🌊 Longboard':'⚡ Ambas'} ·
+        ${s.evalType==='inicial'?'Inicial':s.evalType==='promocion_cinta'?'Promoción cinta':'Periódica'} ·
+        ${fmtDate(s.date)}
+      </div>
+      <div style="font-size:10px;color:var(--cyan);margin-top:4px;">Bloques: ${s.blocks.map(b=>EVAL_FULL_BLOCKS.find(x=>x.id===b)?.label).join(' · ')}</div>
+    </div>
+
+    ${blockHtml}
+    ${summaryHtml}
+
+    <button class="save-btn" style="margin-top:14px;" onclick="saveEvalFull()">💾 Guardar Evaluación Completa</button>
+    <div style="height:30px;"></div>
+  `;
+}
+
+function renderEvalFullBlock(bId){
+  const blockMeta = EVAL_FULL_BLOCKS.find(b=>b.id===bId);
+  const block = EVAL_FULL_ITEMS[bId];
+  if(!block) return '';
+
+  const sectionsHtml = block.sections.map(sec => {
+    const itemsHtml = sec.items.map(it => {
+      const itemType = it.type || sec.type || 'rating';
+      const itemId = `ef-${bId}-${it.id}`;
+      if(itemType === 'rating'){
+        return `<div style="margin-bottom:10px;">
+          <label class="inp-label" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>${esc(it.label)}</span>
+          </label>
+          ${it.hint?`<div style="font-size:10px;color:var(--grey);margin-top:-2px;margin-bottom:4px;font-style:italic;">${esc(it.hint)}</div>`:''}
+          <div class="scale-row" id="${itemId}-row">${[1,2,3,4,5].map(n=>`<button type="button" class="se-n" onclick="pickEfRating('${itemId}',${n},this)">${n}</button>`).join('')}</div>
+          <input type="hidden" id="${itemId}" value="0">
+        </div>`;
+      } else if(itemType === 'number'){
+        return `<div style="margin-bottom:10px;">
+          <label class="inp-label">${esc(it.label)}</label>
+          ${it.hint?`<div style="font-size:10px;color:var(--grey);margin-bottom:4px;font-style:italic;">${esc(it.hint)}</div>`:''}
+          <input type="${it.type==='text'?'text':'number'}" step="0.1" class="inp" id="${itemId}" placeholder="Valor">
+        </div>`;
+      } else {
+        // text
+        return `<div style="margin-bottom:10px;">
+          <label class="inp-label">${esc(it.label)}</label>
+          ${it.hint?`<div style="font-size:10px;color:var(--grey);margin-bottom:4px;font-style:italic;">${esc(it.hint)}</div>`:''}
+          <textarea class="ta" id="${itemId}" placeholder="..."></textarea>
+        </div>`;
+      }
+    }).join('');
+    return `<div style="margin-top:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:8px;letter-spacing:.3px;">${esc(sec.label)}</div>
+      ${itemsHtml}
+    </div>`;
+  }).join('');
+
+  return `<div class="card card-${blockMeta.color} anim-up" style="margin-bottom:10px;">
+    <div style="font-size:14px;font-weight:800;color:var(--white);margin-bottom:6px;">${blockMeta.icon} ${blockMeta.label.toUpperCase()}</div>
+    <div style="font-size:10px;color:var(--grey);margin-bottom:8px;">Escala 1-5: 1=No ejecuta · 2=Intenta · 3=Errores · 4=Control · 5=Domina</div>
+    ${sectionsHtml}
+  </div>`;
+}
+
+function pickEfRating(itemId, value, btn){
+  btn.closest('.scale-row').querySelectorAll('.se-n').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById(itemId).value = value;
+}
+
+function pickEfBelt(beltId, btn){
+  btn.closest('.opt-row').querySelectorAll('.belt-pill').forEach(b=>{
+    b.classList.remove('on');
+    b.style.background='transparent';
+    b.style.color='var(--white)';
+  });
+  const belt = getBelt(beltId);
+  btn.classList.add('on');
+  btn.style.background = belt.color;
+  btn.style.color = belt.text;
+  document.getElementById('ef-belt').value = beltId;
+}
+
+async function saveEvalFull(){
+  const s = _evalFullSetup;
+  if(!s.athleteId){ toast('Sin atleta','error'); return; }
+
+  // Recolectar valores de cada bloque
+  const blockData = {};
+  s.blocks.forEach(bId => {
+    const block = EVAL_FULL_ITEMS[bId];
+    if(!block) return;
+    const data = {};
+    block.sections.forEach(sec => {
+      sec.items.forEach(it => {
+        const itemType = it.type || sec.type || 'rating';
+        const val = gv(`ef-${bId}-${it.id}`);
+        if(val && val !== '0'){
+          data[it.id] = itemType === 'rating' || itemType === 'number' ? (parseFloat(val)||val) : val;
+        }
+      });
+    });
+    blockData[bId] = data;
+  });
+
+  // Resumen
+  const summary = {
+    strengths: [gv('ef-strength1'),gv('ef-strength2'),gv('ef-strength3')].filter(Boolean),
+    improvements: [gv('ef-improve1'),gv('ef-improve2'),gv('ef-improve3')].filter(Boolean),
+  };
+  const actionPlan = {
+    performance_goal: gv('ef-perf-goal'),
+    outcome_goal: gv('ef-outcome-goal'),
+    drills: gv('ef-drills'),
+    frequency: gv('ef-frequency'),
+    next_eval_date: gv('ef-next-eval'),
+  };
+  const diagnosis = {
+    dominant_difficulty: gv('ef-diag-difficulty'),
+    solution_blocks: gv('ef-diag-blocks'),
+    recommended_drill: gv('ef-diag-drill'),
+  };
+  const belt = gv('ef-belt');
+
+  // Calcular promedios por bloque (solo de ratings)
+  const blockAvg = bId => {
+    const data = blockData[bId] || {};
+    const block = EVAL_FULL_ITEMS[bId];
+    if(!block) return null;
+    const ratings = [];
+    block.sections.forEach(sec => {
+      const isRating = !sec.type || sec.type === 'rating';
+      if(!isRating) return;
+      sec.items.forEach(it => {
+        if(it.type && it.type !== 'rating') return;
+        const v = data[it.id];
+        if(typeof v === 'number' && v > 0 && v <= 5) ratings.push(v);
+      });
+    });
+    return ratings.length ? Math.round(ratings.reduce((a,b)=>a+b,0)/ratings.length * 10)/10 : null;
+  };
+
+  const physAvg = blockAvg('fisico');
+  const techAvg = (() => {
+    const a = blockAvg('tecnica');
+    const b = blockAvg('maniobras');
+    const c = blockAvg('longboard');
+    const vals = [a,b,c].filter(v=>v!==null);
+    return vals.length ? Math.round(vals.reduce((x,y)=>x+y,0)/vals.length * 10)/10 : null;
+  })();
+  const tactAvg = blockAvg('tactica');
+  const mentAvg = blockAvg('mental');
+
+  showLoad(true);
+  try {
+    // 1. Guardar la eval completa
+    const payload = {
+      athlete_id: s.athleteId,
+      coach_id: S.user.id,
+      date: s.date,
+      eval_type: s.evalType,
+      discipline: s.discipline,
+      location: s.location || null,
+      conditions: s.conditions || null,
+      physical_json:   blockData.fisico    || null,
+      tech_json:       blockData.tecnica   || null,
+      maneuvers_json:  blockData.maniobras || null,
+      longboard_json:  blockData.longboard || null,
+      tactical_json:   blockData.tactica   || null,
+      mental_json:     blockData.mental    || null,
+      summary_json:    (summary.strengths.length || summary.improvements.length) ? summary : null,
+      action_plan_json: Object.values(actionPlan).some(v=>v) ? actionPlan : null,
+      diagnosis_json:  Object.values(diagnosis).some(v=>v) ? diagnosis : null,
+      coach_narrative: gv('ef-narrative') || null,
+      belt_assigned:   belt || null,
+      blocks_evaluated: s.blocks,
+    };
+    const{error:e1} = await db.from('tss_evaluations_full').insert(payload);
+    if(e1) throw e1;
+
+    // 2. Guardar también la eval simple (para que el radar/barras se actualicen)
+    if(physAvg || techAvg || tactAvg || mentAvg){
+      await db.from('tss_evaluations').insert({
+        athlete_id: s.athleteId,
+        coach_id: S.user.id,
+        date: s.date,
+        physical: physAvg ? Math.round(physAvg) : null,
+        technique: techAvg ? Math.round(techAvg) : null,
+        tactical: tactAvg ? Math.round(tactAvg) : null,
+        mindset: mentAvg ? Math.round(mentAvg) : null,
+        strengths: summary.strengths.join(' · ') || null,
+        limitations: summary.improvements.join(' · ') || null,
+        recommendations: actionPlan.drills || null,
+      });
+    }
+
+    // 3. Si es promoción de cinta y se otorgó, actualizar profile
+    if(belt && s.evalType==='promocion_cinta'){
+      await db.from('tss_profiles').update({current_belt: belt}).eq('id', s.athleteId);
+      const idx=(S.athletes||[]).findIndex(a=>a.id===s.athleteId);
+      if(idx>=0) S.athletes[idx].current_belt = belt;
+    }
+
+    toast('✅ Evaluación completa guardada' + (belt?' · cinta '+getBelt(belt).name+' otorgada':''), 'success');
+    _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[] };
+    evalTab('hist');
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function deleteEvalFull(evalId){
+  if(S.user.role==='athlete'){ toast('Solo el coach puede borrar','error'); return; }
+  if(!confirm('¿Borrar esta evaluación completa?\n\nEsta acción no se puede deshacer.')) return;
+  showLoad(true);
+  try {
+    const{error}=await db.from('tss_evaluations_full').delete().eq('id',evalId);
+    if(error) throw error;
+    toast('✅ Evaluación borrada','success');
+    closeModal('evalFullDetail');
+    if(typeof loadEvalFullHist==='function') loadEvalFullHist();
+    if(S.view==='perfil') vPerfil();
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function openEvalFullDetail(evalId){
+  let m = document.getElementById('evalFullDetail'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='evalFullDetail';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-head"><div class="modal-title">📊 Evaluación Completa</div><button class="btn-icon" onclick="closeModal('evalFullDetail')">✕</button></div>
+    <div id="efd-body" style="padding:6px 0;"><p style="text-align:center;color:var(--grey);padding:30px;">Cargando...</p></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('evalFullDetail'); };
+
+  try {
+    const{data:ev}=await db.from('tss_evaluations_full').select('*').eq('id',evalId).single();
+    if(!ev){ document.getElementById('efd-body').innerHTML='<p style="color:var(--red);">No encontrada</p>'; return; }
+    const ath = (S.athletes||[]).find(a=>a.id===ev.athlete_id) || {};
+
+    const renderBlock = (bId, dataKey) => {
+      const data = ev[dataKey];
+      if(!data || typeof data !== 'object' || !Object.keys(data).length) return '';
+      const meta = EVAL_FULL_BLOCKS.find(b=>b.id===bId);
+      const block = EVAL_FULL_ITEMS[bId];
+      if(!block) return '';
+      const secsHtml = block.sections.map(sec => {
+        const itemsLines = sec.items.map(it => {
+          const v = data[it.id];
+          if(v===undefined||v===null||v==='') return '';
+          const itemType = it.type || sec.type || 'rating';
+          if(itemType === 'rating'){
+            const color = v>=4?'var(--green)':v>=3?'var(--amber)':'var(--red)';
+            return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border2);font-size:11px;"><span style="color:var(--grey);">${esc(it.label)}</span><span style="color:${color};font-weight:700;">${v}/5</span></div>`;
+          } else {
+            return `<div style="margin-bottom:6px;"><div style="font-size:10px;color:var(--grey);">${esc(it.label)}</div><div style="font-size:11px;color:var(--white);">${esc(String(v))}</div></div>`;
+          }
+        }).filter(Boolean).join('');
+        if(!itemsLines) return '';
+        return `<div style="margin-top:10px;"><div style="font-size:10px;font-weight:700;color:var(--cyan);margin-bottom:4px;">${esc(sec.label)}</div>${itemsLines}</div>`;
+      }).filter(Boolean).join('');
+      if(!secsHtml) return '';
+      return `<div class="card card-${meta.color}" style="margin-bottom:10px;"><div style="font-size:13px;font-weight:800;color:var(--white);margin-bottom:4px;">${meta.icon} ${meta.label}</div>${secsHtml}</div>`;
+    };
+
+    let summary = null; try{ summary = ev.summary_json ? (typeof ev.summary_json==='object'?ev.summary_json:JSON.parse(ev.summary_json)) : null; }catch(e){}
+    let plan = null; try{ plan = ev.action_plan_json ? (typeof ev.action_plan_json==='object'?ev.action_plan_json:JSON.parse(ev.action_plan_json)) : null; }catch(e){}
+    let diag = null; try{ diag = ev.diagnosis_json ? (typeof ev.diagnosis_json==='object'?ev.diagnosis_json:JSON.parse(ev.diagnosis_json)) : null; }catch(e){}
+
+    document.getElementById('efd-body').innerHTML = `
+      <div style="margin-bottom:14px;">
+        <div style="font-size:16px;font-weight:800;color:var(--white);">${esc(ath.name||'')}</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;">
+          ${fmtDate(ev.date)} · ${ev.discipline==='shortboard'?'Shortboard':ev.discipline==='longboard'?'Longboard':'Ambas'} · ${ev.eval_type==='inicial'?'Inicial':ev.eval_type==='promocion_cinta'?'Promoción cinta':'Periódica'}
+        </div>
+        ${ev.location||ev.conditions?`<div style="font-size:10px;color:var(--grey);margin-top:2px;">${[ev.location,ev.conditions].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+        ${ev.belt_assigned?`<div style="margin-top:6px;">${beltChipHtml(ev.belt_assigned)}</div>`:''}
+      </div>
+
+      ${renderBlock('fisico','physical_json')}
+      ${renderBlock('tecnica','tech_json')}
+      ${renderBlock('maniobras','maneuvers_json')}
+      ${renderBlock('longboard','longboard_json')}
+      ${renderBlock('tactica','tactical_json')}
+      ${renderBlock('mental','mental_json')}
+
+      ${summary && (summary.strengths?.length || summary.improvements?.length) ? `
+      <div class="card" style="margin-bottom:10px;border:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:800;color:var(--white);margin-bottom:6px;">📝 Resumen</div>
+        ${summary.strengths?.length?`<div style="margin-bottom:8px;"><div style="font-size:10px;color:var(--green);font-weight:700;margin-bottom:3px;">FORTALEZAS:</div>${summary.strengths.map(s=>`<div style="font-size:11px;color:var(--white);">• ${esc(s)}</div>`).join('')}</div>`:''}
+        ${summary.improvements?.length?`<div><div style="font-size:10px;color:var(--amber);font-weight:700;margin-bottom:3px;">ÁREAS DE MEJORA:</div>${summary.improvements.map(s=>`<div style="font-size:11px;color:var(--white);">• ${esc(s)}</div>`).join('')}</div>`:''}
+      </div>`:''}
+
+      ${plan && Object.values(plan).some(v=>v) ? `
+      <div class="card card-cyan" style="margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:800;color:var(--cyan);margin-bottom:6px;">🎯 Plan de Acción</div>
+        ${plan.performance_goal?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Performance Goal:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.performance_goal)}</span></div>`:''}
+        ${plan.outcome_goal?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Outcome Goal:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.outcome_goal)}</span></div>`:''}
+        ${plan.drills?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Drills:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.drills)}</span></div>`:''}
+        ${plan.frequency?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Frecuencia:</span> <span style="font-size:11px;color:var(--white);">${esc(plan.frequency)}</span></div>`:''}
+        ${plan.next_eval_date?`<div><span style="font-size:10px;color:var(--grey);">Próxima eval:</span> <span style="font-size:11px;color:var(--cyan);">${fmtDate(plan.next_eval_date)}</span></div>`:''}
+      </div>`:''}
+
+      ${diag && Object.values(diag).some(v=>v) ? `
+      <div class="card card-amber" style="margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:800;color:var(--amber);margin-bottom:6px;">🔬 Diagnóstico TSS</div>
+        ${diag.dominant_difficulty?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Dificultad dominante:</span> <span style="font-size:11px;color:var(--white);">${esc(diag.dominant_difficulty)}</span></div>`:''}
+        ${diag.solution_blocks?`<div style="margin-bottom:6px;"><span style="font-size:10px;color:var(--grey);">Bloques de solución:</span> <span style="font-size:11px;color:var(--white);">${esc(diag.solution_blocks)}</span></div>`:''}
+        ${diag.recommended_drill?`<div><span style="font-size:10px;color:var(--grey);">Drill recomendado:</span> <span style="font-size:11px;color:var(--white);">${esc(diag.recommended_drill)}</span></div>`:''}
+      </div>`:''}
+
+      ${ev.coach_narrative?`<div class="card" style="margin-bottom:10px;border-left:3px solid var(--cyan);">
+        <div style="font-size:10px;color:var(--grey);margin-bottom:4px;">💬 NARRATIVA DEL COACH</div>
+        <div style="font-size:12px;color:var(--white);line-height:1.6;white-space:pre-wrap;">${esc(ev.coach_narrative)}</div>
+      </div>`:''}
+
+      <button class="btn btn-red" style="width:100%;margin-top:14px;" onclick="deleteEvalFull('${ev.id}')">🗑 Borrar esta evaluación</button>
+    `;
+  } catch(e){ document.getElementById('efd-body').innerHTML='<p style="color:var(--red);padding:20px;">Error: '+esc(e.message)+'</p>'; console.error(e); }
+}
+
+async function loadEvalFullForAthlete(athleteId){
+  // Solo coach/acoach ven las evals completas del coach
+  const el = document.getElementById('evalFullProfileSection'); if(!el) return;
+  const isCoach = S.user.role==='coach'||S.user.role==='acoach';
+  if(!isCoach){ el.innerHTML=''; return; }
+  try {
+    const{data}=await db.from('tss_evaluations_full').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(5);
+    if(!data||!data.length){ el.innerHTML=''; return; }
+    let html = `<div class="sec-title">📊 Evaluaciones Completas <span style="font-size:8px;color:var(--grey);letter-spacing:1px;">· Solo visible para coaches</span></div>`;
+    data.forEach(ev => {
+      const typeLabel = ev.eval_type==='inicial'?'Inicial':ev.eval_type==='promocion_cinta'?'🎗 Promoción':'Periódica';
+      const discLabel = ev.discipline==='shortboard'?'🏄':ev.discipline==='longboard'?'🌊':'⚡';
+      const blocks = (ev.blocks_evaluated||[]).map(b=>EVAL_FULL_BLOCKS.find(x=>x.id===b)?.icon||'').join(' ');
+      html += `<div class="card" style="margin-bottom:8px;cursor:pointer;border-left:3px solid var(--cyan);" onclick="openEvalFullDetail('${ev.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:800;color:var(--white);">${discLabel} ${typeLabel}</div>
+            <div style="font-size:10px;color:var(--grey);margin-top:2px;">${fmtDate(ev.date)} · ${(ev.blocks_evaluated||[]).length} bloques</div>
+            <div style="font-size:14px;margin-top:4px;">${blocks}</div>
+          </div>
+          ${ev.belt_assigned?beltChipHtml(ev.belt_assigned,'sm'):''}
+          <button class="btn-icon" onclick="event.stopPropagation();deleteEvalFull('${ev.id}')" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);width:24px;height:24px;border-radius:6px;font-size:11px;padding:0;flex-shrink:0;">🗑</button>
+        </div>
+      </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e){ console.error(e); }
 }
 
 /* --- EVALUACIÓN COMPETENCIA --- */
@@ -5870,6 +6636,7 @@ async function vPerfil(athleteId=null,athleteName=null){
       <div id="athleteApptsSection" style="margin-top:14px;"></div>
       ${(S.user.role==='coach'||S.user.role==='acoach')?`<button class="btn btn-cyan btn-sm" style="margin-top:6px;" onclick="openApptForm(null,'${id}')">+ Agendar Cita para ${esc(name)}</button>`:''}
       <div id="compHeatsSection" style="margin-top:14px;"></div>
+      <div id="evalFullProfileSection" style="margin-top:14px;"></div>
       <div id="compTrainProfileSection" style="margin-top:14px;"></div>
       <div id="compEvalProfileSection" style="margin-top:14px;"></div>
       <div id="compSection" style="margin-top:14px;"><p style="padding:12px;text-align:center;color:var(--grey);font-size:12px;">Cargando competencias...</p></div>`;
@@ -5940,6 +6707,7 @@ async function vPerfil(athleteId=null,athleteName=null){
   loadCompEvalProfile(id);
   loadAthleteAppts(id);
   loadCompForCoach(id);
+  loadEvalFullForAthlete(id);
 
   // Belt chip al lado del nombre
   const beltChipEl = document.getElementById('profileBeltChip');
