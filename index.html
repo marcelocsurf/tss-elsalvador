@@ -1159,6 +1159,7 @@ function switchView(view){
   S.view=view;
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById(`nb-${view}`); if(btn) btn.classList.add('active');
+  if(view==='competencia') return; // vCompetencia se invoca directo con su ID
   ({hoy:vHoy,semana:vSemana,perfil:vPerfil,panel:vPanel,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial,mensajes:vMensajes,citas:vCitas})[view]?.();
 }
 
@@ -1172,10 +1173,12 @@ function switchView(view){
 async function vHoy(){
   const today=todayStr();
   render(`<div class="page-title">Mi Día</div><div class="page-sub">${fmtDate(today)}</div>
+    <div id="compHoyBanner"></div>
     <div id="upcomingApptsBanner"></div>
     <div id="groupRankingSection"></div>
     <div id="hoyContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
   await loadHoy(today);
+  loadCompHoyBanner();
   loadUpcomingApptsBanner();
   loadGroupRanking(today);
 }
@@ -3601,6 +3604,7 @@ function pickScaleCE(id,val,btn){ btn.closest('.scale-row').querySelectorAll('.s
 
 function renderEvalCompForm(){
   const today=todayStr();
+  // Form simplificado: 5 secciones, ~37 campos enfocados en lo que el coach observa
   document.getElementById('evalTabArea').innerHTML=`
     <div class="card card-amber anim-up" style="margin-bottom:10px;">
       <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:12px;">📋 Info del Evento</div>
@@ -3620,132 +3624,94 @@ function renderEvalCompForm(){
       ${optRow('wind',['Offshore','Onshore','Cross','Sin viento'])}
       <label class="inp-label">Ronda Alcanzada</label>
       <input type="text" class="inp" id="ce-round_reached" placeholder="Ej: Final, Semifinal, R2...">
+      <label class="inp-label">Ranking Final / Posición</label>
+      <input type="text" class="inp" id="ce-final_ranking" placeholder="Ej: 1°, 5°, Semifinalista...">
     </div>
 
-    <div class="card anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:12px;">🌊 Heat Management</div>
-      <label class="inp-label">Total de Olas Surfeadas</label>
-      <input type="number" class="inp" id="ce-wave_count" placeholder="Ej: 8" min="0">
-      <label class="inp-label">Selección de Olas (1–5)</label>
-      ${scaleRowCE('wave_choice')}
-      <label class="inp-label">Errores de Selección de Ola</label>
-      <input type="number" class="inp" id="ce-wrong_wave" placeholder="Cantidad" min="0">
-      <label class="inp-label">Uso de Prioridad (1–5)</label>
-      ${scaleRowCE('priority_usage')}
-      <label class="inp-label">Errores de Prioridad</label>
-      <input type="number" class="inp" id="ce-priority_mistakes" placeholder="Cantidad" min="0">
-      <label class="inp-label">Precisión de Timing al Paddlear (1–5)</label>
-      ${scaleRowCE('paddle_timing')}
-      <label class="inp-label">Posicionamiento en el Lineup (1–5)</label>
-      ${scaleRowCE('lineup_positioning')}
+    <div class="card card-amber anim-up" style="margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:12px;">🏄 TÉCNICO</div>
+      <label class="inp-label">Uso de la cara de la ola y velocidad interna/externa (1–5)</label>
+      ${scaleRowCE('tec_uso_cara_velocidad')}
+      <label class="inp-label">Ejecución en fundamentos de surf (1–5)</label>
+      ${scaleRowCE('tec_fundamentos')}
+      <label class="inp-label">Ejecución de bottom turn (1–5)</label>
+      ${scaleRowCE('tec_bottom_turn')}
+      <label class="inp-label">Ejecución de maniobras principales (1–5)</label>
+      ${scaleRowCE('tec_maniobras_principales')}
+      <label class="inp-label">Ejecución de maniobras progresivas (1–5)</label>
+      ${scaleRowCE('tec_maniobras_progresivas')}
+      <label class="inp-label">Conexión de maniobras con flow (1–5)</label>
+      ${scaleRowCE('tec_conexion_flow')}
+      <label class="inp-label">Combinación de repertorio de maniobras (1–5)</label>
+      ${scaleRowCE('tec_repertorio')}
+      <label class="inp-label">Ejecución de técnica en momentos críticos (1–5)</label>
+      ${scaleRowCE('tec_momentos_criticos')}
+      <label class="inp-label">Error técnico a resaltar</label>
+      <textarea class="ta" id="ce-tec_error_resaltar" placeholder="El error técnico más importante..."></textarea>
+      <label class="inp-label">Fortaleza técnica a resaltar</label>
+      <textarea class="ta" id="ce-tec_fortaleza_resaltar" placeholder="La fortaleza técnica más visible..."></textarea>
     </div>
 
-    <div class="card anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:12px;">📊 Scoring</div>
-      <label class="inp-label">Ola Más Alta</label>
-      <input type="number" step="0.1" class="inp" id="ce-highest_wave" placeholder="Ej: 7.5" min="0" max="10">
-      <label class="inp-label">Ola Más Baja</label>
-      <input type="number" step="0.1" class="inp" id="ce-lowest_wave" placeholder="Ej: 3.0" min="0" max="10">
-      <label class="inp-label">Puntaje Promedio por Ola</label>
-      <input type="number" step="0.1" class="inp" id="ce-avg_wave_score" placeholder="Ej: 5.2" min="0" max="10">
-      <label class="inp-label">Heat Total</label>
-      <input type="number" step="0.1" class="inp" id="ce-heat_total" placeholder="Ej: 12.7" min="0" max="20">
-      <label class="inp-label">Repetibilidad del Score</label>
-      ${optRow('score_repeatability',['Baja','Media','Alta'])}
-    </div>
-
-    <div class="card anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:12px;">🧠 Tácticas</div>
-      <label class="inp-label">Entró con Plan Claro</label>
-      ${optRow('clear_plan',['Sí','No'])}
-      <label class="inp-label">Ejecutó el Plan (1–5)</label>
-      ${scaleRowCE('plan_executed')}
-      <label class="inp-label">Se Adaptó a las Condiciones (1–5)</label>
-      ${scaleRowCE('adapted_conditions')}
-      <label class="inp-label">Se Adaptó a los Rivales (1–5)</label>
-      ${scaleRowCE('adapted_opponents')}
-      <label class="inp-label">Decisiones Bajo Presión (1–5)</label>
-      ${scaleRowCE('decisions_pressure')}
-      <label class="inp-label">Oportunidades de Score Perdidas</label>
-      <input type="number" class="inp" id="ce-missed_opportunities" placeholder="Cantidad" min="0">
-    </div>
-
-    <div class="card anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:12px;">🏄 Técnica</div>
-      <label class="inp-label">Calidad de Takeoff (1–5)</label>
-      ${scaleRowCE('takeoff_quality')}
-      <label class="inp-label">Generación de Velocidad (1–5)</label>
-      ${scaleRowCE('speed_generation')}
-      <label class="inp-label">Flow y Conexión en la Ola (1–5)</label>
-      ${scaleRowCE('wave_flow')}
-      <label class="inp-label">Tasa de Completación de Maniobras (%)</label>
-      <input type="number" class="inp" id="ce-maneuver_completion" placeholder="Ej: 75" min="0" max="100">
-      <label class="inp-label">Mejor Maniobra Ejecutada</label>
-      <input type="text" class="inp" id="ce-best_maneuver" placeholder="Ej: Backhand snap, aéreo...">
-      <label class="inp-label">Caídas / Maniobras Incompletas</label>
-      <input type="number" class="inp" id="ce-falls" placeholder="Cantidad" min="0">
-    </div>
-
-    <div class="card anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:12px;">🧘 Mental</div>
-      <label class="inp-label">Enfoque Durante el Heat (1–5)</label>
-      ${scaleRowCE('mental_focus')}
-      <label class="inp-label">Control Emocional (1–5)</label>
-      ${scaleRowCE('emotional_control')}
-      <label class="inp-label">Respuesta a la Presión (1–5)</label>
-      ${scaleRowCE('pressure_response')}
-      <label class="inp-label">Recuperación Después de Errores (1–5)</label>
-      ${scaleRowCE('resilience')}
-      <label class="inp-label">Nivel de Compromiso / Commitment (1–5)</label>
-      ${scaleRowCE('commitment')}
-    </div>
-
-    <div class="card anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--grey);margin-bottom:12px;">🏄 Equipamiento</div>
-      <label class="inp-label">Selección de Tabla Correcta</label>
-      ${optRow('right_board',['Sí','No'])}
-      <label class="inp-label">Rendimiento de la Tabla (1–5)</label>
-      ${scaleRowCE('board_performance')}
-      <label class="inp-label">Tenía Plan de Backup</label>
-      ${optRow('backup_plan',['Sí','No'])}
-      <label class="inp-label">Timing y Preparación Pre-Heat (1–5)</label>
-      ${scaleRowCE('heat_prep')}
-    </div>
-
-    <div class="card anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:12px;">📈 Análisis</div>
-      <label class="inp-label">Olas Tomadas vs Olas Convertidas en Score</label>
-      <input type="text" class="inp" id="ce-conversion" placeholder="Ej: 8 tomadas / 5 convertidas">
-      <label class="inp-label">Olas de Calidad No Convertidas</label>
-      <input type="number" class="inp" id="ce-unconverted_quality" placeholder="Cantidad" min="0">
-      <label class="inp-label">Alineación con el Criterio del Jurado</label>
-      ${optRow('judging_alignment',['Baja','Media','Alta'])}
-      <label class="inp-label">Inflación / Deflación de Puntaje Observada</label>
-      ${optRow('score_inflation',['Observada','No observada'])}
+    <div class="card card-purple anim-up" style="margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:12px;">♟️ TÁCTICA</div>
+      <label class="inp-label">Análisis de zona bien definido (1–5)</label>
+      ${scaleRowCE('tac_analisis_zona')}
+      <label class="inp-label">Elección de tabla y equipo (1–5)</label>
+      ${scaleRowCE('tac_eleccion_tabla')}
+      <label class="inp-label">Plan claro y ejecutado</label>
+      ${optRow('tac_plan_claro',['Sí','Parcial','No'])}
+      <label class="inp-label">Manejo de prioridad (1–5)</label>
+      ${scaleRowCE('tac_manejo_prioridad')}
+      <label class="inp-label">Posicionamiento en lineup (1–5)</label>
+      ${scaleRowCE('tac_lineup_pos')}
+      <label class="inp-label">Adaptación al rival (1–5)</label>
+      ${scaleRowCE('tac_adaptacion_rival')}
+      <label class="inp-label">Selección de olas (1–5)</label>
+      ${scaleRowCE('tac_seleccion_olas')}
+      <label class="inp-label">Uso de la parte más crítica de la ola (1–5)</label>
+      ${scaleRowCE('tac_parte_critica')}
+      <label class="inp-label">Error táctico crítico</label>
+      <textarea class="ta" id="ce-tac_error_critico" placeholder="El error táctico más costoso..."></textarea>
     </div>
 
     <div class="card card-cyan anim-up" style="margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:12px;">📝 Revisión y Diagnóstico</div>
-      <label class="inp-label">¿Qué Funcionó Bien?</label>
-      <textarea class="ta" id="ce-what_worked" placeholder="Lo que salió bien en este heat..."></textarea>
-      <label class="inp-label">¿Qué Falló o Limitó el Rendimiento?</label>
-      <textarea class="ta" id="ce-what_failed" placeholder="Lo que limitó el resultado..."></textarea>
-      <label class="inp-label">Error Crítico que Costó el Heat</label>
-      <textarea class="ta" id="ce-critical_error" placeholder="El error más importante..."></textarea>
-      <label class="inp-label">Patrón Repetido Detectado</label>
-      <textarea class="ta" id="ce-pattern" placeholder="¿Se repitió algún error o comportamiento?"></textarea>
-      <label class="inp-label">Diagnóstico Principal del Resultado</label>
-      <textarea class="ta" id="ce-diagnosis" placeholder="Razón principal del resultado..."></textarea>
-      <label class="inp-label">Factor Limitante Clave</label>
-      <textarea class="ta" id="ce-key_limitation" placeholder="El factor que más limitó..."></textarea>
-      <label class="inp-label">Fortaleza Competitiva Principal</label>
-      <textarea class="ta" id="ce-main_strength" placeholder="El punto más fuerte mostrado..."></textarea>
-      <label class="inp-label">Prioridad #1 para el Próximo Bloque</label>
-      <textarea class="ta" id="ce-top_priority" placeholder="Lo más urgente a trabajar..."></textarea>
-      <label class="inp-label">Un Ajuste Concreto para el Próximo Evento</label>
-      <textarea class="ta" id="ce-concrete_action" placeholder="Una acción específica..."></textarea>
-      <label class="inp-label">Ranking Final / Posición</label>
-      <input type="text" class="inp" id="ce-final_ranking" placeholder="Ej: 1°, 5°, Semifinalista...">
+      <div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:12px;">🧠 MENTAL</div>
+      <label class="inp-label">Enfoque (1–5)</label>
+      ${scaleRowCE('men_enfoque')}
+      <label class="inp-label">Estaba en "THE ZONE" mental (1–5)</label>
+      ${scaleRowCE('men_the_zone')}
+      <label class="inp-label">Mentalidad de ganador (1–5)</label>
+      ${scaleRowCE('men_mentalidad_ganador')}
+      <label class="inp-label">Recuperación tras un error en el heat (1–5)</label>
+      ${scaleRowCE('men_recuperacion')}
+      <label class="inp-label">Manejo de presión antes y durante el heat (1–5)</label>
+      ${scaleRowCE('men_manejo_presion')}
+      <label class="inp-label">Lenguaje corporal del atleta (1–5)</label>
+      ${scaleRowCE('men_lenguaje_corporal')}
+      <label class="inp-label">Nivel de diversión y conexión con el mar (1–5)</label>
+      ${scaleRowCE('men_diversion_conexion')}
+    </div>
+
+    <div class="card card-green anim-up" style="margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:12px;">💪 FÍSICO</div>
+      <label class="inp-label">Remada (1–5)</label>
+      ${scaleRowCE('fis_remada')}
+      <label class="inp-label">Capacidad de surfear ola con varias maniobras manteniendo performance (1–5)</label>
+      ${scaleRowCE('fis_resistencia_olas')}
+      <label class="inp-label">Uso de respiración como herramienta (1–5)</label>
+      ${scaleRowCE('fis_respiracion')}
+    </div>
+
+    <div class="card anim-up" style="margin-bottom:10px;border:1px solid var(--border);">
+      <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:12px;">🎯 DIAGNÓSTICO FINAL</div>
+      <label class="inp-label">Principal fortaleza</label>
+      <textarea class="ta" id="ce-diag_fortaleza_principal" placeholder="Lo más fuerte que mostró el atleta..."></textarea>
+      <label class="inp-label">Principal limitación</label>
+      <textarea class="ta" id="ce-diag_limitacion_principal" placeholder="Lo que más limitó el resultado..."></textarea>
+      <label class="inp-label">¿El resultado estuvo en sus manos o fue algo ajeno?</label>
+      <textarea class="ta" id="ce-diag_factores_propios" placeholder="Factores propios vs externos..."></textarea>
+      <label class="inp-label">¿Hubo un juzgamiento justo?</label>
+      <textarea class="ta" id="ce-diag_juzgamiento_justo" placeholder="Análisis del scoring de los jueces..."></textarea>
     </div>
 
     <button class="save-btn" onclick="saveCompEval()">💾 Guardar Evaluación de Competencia</button>
@@ -3760,61 +3726,56 @@ async function saveCompEval(){
   if(!eventName){toast('Ingresa el nombre del evento','error');return;}
   if(!date){toast('Ingresa la fecha','error');return;}
 
+  const num = id => parseInt(gv('ce-'+id))||null;
+  const txt = id => gv('ce-'+id) || null;
+
   const payload={
-    athlete_id:athleteId, coach_id:S.user.id, date,
+    athlete_id:athleteId, coach_id:S.user.id, created_by:S.user.id, date,
     event_name:eventName,
-    athlete_category:gv('ce-athlete_category'),
-    event_level:gv('ce-event_level'),
-    conditions:gv('ce-conditions'),
-    wind:gv('ce-wind'),
-    round_reached:gv('ce-round_reached'),
-    wave_count:parseInt(gv('ce-wave_count'))||null,
-    wave_choice:parseInt(gv('ce-wave_choice'))||null,
-    wrong_wave:parseInt(gv('ce-wrong_wave'))||null,
-    priority_usage:parseInt(gv('ce-priority_usage'))||null,
-    priority_mistakes:parseInt(gv('ce-priority_mistakes'))||null,
-    paddle_timing:parseInt(gv('ce-paddle_timing'))||null,
-    lineup_positioning:parseInt(gv('ce-lineup_positioning'))||null,
-    highest_wave:parseFloat(gv('ce-highest_wave'))||null,
-    lowest_wave:parseFloat(gv('ce-lowest_wave'))||null,
-    avg_wave_score:parseFloat(gv('ce-avg_wave_score'))||null,
-    heat_total:parseFloat(gv('ce-heat_total'))||null,
-    score_repeatability:gv('ce-score_repeatability'),
-    clear_plan:gv('ce-clear_plan'),
-    plan_executed:parseInt(gv('ce-plan_executed'))||null,
-    adapted_conditions:parseInt(gv('ce-adapted_conditions'))||null,
-    adapted_opponents:parseInt(gv('ce-adapted_opponents'))||null,
-    decisions_pressure:parseInt(gv('ce-decisions_pressure'))||null,
-    missed_opportunities:parseInt(gv('ce-missed_opportunities'))||null,
-    takeoff_quality:parseInt(gv('ce-takeoff_quality'))||null,
-    speed_generation:parseInt(gv('ce-speed_generation'))||null,
-    wave_flow:parseInt(gv('ce-wave_flow'))||null,
-    maneuver_completion:parseInt(gv('ce-maneuver_completion'))||null,
-    best_maneuver:gv('ce-best_maneuver'),
-    falls:parseInt(gv('ce-falls'))||null,
-    mental_focus:parseInt(gv('ce-mental_focus'))||null,
-    emotional_control:parseInt(gv('ce-emotional_control'))||null,
-    pressure_response:parseInt(gv('ce-pressure_response'))||null,
-    resilience:parseInt(gv('ce-resilience'))||null,
-    commitment:parseInt(gv('ce-commitment'))||null,
-    right_board:gv('ce-right_board'),
-    board_performance:parseInt(gv('ce-board_performance'))||null,
-    backup_plan:gv('ce-backup_plan'),
-    heat_prep:parseInt(gv('ce-heat_prep'))||null,
-    conversion:gv('ce-conversion'),
-    unconverted_quality:parseInt(gv('ce-unconverted_quality'))||null,
-    judging_alignment:gv('ce-judging_alignment'),
-    score_inflation:gv('ce-score_inflation'),
-    what_worked:gv('ce-what_worked'),
-    what_failed:gv('ce-what_failed'),
-    critical_error:gv('ce-critical_error'),
-    pattern:gv('ce-pattern'),
-    diagnosis:gv('ce-diagnosis'),
-    key_limitation:gv('ce-key_limitation'),
-    main_strength:gv('ce-main_strength'),
-    top_priority:gv('ce-top_priority'),
-    concrete_action:gv('ce-concrete_action'),
-    final_ranking:gv('ce-final_ranking'),
+    athlete_category:txt('athlete_category'),
+    event_level:txt('event_level'),
+    conditions:txt('conditions'),
+    wind:txt('wind'),
+    round_reached:txt('round_reached'),
+    final_ranking:txt('final_ranking'),
+    // TÉCNICO
+    tec_uso_cara_velocidad:num('tec_uso_cara_velocidad'),
+    tec_fundamentos:num('tec_fundamentos'),
+    tec_bottom_turn:num('tec_bottom_turn'),
+    tec_maniobras_principales:num('tec_maniobras_principales'),
+    tec_maniobras_progresivas:num('tec_maniobras_progresivas'),
+    tec_conexion_flow:num('tec_conexion_flow'),
+    tec_repertorio:num('tec_repertorio'),
+    tec_momentos_criticos:num('tec_momentos_criticos'),
+    tec_error_resaltar:txt('tec_error_resaltar'),
+    tec_fortaleza_resaltar:txt('tec_fortaleza_resaltar'),
+    // TÁCTICA
+    tac_analisis_zona:num('tac_analisis_zona'),
+    tac_eleccion_tabla:num('tac_eleccion_tabla'),
+    tac_plan_claro:txt('tac_plan_claro'),
+    tac_manejo_prioridad:num('tac_manejo_prioridad'),
+    tac_lineup_pos:num('tac_lineup_pos'),
+    tac_adaptacion_rival:num('tac_adaptacion_rival'),
+    tac_seleccion_olas:num('tac_seleccion_olas'),
+    tac_parte_critica:num('tac_parte_critica'),
+    tac_error_critico:txt('tac_error_critico'),
+    // MENTAL
+    men_enfoque:num('men_enfoque'),
+    men_the_zone:num('men_the_zone'),
+    men_mentalidad_ganador:num('men_mentalidad_ganador'),
+    men_recuperacion:num('men_recuperacion'),
+    men_manejo_presion:num('men_manejo_presion'),
+    men_lenguaje_corporal:num('men_lenguaje_corporal'),
+    men_diversion_conexion:num('men_diversion_conexion'),
+    // FÍSICO
+    fis_remada:num('fis_remada'),
+    fis_resistencia_olas:num('fis_resistencia_olas'),
+    fis_respiracion:num('fis_respiracion'),
+    // DIAGNÓSTICO
+    diag_fortaleza_principal:txt('diag_fortaleza_principal'),
+    diag_limitacion_principal:txt('diag_limitacion_principal'),
+    diag_factores_propios:txt('diag_factores_propios'),
+    diag_juzgamiento_justo:txt('diag_juzgamiento_justo'),
   };
 
   showLoad(true);
@@ -3823,7 +3784,7 @@ async function saveCompEval(){
     if(error) throw error;
     toast('✅ Evaluación de competencia guardada','success');
     evalTab('hist');
-  } catch(e){toast('Error al guardar','error');console.error(e);}
+  } catch(e){toast('Error al guardar: '+e.message,'error');console.error(e);}
   finally{showLoad(false);}
 }
 
@@ -4292,6 +4253,454 @@ async function vPanel(){
     `);
     loadCoachGroupRanking();
   } catch(e){ render('<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando panel</p>'); console.error(e); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: COMPETENCIA (Atleta) — Modo Competencia + Heats + Auto-eval
+   vCompetencia, openHeatWizard, saveHeat, openCompCloseModal, finalizeCompetition
+   loadCompHoyBanner, openCompReport, loadCompForCoach
+   ════════════════════════════════════════════════════════════════════ */
+
+async function loadCompHoyBanner(){
+  // En el Hoy del atleta, si hay una competition (cita type=competencia) hoy o en curso, mostrar card destacada
+  const el=document.getElementById('compHoyBanner'); if(!el||S.user.role!=='athlete') return;
+  try {
+    const today=todayStr();
+    const{data}=await db.from('tss_competitions')
+      .select('*')
+      .eq('athlete_id', S.user.id)
+      .gte('date', today)
+      .neq('status','finalizada').neq('status','cancelada')
+      .order('date').limit(3);
+    if(!data||!data.length){ el.innerHTML=''; return; }
+    let html='';
+    data.forEach(c => {
+      const isToday = c.date===today;
+      const isActive = c.status==='en_curso';
+      if(!isToday && !isActive) return; // solo mostrar si es hoy o en curso
+      html += `<div class="card card-amber anim-up" style="margin-bottom:12px;border:2px solid var(--amber);background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(168,85,247,.06));">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:30px;">🏆</span>
+          <div style="flex:1;">
+            <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);font-weight:800;">${isActive?'COMPETENCIA EN CURSO':'COMPETENCIA HOY'}</div>
+            <div style="font-size:16px;font-weight:900;color:var(--white);margin-top:2px;">${esc(c.name)}</div>
+            <div style="font-size:11px;color:var(--grey);margin-top:3px;">📅 ${fmtDate(c.date)}${c.place?' · 📍 '+esc(c.place):''}${c.category?' · '+esc(c.category):''}</div>
+          </div>
+        </div>
+        <button class="btn btn-amber" style="width:100%;margin-top:12px;" onclick="vCompetencia('${c.id}')">${isActive?'⏵ Continuar Competencia':'🚀 Empezar Día de Competencia'}</button>
+      </div>`;
+    });
+    el.innerHTML=html;
+  } catch(e){ console.error(e); el.innerHTML=''; }
+}
+
+async function vCompetencia(competitionId){
+  S.view='competencia'; S.activeCompId=competitionId;
+  render('<div style="padding:30px;text-align:center;color:var(--grey);">Cargando competencia...</div>');
+  try {
+    const[{data:comp},{data:heats}] = await Promise.all([
+      db.from('tss_competitions').select('*').eq('id',competitionId).single(),
+      db.from('tss_competition_heats').select('*').eq('competition_id',competitionId).order('heat_number'),
+    ]);
+    if(!comp){ render('<p style="padding:20px;color:var(--red);">Competencia no encontrada</p>'); return; }
+
+    // Si está programada y la abre, pasarla a "en_curso"
+    if(comp.status==='programada'){
+      await db.from('tss_competitions').update({status:'en_curso'}).eq('id',competitionId);
+      comp.status='en_curso';
+    }
+
+    const ath = (S.athletes||[]).find(a=>a.id===comp.athlete_id) || {name:'Atleta'};
+    const isOwner = S.user.id===comp.athlete_id;
+    const isCoach = S.user.role==='coach' || S.user.role==='acoach';
+    const isFinalized = comp.status==='finalizada';
+    const lastHeat = heats && heats.length ? heats[heats.length-1] : null;
+    const hasOpenHeat = lastHeat && lastHeat.status!=='completado';
+
+    // Auto-eval final (si existe)
+    let finalEval = null;
+    try { finalEval = comp.athlete_final_eval ? (typeof comp.athlete_final_eval==='object'?comp.athlete_final_eval:JSON.parse(comp.athlete_final_eval)) : null; } catch(e){}
+
+    let html = `
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:10px;" onclick="switchView('${isCoach?'panel':'hoy'}')">← Volver</button>
+      <div class="card card-amber" style="margin-bottom:14px;border:2px solid var(--amber);">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:36px;">🏆</span>
+          <div style="flex:1;">
+            <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);font-weight:800;">${comp.status==='finalizada'?'COMPETENCIA FINALIZADA':comp.status==='en_curso'?'EN CURSO':'PROGRAMADA'}</div>
+            <div style="font-size:18px;font-weight:900;color:var(--white);margin-top:2px;">${esc(comp.name)}</div>
+            <div style="font-size:11px;color:var(--grey);margin-top:3px;">${ath.name}</div>
+            <div style="font-size:11px;color:var(--grey);margin-top:2px;">📅 ${fmtDate(comp.date)}${comp.place?' · 📍 '+esc(comp.place):''}${comp.category?' · '+esc(comp.category):''}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-title">📜 Heats</div>`;
+
+    if(!heats || !heats.length){
+      html += `<div class="card" style="text-align:center;padding:20px;color:var(--grey);font-size:12px;">Aún no has registrado ningún heat</div>`;
+    } else {
+      heats.forEach(h => {
+        const r = (h.result_json && typeof h.result_json==='object') ? h.result_json : (()=>{ try { return h.result_json?JSON.parse(h.result_json):{}; } catch(e){ return {}; } })();
+        const best1 = r.best1 || 0;
+        const best2 = r.best2 || 0;
+        const total = (parseFloat(best1)||0) + (parseFloat(best2)||0);
+        const statusColor = h.status==='completado'?(h.passed?'var(--green)':'var(--grey)'):'var(--cyan)';
+        const statusLabel = h.status==='completado'?(h.passed?'✅ Pasó':'❌ Eliminado'):'🔵 En proceso';
+        html += `<div class="card anim-up" style="margin-bottom:8px;border-left:3px solid ${statusColor};cursor:pointer;" onclick="openHeatWizard('${comp.id}','${h.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:800;color:var(--white);">Heat ${h.heat_number}${h.round_name?' · '+esc(h.round_name):''}</div>
+              <div style="font-size:11px;color:var(--grey);margin-top:2px;">${statusLabel}${h.is_final_heat?' · Heat final':''}</div>
+              ${h.status==='completado'?`<div style="font-size:11px;color:var(--cyan);margin-top:4px;">🏆 ${best1} + ${best2} = ${total.toFixed(1)} · ${r.total_count||0} olas</div>`:''}
+            </div>
+            <span style="font-size:14px;color:var(--grey);">→</span>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Botones de acción
+    if(isOwner && !isFinalized){
+      html += `<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">`;
+      if(!hasOpenHeat){
+        const nextNum = (heats?.length||0) + 1;
+        html += `<button class="btn btn-cyan" onclick="openHeatWizard('${comp.id}',null,${nextNum})">+ Agregar Heat ${nextNum}</button>`;
+      } else {
+        html += `<button class="btn btn-cyan" onclick="openHeatWizard('${comp.id}','${lastHeat.id}')">⏵ Continuar Heat ${lastHeat.heat_number}</button>`;
+      }
+      // Cerrar competencia solo si hay al menos 1 heat completado
+      const hasCompletedHeat = (heats||[]).some(h=>h.status==='completado');
+      if(hasCompletedHeat){
+        html += `<button class="btn btn-amber" onclick="openCompCloseModal('${comp.id}')">🏁 Cerrar Competencia + Auto-evaluación</button>`;
+      }
+      html += `</div>`;
+    }
+
+    if(finalEval){
+      html += `<div class="sec-title" style="margin-top:18px;">⭐ Tu auto-evaluación final</div>
+        <div class="card" style="margin-bottom:8px;">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+            ${[
+              ['🏃','Físico','fisico'],['🎯','Técnica','tecnica'],['♟️','Táctica','tactica'],
+              ['🌊','Elección olas','eleccion_olas'],['📋','Equipo','equipo'],['🧠','Mental','mental']
+            ].map(([icon,lbl,key])=>{
+              const v = finalEval[key] || 0;
+              const color = v>=4?'var(--green)':v>=3?'var(--amber)':'var(--red)';
+              return `<div style="text-align:center;background:var(--bg3);padding:8px 4px;border-radius:8px;">
+                <div style="font-size:16px;margin-bottom:2px;">${icon}</div>
+                <div style="font-size:16px;font-weight:900;color:${color};">${v}/5</div>
+                <div style="font-size:8px;color:var(--grey);margin-top:1px;">${lbl}</div>
+              </div>`;
+            }).join('')}
+          </div>
+          ${comp.athlete_final_notes?`<div style="margin-top:10px;padding:8px;background:var(--bg3);border-radius:6px;font-size:11px;color:var(--white);line-height:1.5;">💬 ${esc(comp.athlete_final_notes)}</div>`:''}
+        </div>`;
+    }
+
+    render(html);
+  } catch(e){ console.error(e); render('<p style="padding:20px;color:var(--red);">Error: '+esc(e.message)+'</p>'); }
+}
+
+async function openHeatWizard(compId, heatId, suggestedNumber){
+  // Load existing heat if heatId, otherwise prepare blank
+  let heat = null;
+  if(heatId){
+    try { const{data}=await db.from('tss_competition_heats').select('*').eq('id',heatId).single(); heat=data; } catch(e){}
+  }
+  const isNew = !heat;
+  const heatNum = heat?.heat_number || suggestedNumber || 1;
+  const prep = (heat?.prep_json && typeof heat.prep_json==='object') ? heat.prep_json : (()=>{ try{return heat?.prep_json?JSON.parse(heat.prep_json):{};}catch(e){return {};} })();
+  const result = (heat?.result_json && typeof heat.result_json==='object') ? heat.result_json : (()=>{ try{return heat?.result_json?JSON.parse(heat.result_json):{};}catch(e){return {};} })();
+
+  let m = document.getElementById('heatWizModal');
+  if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='heatWizModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div class="modal-title">🏆 Heat ${heatNum}${heat?.round_name?' · '+esc(heat.round_name):''}</div>
+      <button class="btn-icon" onclick="closeModal('heatWizModal')">✕</button>
+    </div>
+    <div style="padding:6px 0;">
+      <input type="hidden" id="hw-compId" value="${compId}">
+      <input type="hidden" id="hw-heatId" value="${heat?.id||''}">
+      <input type="hidden" id="hw-heatNum" value="${heatNum}">
+
+      <label class="inp-label">Ronda</label>
+      <input type="text" class="inp" id="hw-round" value="${escAttr(heat?.round_name||'')}" placeholder="Ej: Ronda 1, Cuartos, Semis, Final...">
+
+      <div class="sec-title" style="margin-top:14px;">🧘 PASO 1 · PREPARACIÓN PRE-HEAT</div>
+
+      <label class="inp-label">Posición en el lineup</label>
+      <select class="sel" id="hw-lineup">
+        <option value="">— Elige —</option>
+        <option value="A"${prep.lineup==='A'?' selected':''}>A · Peak principal (donde rompen los sets)</option>
+        <option value="B"${prep.lineup==='B'?' selected':''}>B · Zona inside (olas trabajables)</option>
+        <option value="C"${prep.lineup==='C'?' selected':''}>C · Outside / Punta (sets grandes)</option>
+        <option value="D"${prep.lineup==='D'?' selected':''}>D · Dinámica (según rival y prioridad)</option>
+      </select>
+
+      <label class="inp-label">Estrategia del heat</label>
+      <select class="sel" id="hw-strategy">
+        <option value="">— Elige —</option>
+        <option value="backup"${prep.strategy==='backup'?' selected':''}>1. Backup primero, luego esperar la buena</option>
+        <option value="build"${prep.strategy==='build'?' selected':''}>2. Construcción de puntos (2 medianas bien)</option>
+        <option value="attack"${prep.strategy==='attack'?' selected':''}>3. Aprovechar la primera oportunidad</option>
+        <option value="select"${prep.strategy==='select'?' selected':''}>4. Ultra-selectivo (solo 2 olas top)</option>
+        <option value="block"${prep.strategy==='block'?' selected':''}>5. Bloquear posición del rival</option>
+        <option value="explode"${prep.strategy==='explode'?' selected':''}>6. Comienzo explosivo + dominar prioridad</option>
+      </select>
+
+      <label class="inp-label">Mantra / Palabra clave</label>
+      <input type="text" class="inp" id="hw-mantra" value="${escAttr(prep.mantra||'')}" placeholder="Una palabra que te ancle...">
+
+      <label class="inp-label">Checklist pre-heat</label>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px;">
+        ${['Calentamiento','Simulación pre-heat','Respiración','Visualización','Tabla lista','Hidratado'].map((item,i)=>`
+        <label style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;cursor:pointer;font-size:12px;">
+          <input type="checkbox" class="hw-prep-ck" data-i="${i}" ${prep[`check_${i}`]?'checked':''} style="accent-color:var(--green);width:16px;height:16px;">
+          ${item}
+        </label>`).join('')}
+      </div>
+
+      <div class="sec-title" style="margin-top:14px;">🌊 PASO 2 · RESULTADO DEL HEAT</div>
+      <p style="font-size:11px;color:var(--grey);margin-bottom:8px;">Llena esto cuando salgas del agua</p>
+
+      <label class="inp-label">Tus 2 mejores scores</label>
+      <div style="display:flex;gap:8px;">
+        <input type="number" step="0.1" class="inp" id="hw-best1" placeholder="Best #1" min="0" max="10" value="${result.best1||''}">
+        <input type="number" step="0.1" class="inp" id="hw-best2" placeholder="Best #2" min="0" max="10" value="${result.best2||''}">
+      </div>
+      <p style="font-size:10px;color:var(--cyan);margin-top:4px;" id="hw-total-preview">Heat Total: —</p>
+
+      <label class="inp-label" style="margin-top:10px;">Menor score del heat</label>
+      <input type="number" step="0.1" class="inp" id="hw-lowest" placeholder="Ej: 2.5" min="0" max="10" value="${result.lowest||''}">
+
+      <label class="inp-label">Total de olas que agarraste</label>
+      <input type="number" class="inp" id="hw-count" placeholder="Ej: 6" min="0" value="${result.total_count||''}">
+
+      <label class="inp-label">¿Qué funcionó?</label>
+      <textarea class="ta" id="hw-worked" placeholder="Lo que salió bien en el heat...">${esc(result.what_worked||'')}</textarea>
+
+      <label class="inp-label">¿Qué debes mejorar?</label>
+      <textarea class="ta" id="hw-improve" placeholder="Lo que vas a corregir...">${esc(result.what_to_improve||'')}</textarea>
+
+      <label class="inp-label" style="margin-top:10px;">¿Pasaste el heat?</label>
+      <div class="opt-row">
+        <button type="button" class="opt-pill${result.passed===true?' on-green':''}" onclick="hwSetPassed(true,this)">✅ Sí, pasé</button>
+        <button type="button" class="opt-pill${result.passed===false?' on-red':''}" onclick="hwSetPassed(false,this)">❌ No, eliminado</button>
+      </div>
+      <input type="hidden" id="hw-passed" value="${result.passed===true?'true':result.passed===false?'false':''}">
+
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;cursor:pointer;">
+        <input type="checkbox" id="hw-isFinal" ${heat?.is_final_heat?'checked':''} style="accent-color:var(--red);width:16px;height:16px;">
+        <span style="font-size:12px;color:var(--white);">Este fue mi último heat (no avanzo)</span>
+      </label>
+
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-cyan" style="flex:1;" onclick="saveHeat()">💾 Guardar</button>
+        ${heat?`<button class="btn btn-red" style="width:auto;padding:14px;" onclick="deleteHeat('${heat.id}','${compId}')">🗑</button>`:''}
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('heatWizModal'); };
+  // Live preview total
+  setTimeout(()=>{
+    const upd = ()=>{
+      const a=parseFloat(document.getElementById('hw-best1')?.value)||0;
+      const b=parseFloat(document.getElementById('hw-best2')?.value)||0;
+      const el=document.getElementById('hw-total-preview');
+      if(el) el.textContent = `Heat Total: ${(a+b).toFixed(1)}`;
+    };
+    document.getElementById('hw-best1')?.addEventListener('input',upd);
+    document.getElementById('hw-best2')?.addEventListener('input',upd);
+    upd();
+  },50);
+}
+
+function hwSetPassed(value, btn){
+  btn.closest('.opt-row').querySelectorAll('.opt-pill').forEach(b=>b.classList.remove('on-green','on-red'));
+  btn.classList.add(value?'on-green':'on-red');
+  document.getElementById('hw-passed').value = value?'true':'false';
+}
+
+async function saveHeat(){
+  const compId = document.getElementById('hw-compId').value;
+  const heatId = document.getElementById('hw-heatId').value;
+  const heatNum = parseInt(document.getElementById('hw-heatNum').value) || 1;
+  const round = gv('hw-round');
+
+  const prep = {
+    lineup: gv('hw-lineup')||null,
+    strategy: gv('hw-strategy')||null,
+    mantra: gv('hw-mantra')||null,
+  };
+  document.querySelectorAll('.hw-prep-ck').forEach(cb => { prep[`check_${cb.dataset.i}`] = cb.checked; });
+
+  const best1 = parseFloat(gv('hw-best1'))||null;
+  const best2 = parseFloat(gv('hw-best2'))||null;
+  const lowest = parseFloat(gv('hw-lowest'))||null;
+  const total_count = parseInt(gv('hw-count'))||null;
+  const passedVal = gv('hw-passed');
+  const passed = passedVal==='true'?true:passedVal==='false'?false:null;
+  const what_worked = gv('hw-worked')||null;
+  const what_to_improve = gv('hw-improve')||null;
+
+  const result = (best1!==null || best2!==null || lowest!==null || total_count!==null || passed!==null || what_worked || what_to_improve)
+    ? { best1, best2, lowest, total_count, passed, what_worked, what_to_improve, heat_total: (best1||0)+(best2||0) }
+    : null;
+
+  const isFinal = document.getElementById('hw-isFinal').checked;
+  // status: si tiene result data significa que ya pasó el heat. Si solo tiene prep, está en_curso.
+  const status = result ? 'completado' : 'en_curso';
+
+  const payload = {
+    competition_id: compId,
+    heat_number: heatNum,
+    round_name: round || null,
+    prep_json: prep,
+    result_json: result,
+    status,
+    is_final_heat: isFinal,
+    passed: passed,
+    completed_at: status==='completado' ? new Date().toISOString() : null,
+  };
+
+  showLoad(true);
+  try {
+    // Need athlete_id from competition
+    const{data:comp}=await db.from('tss_competitions').select('athlete_id').eq('id',compId).single();
+    payload.athlete_id = comp.athlete_id;
+
+    let error;
+    if(heatId){ ({error} = await db.from('tss_competition_heats').update(payload).eq('id',heatId)); }
+    else { ({error} = await db.from('tss_competition_heats').insert(payload)); }
+    if(error) throw error;
+    toast(heatId?'✅ Heat actualizado':'✅ Heat guardado','success');
+    closeModal('heatWizModal');
+    vCompetencia(compId);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function deleteHeat(heatId, compId){
+  if(!confirm('¿Eliminar este heat?')) return;
+  showLoad(true);
+  try {
+    const{error}=await db.from('tss_competition_heats').delete().eq('id',heatId);
+    if(error) throw error;
+    toast('Heat eliminado','success');
+    closeModal('heatWizModal');
+    vCompetencia(compId);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+function openCompCloseModal(compId){
+  let m = document.getElementById('compCloseModal');
+  if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='compCloseModal';
+  const rate = (id, label, icon) => `
+    <div style="margin-bottom:14px;">
+      <label class="inp-label">${icon} ${label} (1–5)</label>
+      <div class="opt-row" id="row-${id}">
+        ${[1,2,3,4,5].map(n=>`<button type="button" class="opt-pill" onclick="pickFinalRating('${id}',${n},this)">${n}</button>`).join('')}
+      </div>
+      <input type="hidden" id="fe-${id}" value="0">
+    </div>`;
+  m.innerHTML = `<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div class="modal-title">🏁 Cerrar Competencia</div>
+      <button class="btn-icon" onclick="closeModal('compCloseModal')">✕</button>
+    </div>
+    <div style="padding:6px 0;">
+      <input type="hidden" id="fe-compId" value="${compId}">
+      <p style="font-size:12px;color:var(--grey);margin-bottom:14px;">Auto-evalúate del 1 al 5 en cada área. Esta info es importante para tu coach.</p>
+      ${rate('fisico','Físico','🏃')}
+      ${rate('tecnica','Técnica','🎯')}
+      ${rate('tactica','Táctica de competencia','♟️')}
+      ${rate('eleccion_olas','Elección de olas','🌊')}
+      ${rate('equipo','Equipo (tabla, quillas)','📋')}
+      ${rate('mental','Mental (zona + mentalidad)','🧠')}
+
+      <label class="inp-label">Notas finales (opcional)</label>
+      <textarea class="ta" id="fe-notes" placeholder="¿Cómo te sentiste? ¿Qué te llevas?"></textarea>
+
+      <button class="btn btn-amber" style="width:100%;margin-top:14px;" onclick="finalizeCompetition()">🏁 Finalizar Competencia</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('compCloseModal'); };
+}
+
+function pickFinalRating(id, value, btn){
+  btn.closest('.opt-row').querySelectorAll('.opt-pill').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('fe-'+id).value = value;
+}
+
+async function finalizeCompetition(){
+  const compId = document.getElementById('fe-compId').value;
+  const evalData = {
+    fisico: parseInt(gv('fe-fisico'))||0,
+    tecnica: parseInt(gv('fe-tecnica'))||0,
+    tactica: parseInt(gv('fe-tactica'))||0,
+    eleccion_olas: parseInt(gv('fe-eleccion_olas'))||0,
+    equipo: parseInt(gv('fe-equipo'))||0,
+    mental: parseInt(gv('fe-mental'))||0,
+  };
+  const filled = Object.values(evalData).filter(v=>v>0).length;
+  if(filled < 4){ toast('Completa al menos 4 ratings','error'); return; }
+
+  showLoad(true);
+  try {
+    const{error}=await db.from('tss_competitions').update({
+      status:'finalizada',
+      athlete_final_eval: evalData,
+      athlete_final_notes: gv('fe-notes')||null,
+      finalized_at: new Date().toISOString(),
+      finalized_by: S.user.id,
+    }).eq('id',compId);
+    if(error) throw error;
+    toast('✅ Competencia finalizada','success');
+    closeModal('compCloseModal');
+    vCompetencia(compId);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function loadCompForCoach(athleteId){
+  // En el perfil del atleta (vista coach) muestra todas las competencias con sus heats + auto-eval
+  const el=document.getElementById('compHeatsSection'); if(!el) return;
+  try {
+    const{data:comps}=await db.from('tss_competitions').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(5);
+    if(!comps||!comps.length){ el.innerHTML=''; return; }
+    let html = `<div class="sec-title">🏆 Competencias del Atleta</div>`;
+    for(const c of comps){
+      const{data:heats}=await db.from('tss_competition_heats').select('*').eq('competition_id',c.id).order('heat_number');
+      let finalEval=null; try{finalEval=c.athlete_final_eval?(typeof c.athlete_final_eval==='object'?c.athlete_final_eval:JSON.parse(c.athlete_final_eval)):null;}catch(e){}
+      const statusBadge = c.status==='finalizada'?'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);">Finalizada</span>':c.status==='en_curso'?'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(0,201,232,.15);color:var(--cyan);">En curso</span>':'<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(245,158,11,.15);color:var(--amber);">Programada</span>';
+      html += `<div class="card" style="margin-bottom:10px;cursor:pointer;" onclick="vCompetencia('${c.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:800;color:var(--white);">🏆 ${esc(c.name)}</div>
+            <div style="font-size:10px;color:var(--grey);margin-top:2px;">${fmtDate(c.date)}${c.place?' · '+esc(c.place):''}</div>
+          </div>
+          ${statusBadge}
+        </div>
+        <div style="font-size:11px;color:var(--cyan);">${(heats||[]).length} heat(s)${finalEval?' · ✅ Con auto-eval':''}</div>
+        ${finalEval?`<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:8px;">
+          ${[['🏃','fisico'],['🎯','tecnica'],['♟️','tactica'],['🌊','eleccion_olas'],['📋','equipo'],['🧠','mental']].map(([icon,key])=>{
+            const v=finalEval[key]||0;
+            const color=v>=4?'var(--green)':v>=3?'var(--amber)':v>0?'var(--red)':'var(--grey)';
+            return `<div style="text-align:center;background:var(--bg3);padding:4px 2px;border-radius:5px;"><div style="font-size:11px;">${icon}</div><div style="font-size:12px;font-weight:900;color:${color};">${v||'—'}</div></div>`;
+          }).join('')}
+        </div>`:''}
+      </div>`;
+    }
+    el.innerHTML = html;
+  } catch(e){ console.error(e); }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -5374,6 +5783,7 @@ async function vPerfil(athleteId=null,athleteName=null){
       ${athleteId?`<button class="btn btn-ghost" style="margin-top:12px;" onclick="switchView('${S.user.role==='coach'||S.user.role==='acoach'?'panel':'semana'}')">← Volver</button>`:''}
       <div id="athleteApptsSection" style="margin-top:14px;"></div>
       ${(S.user.role==='coach'||S.user.role==='acoach')?`<button class="btn btn-cyan btn-sm" style="margin-top:6px;" onclick="openApptForm(null,'${id}')">+ Agendar Cita para ${esc(name)}</button>`:''}
+      <div id="compHeatsSection" style="margin-top:14px;"></div>
       <div id="compTrainProfileSection" style="margin-top:14px;"></div>
       <div id="compEvalProfileSection" style="margin-top:14px;"></div>
       <div id="compSection" style="margin-top:14px;"><p style="padding:12px;text-align:center;color:var(--grey);font-size:12px;">Cargando competencias...</p></div>`;
@@ -5443,6 +5853,7 @@ async function vPerfil(athleteId=null,athleteName=null){
   if(compEl) loadCompetencias(id);
   loadCompEvalProfile(id);
   loadAthleteAppts(id);
+  loadCompForCoach(id);
   } catch(e){ document.getElementById('perfilContent').innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar perfil</p>'; console.error(e); }
 }
 
@@ -5451,31 +5862,115 @@ async function loadCompEvalProfile(athleteId){
   try {
     const{data}=await db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(3);
     if(!data||!data.length){ el.innerHTML=''; return; }
-    let html=`<div class="sec-title" style="margin-top:4px;">🏆 Evaluaciones de Competencia</div>`;
+    let html=`<div class="sec-title" style="margin-top:4px;">📋 Evaluaciones del Coach</div>`;
     data.forEach(ev=>{
-      html+=`<div class="card card-amber anim-up" style="margin-bottom:8px;">
+      // Compute averages from new fields (fallback to old if not present)
+      const tecKeys=['tec_uso_cara_velocidad','tec_fundamentos','tec_bottom_turn','tec_maniobras_principales','tec_maniobras_progresivas','tec_conexion_flow','tec_repertorio','tec_momentos_criticos'];
+      const tacKeys=['tac_analisis_zona','tac_eleccion_tabla','tac_manejo_prioridad','tac_lineup_pos','tac_adaptacion_rival','tac_seleccion_olas','tac_parte_critica'];
+      const menKeys=['men_enfoque','men_the_zone','men_mentalidad_ganador','men_recuperacion','men_manejo_presion','men_lenguaje_corporal','men_diversion_conexion'];
+      const fisKeys=['fis_remada','fis_resistencia_olas','fis_respiracion'];
+      const avg = keys => { const vs=keys.map(k=>ev[k]).filter(v=>v); return vs.length ? (vs.reduce((a,b)=>a+b,0)/vs.length).toFixed(1) : null; };
+      const tec=avg(tecKeys), tac=avg(tacKeys), men=avg(menKeys), fis=avg(fisKeys);
+      const cell = (lbl,val,color) => val!==null ? `<div style="text-align:center;background:var(--bg3);padding:6px;border-radius:7px;"><div style="font-size:14px;font-weight:800;color:${color};">${val}/5</div><div style="font-size:8px;color:var(--grey);">${lbl}</div></div>` : '';
+      html+=`<div class="card card-amber anim-up" style="margin-bottom:8px;cursor:pointer;" onclick="openCoachEvalDetail('${ev.id}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div>
-            <div style="font-size:14px;font-weight:800;">${ev.event_name}</div>
-            <div style="font-size:11px;color:var(--grey);">${fmtDate(ev.date)}</div>
+            <div style="font-size:14px;font-weight:800;">${esc(ev.event_name||'Eval')}</div>
+            <div style="font-size:11px;color:var(--grey);">${fmtDate(ev.date)}${ev.round_reached?' · '+esc(ev.round_reached):''}</div>
           </div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
-            ${ev.heat_total?`<span class="chip chip-amber">${ev.heat_total}pts</span>`:''}
-            ${ev.final_ranking?`<span class="chip chip-green">🏆 ${ev.final_ranking}</span>`:''}
-            ${ev.round_reached?`<span class="chip chip-cyan">${ev.round_reached}</span>`:''}
-          </div>
+          ${ev.final_ranking?`<span class="chip chip-green">🏆 ${esc(ev.final_ranking)}</span>`:''}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px;">
-          ${ev.mental_focus?`<div style="text-align:center;background:var(--bg3);padding:6px;border-radius:7px;"><div style="font-size:15px;font-weight:800;color:var(--cyan);">${ev.mental_focus}/5</div><div style="font-size:8px;color:var(--grey);">ENFOQUE</div></div>`:''}
-          ${ev.decisions_pressure?`<div style="text-align:center;background:var(--bg3);padding:6px;border-radius:7px;"><div style="font-size:15px;font-weight:800;color:var(--purple);">${ev.decisions_pressure}/5</div><div style="font-size:8px;color:var(--grey);">DECISIONES</div></div>`:''}
-          ${ev.commitment?`<div style="text-align:center;background:var(--bg3);padding:6px;border-radius:7px;"><div style="font-size:15px;font-weight:800;color:var(--amber);">${ev.commitment}/5</div><div style="font-size:8px;color:var(--grey);">COMMIT</div></div>`:''}
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px;">
+          ${cell('🏄 Técnico',tec,'var(--amber)')}
+          ${cell('♟️ Táctica',tac,'var(--purple)')}
+          ${cell('🧠 Mental',men,'var(--cyan)')}
+          ${cell('💪 Físico',fis,'var(--green)')}
         </div>
-        ${ev.top_priority?`<p style="font-size:11px;color:var(--amber);">🎯 ${ev.top_priority}</p>`:''}
-        ${ev.concrete_action?`<p style="font-size:11px;color:var(--cyan);margin-top:3px;">⚡ ${ev.concrete_action}</p>`:''}
+        ${ev.diag_fortaleza_principal?`<p style="font-size:11px;color:var(--green);">💪 ${esc(ev.diag_fortaleza_principal.substring(0,80))}${ev.diag_fortaleza_principal.length>80?'…':''}</p>`:''}
+        ${ev.diag_limitacion_principal?`<p style="font-size:11px;color:var(--amber);margin-top:3px;">⚠️ ${esc(ev.diag_limitacion_principal.substring(0,80))}${ev.diag_limitacion_principal.length>80?'…':''}</p>`:''}
+        <div style="font-size:9px;color:var(--grey);text-align:right;margin-top:6px;">Tap para ver detalle completo →</div>
       </div>`;
     });
     el.innerHTML=html;
   } catch(e){ el.innerHTML=''; console.error(e); }
+}
+
+async function openCoachEvalDetail(evalId){
+  let m = document.getElementById('coachEvalDetail');
+  if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='coachEvalDetail';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-head"><div class="modal-title">📋 Evaluación del Coach</div><button class="btn-icon" onclick="closeModal('coachEvalDetail')">✕</button></div>
+    <div id="ced-body" style="padding:6px 0;"><p style="text-align:center;color:var(--grey);padding:20px;">Cargando...</p></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('coachEvalDetail'); };
+  try {
+    const{data:ev}=await db.from('tss_comp_evaluations').select('*').eq('id',evalId).single();
+    if(!ev){ document.getElementById('ced-body').innerHTML='<p style="color:var(--red);">No encontrada</p>'; return; }
+    const row = (lbl,val) => val ? `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px;"><span style="color:var(--grey);">${lbl}</span><span style="color:var(--white);font-weight:600;">${val}/5</span></div>` : '';
+    const txt = (lbl,val) => val ? `<div style="margin-bottom:8px;"><div style="font-size:10px;color:var(--grey);letter-spacing:.5px;text-transform:uppercase;">${lbl}</div><div style="font-size:12px;color:var(--white);line-height:1.5;margin-top:3px;">${esc(val)}</div></div>` : '';
+
+    const sec = (title, color, content) => content ? `<div class="card card-${color}" style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:var(--${color==='amber'?'amber':color==='purple'?'purple':color==='cyan'?'cyan':color==='green'?'green':'white'});margin-bottom:8px;">${title}</div>${content}</div>` : '';
+
+    document.getElementById('ced-body').innerHTML = `
+      <div style="margin-bottom:14px;">
+        <div style="font-size:16px;font-weight:800;color:var(--white);">${esc(ev.event_name||'')}</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;">${fmtDate(ev.date)}${ev.round_reached?' · '+esc(ev.round_reached):''}${ev.final_ranking?' · 🏆 '+esc(ev.final_ranking):''}</div>
+        <div style="font-size:11px;color:var(--grey);">${[ev.athlete_category,ev.event_level,ev.conditions,ev.wind].filter(Boolean).map(esc).join(' · ')}</div>
+      </div>
+
+      ${sec('🏄 TÉCNICO','amber',
+        row('Uso cara/velocidad',ev.tec_uso_cara_velocidad)+
+        row('Fundamentos',ev.tec_fundamentos)+
+        row('Bottom turn',ev.tec_bottom_turn)+
+        row('Maniobras principales',ev.tec_maniobras_principales)+
+        row('Maniobras progresivas',ev.tec_maniobras_progresivas)+
+        row('Conexión con flow',ev.tec_conexion_flow)+
+        row('Repertorio',ev.tec_repertorio)+
+        row('Momentos críticos',ev.tec_momentos_criticos)+
+        (ev.tec_error_resaltar||ev.tec_fortaleza_resaltar?'<div style="margin-top:10px;">':'')+
+        txt('Error a resaltar',ev.tec_error_resaltar)+
+        txt('Fortaleza a resaltar',ev.tec_fortaleza_resaltar)+
+        (ev.tec_error_resaltar||ev.tec_fortaleza_resaltar?'</div>':'')
+      )}
+
+      ${sec('♟️ TÁCTICA','purple',
+        row('Análisis de zona',ev.tac_analisis_zona)+
+        row('Elección tabla/equipo',ev.tac_eleccion_tabla)+
+        (ev.tac_plan_claro?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px;"><span style="color:var(--grey);">Plan claro y ejecutado</span><span style="color:var(--white);font-weight:600;">${esc(ev.tac_plan_claro)}</span></div>`:'')+
+        row('Manejo de prioridad',ev.tac_manejo_prioridad)+
+        row('Posición lineup',ev.tac_lineup_pos)+
+        row('Adaptación al rival',ev.tac_adaptacion_rival)+
+        row('Selección de olas',ev.tac_seleccion_olas)+
+        row('Uso parte crítica de la ola',ev.tac_parte_critica)+
+        txt('Error táctico crítico',ev.tac_error_critico)
+      )}
+
+      ${sec('🧠 MENTAL','cyan',
+        row('Enfoque',ev.men_enfoque)+
+        row('THE ZONE',ev.men_the_zone)+
+        row('Mentalidad ganador',ev.men_mentalidad_ganador)+
+        row('Recuperación tras error',ev.men_recuperacion)+
+        row('Manejo de presión',ev.men_manejo_presion)+
+        row('Lenguaje corporal',ev.men_lenguaje_corporal)+
+        row('Diversión y conexión',ev.men_diversion_conexion)
+      )}
+
+      ${sec('💪 FÍSICO','green',
+        row('Remada',ev.fis_remada)+
+        row('Resistencia en olas',ev.fis_resistencia_olas)+
+        row('Respiración',ev.fis_respiracion)
+      )}
+
+      ${sec('🎯 DIAGNÓSTICO FINAL','white',
+        txt('Principal fortaleza',ev.diag_fortaleza_principal)+
+        txt('Principal limitación',ev.diag_limitacion_principal)+
+        txt('Resultado en sus manos vs ajeno',ev.diag_factores_propios)+
+        txt('Juzgamiento justo',ev.diag_juzgamiento_justo)
+      )}
+    `;
+  } catch(e){ document.getElementById('ced-body').innerHTML='<p style="color:var(--red);">Error: '+esc(e.message)+'</p>'; console.error(e); }
 }
 
 /* ============================================================
