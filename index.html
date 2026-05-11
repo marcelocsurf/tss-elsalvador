@@ -6392,14 +6392,39 @@ async function vPerfil(athleteId=null,athleteName=null){
     const bestWave=allHighest.length?Math.max(...allHighest).toFixed(1):null;
     const totalComps=(compEvals||[]).length;
 
+    // Card de lesión activa (visible para todos si tiene) — destacada en rojo
+    const injuryCardHtml = athBio.injury ? `
+      <div class="card anim-up" style="border:1px solid var(--red);background:rgba(239,68,68,.08);margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+          <div style="flex:1;">
+            <div style="font-size:11px;color:var(--red);font-weight:700;letter-spacing:.8px;margin-bottom:4px;">🚨 LESIÓN ACTIVA</div>
+            <div style="font-size:14px;font-weight:600;color:var(--white);">${esc(athBio.injury)}</div>
+            ${athBio.injury_since?`<div style="font-size:11px;color:var(--grey);margin-top:3px;">Desde: ${athBio.injury_since}</div>`:''}
+          </div>
+          ${isCoach?`<button class="btn btn-xs btn-red" onclick="openInjuryModal('${id}','${escAttr(name)}')">✏️</button>`:''}
+        </div>
+      </div>` : '';
+
+    // Card de Metas (solo para atleta — el coach las ve en el modal de info completa)
+    const hasGoals = athBio.goal_short_term || athBio.goal_mid_term || athBio.goal_long_term;
+    const metasCardHtml = (!isCoach && hasGoals) ? `
+      <div class="card card-cyan anim-up" style="margin-bottom:12px;">
+        <div class="sec-title" style="margin-bottom:10px;">🎯 Mis Metas</div>
+        ${athBio.goal_short_term?`<div style="margin-bottom:10px;"><div style="font-size:10px;color:var(--green);font-weight:700;letter-spacing:.5px;">CORTO PLAZO · 1 MES</div><div style="font-size:12px;color:var(--white);margin-top:3px;line-height:1.5;">${esc(athBio.goal_short_term)}</div></div>`:''}
+        ${athBio.goal_mid_term?`<div style="margin-bottom:10px;"><div style="font-size:10px;color:var(--amber);font-weight:700;letter-spacing:.5px;">MEDIANO PLAZO · 6 MESES</div><div style="font-size:12px;color:var(--white);margin-top:3px;line-height:1.5;">${esc(athBio.goal_mid_term)}</div></div>`:''}
+        ${athBio.goal_long_term?`<div><div style="font-size:10px;color:var(--purple);font-weight:700;letter-spacing:.5px;">LARGO PLAZO · 4 AÑOS</div><div style="font-size:12px;color:var(--white);margin-top:3px;line-height:1.5;">${esc(athBio.goal_long_term)}</div></div>`:''}
+      </div>` : '';
+
     document.getElementById('perfilContent').innerHTML=`
-      <div class="card card-cyan wave-score-wrap">
+      ${injuryCardHtml}
+      ${metasCardHtml}
+      ${isCoach?`<div class="card card-cyan wave-score-wrap">
         <div class="score-ring" style="background:conic-gradient(var(--cyan) ${pct}%,rgba(0,201,232,.08) 0%);">
           <div class="score-inner"><div class="score-n">${waveScore?waveScore.toFixed(1):'—'}</div><div class="score-lbl">ÍNDICE</div></div>
         </div>
         <div style="font-size:12px;color:var(--grey);">Índice de Rendimiento (1–5)</div>
         <div style="font-size:10px;color:#4A6070;margin-top:4px;">Promedio: Físico · Técnico · Táctico · Mental</div>
-      </div>
+      </div>`:''}
       ${totalSurfHours>0?`
       <div class="card card-cyan anim-up" style="margin-bottom:10px;">
         <div class="sec-title" style="margin-bottom:12px;">🏄 Horas en el Agua</div>
@@ -6420,6 +6445,7 @@ async function vPerfil(athleteId=null,athleteName=null){
       </div>
       `:''}
       ${(()=>{
+        if(!isCoach) return ''; // Card 'Perfil de Rendimiento' solo para coach (duplica con Score por Pilar)
         if(!evals||!evals.length) return '';
         const last=evals[0]; const prev=evals.length>1?evals[1]:null;
         const areas=[
@@ -6507,7 +6533,8 @@ async function vPerfil(athleteId=null,athleteName=null){
         const imc = (athBio.weight_kg && athBio.height_cm) ? (athBio.weight_kg/((athBio.height_cm/100)**2)).toFixed(1) : null;
         const imcLabel = imc ? (imc<18.5?'Bajo peso':imc<25?'Normal':imc<30?'Sobrepeso':'Obesidad') : null;
         const imcColor = imc ? (imc<18.5?'var(--amber)':imc<25?'var(--green)':imc<30?'var(--amber)':'var(--red)') : 'var(--grey)';
-        const bioHtml = `
+        // Datos físicos detallados solo para coach (atleta tiene su modal de info completa)
+        const bioHtml = !isCoach ? '' : `
         <div class="card anim-up" style="margin-bottom:10px;">
           <div class="sec-title" style="margin-bottom:10px;">DATOS FÍSICOS</div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
@@ -6557,13 +6584,13 @@ async function vPerfil(athleteId=null,athleteName=null){
           <button class="btn btn-xs btn-outline" onclick="openInjuryModal('${id}','${escAttr(name)}')">+ Registrar lesión</button>
         </div>`:'');
       })()}
-      <div class="stat-grid">
+      ${isCoach?`<div class="stat-grid">
         <div class="stat-box"><div class="stat-n">${sessions?.length||0}</div><div class="stat-l">Sesiones</div></div>
         <div class="stat-box"><div class="stat-n">${evals?.length||0}</div><div class="stat-l">Evaluaciones</div></div>
         <div class="stat-box"><div class="stat-n">${checkins?.length||0}</div><div class="stat-l">Check-ins</div></div>
         <div class="stat-box"><div class="stat-n">${presFeedbacks?.length||0}</div><div class="stat-l">Feedbacks</div></div>
-      </div>
-      ${checkins?.length?`
+      </div>`:''}
+      ${isCoach && checkins?.length?`
       <div class="card" style="margin-bottom:10px;">
         <div class="sec-title">Promedios Check-in (últimos ${checkins.length} días)</div>
         <div class="stat-grid" style="margin-bottom:0;">
@@ -6572,7 +6599,7 @@ async function vPerfil(athleteId=null,athleteName=null){
           <div class="stat-box"><div class="stat-n" style="font-size:20px;">${checkins.filter(c=>c.goal_achieved==='Si').length}</div><div class="stat-l">✅ Logros</div></div>
         </div>
       </div>`:''}
-      <div class="sec-title" style="margin-top:14px;">Sesiones Presenciales Recientes</div>
+      ${isCoach?`<div class="sec-title" style="margin-top:14px;">Sesiones Presenciales Recientes</div>
       ${(sessions||[]).length?sessions.map(s=>{
         const stLbl=s.status==='done'?'✅ Completada':s.status==='live'?'🟢 En Curso':'📅 Planificada';
         const stColor=s.status==='done'?'chip-green':s.status==='live'?'chip-cyan':'chip-amber';
@@ -6584,8 +6611,8 @@ async function vPerfil(athleteId=null,athleteName=null){
           ${s.pilar?`<span class="pilar-tag pilar-${PILARES_COLOR[s.pilar]||'mix'}" style="margin-top:6px;display:inline-block;">${s.pilar}</span>`:''}
           ${s.mission?`<p style="font-size:12px;color:rgba(232,240,245,.6);margin-top:6px;line-height:1.5;">🎯 ${s.mission}</p>`:''}
         </div>`;
-      }).join(''):`<div class="empty" style="padding:24px 0;"><p class="empty-txt">Sin sesiones recientes</p></div>`}
-      ${presFeedbacks.length?`
+      }).join(''):`<div class="empty" style="padding:24px 0;"><p class="empty-txt">Sin sesiones recientes</p></div>`}`:''}
+      ${isCoach && presFeedbacks.length?`
       <div class="sec-title" style="margin-top:14px;">📋 Feedback de Sesiones del Coach</div>
       ${presFeedbacks.map(fb=>{
         const sess=fb.tss_presencial_sessions;
@@ -6614,7 +6641,7 @@ async function vPerfil(athleteId=null,athleteName=null){
           ${fb.coach_note?`<p style="font-size:12px;color:rgba(232,240,245,.7);line-height:1.5;">📝 ${fb.coach_note}</p>`:''}
         </div>`;
       }).join('')}`:''}
-      ${evals?.length?`
+      ${isCoach && evals?.length?`
         <div class="sec-title" style="margin-top:14px;">Última Evaluación del Coach</div>
         <div class="card card-cyan">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
