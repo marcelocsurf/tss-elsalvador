@@ -1244,26 +1244,34 @@ function calcDailyPoints(ci, extras){
   return Math.round(pts*10)/10; // 1 decimal
 }
 
+// Helper: YYYY-MM-DD basado en fecha LOCAL (no UTC) para evitar bug TZ
+function localDateStr(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
 function getWeekBoundaries(refDate){
-  // Lunes a domingo
-  const d = refDate ? new Date(refDate+'T00:00:00') : new Date();
+  // Lunes a domingo, usando fecha LOCAL para evitar bug de timezone con toISOString
+  const d = refDate ? new Date(refDate+'T12:00:00') : new Date();
   const dn = d.getDay()||7;
   const mon = new Date(d); mon.setDate(d.getDate()-(dn-1));
   const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-  return { mon: mon.toISOString().split('T')[0], sun: sun.toISOString().split('T')[0] };
+  return { mon: localDateStr(mon), sun: localDateStr(sun) };
 }
 
 // Auto-snapshot del ranking de la semana ANTERIOR si aún no se hizo
 async function ensureWeeklySnapshot(){
   try {
-    // Calcular el lunes de la semana pasada
+    // Calcular el lunes de la semana pasada usando fecha local (sin bug TZ)
     const today = new Date();
     const dn = today.getDay()||7;
     const monThisWeek = new Date(today); monThisWeek.setDate(today.getDate()-(dn-1));
     const monLastWeek = new Date(monThisWeek); monLastWeek.setDate(monThisWeek.getDate()-7);
     const sunLastWeek = new Date(monLastWeek); sunLastWeek.setDate(monLastWeek.getDate()+6);
-    const wkStart = monLastWeek.toISOString().split('T')[0];
-    const wkEnd   = sunLastWeek.toISOString().split('T')[0];
+    const wkStart = localDateStr(monLastWeek);
+    const wkEnd   = localDateStr(sunLastWeek);
 
     if(wkStart < OFFICIAL_START) return; // no hay nada que snapshot antes del inicio
     // Ya existe?
@@ -1338,7 +1346,7 @@ async function rankingTab(mode){
     from = wk.mon < OFFICIAL_START ? OFFICIAL_START : wk.mon;
     to   = todayStr() < wk.sun ? todayStr() : wk.sun;
     title = '🔥 ESTA SEMANA';
-    subtitle = `Lunes ${fmtDate(wk.mon)} → ahora`;
+    subtitle = `${fmtDate(wk.mon)} → ${fmtDate(wk.sun)}`;
   } else {
     from = OFFICIAL_START;
     to   = todayStr();
@@ -6311,7 +6319,7 @@ async function coachRankingTab(mode){
     const wk = getWeekBoundaries();
     from = wk.mon < OFFICIAL_START ? OFFICIAL_START : wk.mon;
     to   = todayStr() < wk.sun ? todayStr() : wk.sun;
-    title = `🔥 ESTA SEMANA · Lunes ${fmtDate(wk.mon)} → ahora`;
+    title = `🔥 ESTA SEMANA · ${fmtDate(wk.mon)} → ${fmtDate(wk.sun)}`;
   } else {
     from = OFFICIAL_START;
     to   = todayStr();
