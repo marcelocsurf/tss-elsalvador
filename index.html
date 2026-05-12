@@ -5171,7 +5171,7 @@ async function vPanel(){
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div style="font-size:15px;font-weight:800;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50%;">${a.name}</div>
           <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-            ${sleepH>0?`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:${sleepAlert?'rgba(239,68,68,.15)':'rgba(34,197,94,.15)'};color:${sleepColor};white-space:nowrap;">😴 ${sleepH}h${sleepAlert?' ⚠️':''}</span>`:''}
+            ${sleepAlert?`<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(239,68,68,.15);color:var(--red);white-space:nowrap;">⚠️ ${sleepH}h sueño</span>`:''}
             ${ci?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);white-space:nowrap;">✅ Check-in</span>'
                :'<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.05);color:var(--grey);white-space:nowrap;">Sin check-in</span>'}
             ${pct===100?'<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);white-space:nowrap;">🏆 100%</span>'
@@ -5179,21 +5179,25 @@ async function vPanel(){
           </div>
         </div>
         <div style="margin-top:10px;">
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:4px;">
-            <div style="background:${ci&&ci.water_glasses>=6?'rgba(34,197,94,.15)':ci&&ci.water_glasses>=4?'rgba(245,158,11,.1)':'rgba(255,255,255,.04)'};border:1px solid ${ci&&ci.water_glasses>=6?'rgba(34,197,94,.35)':ci&&ci.water_glasses>=4?'rgba(245,158,11,.3)':'rgba(255,255,255,.08)'};border-radius:7px;padding:6px 4px;text-align:center;">
-              <div style="font-size:16px;font-weight:900;color:${ci?waterColor:'var(--grey)'}">${ci?(ci.water_glasses??'—'):'—'}</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-bottom:4px;">
+            <div style="background:${sleepH>=7.5?'rgba(34,197,94,.15)':sleepH>=6?'rgba(245,158,11,.12)':sleepH>0?'rgba(239,68,68,.12)':'rgba(255,255,255,.04)'};border:1px solid ${sleepH>=7.5?'rgba(34,197,94,.35)':sleepH>=6?'rgba(245,158,11,.3)':sleepH>0?'rgba(239,68,68,.3)':'rgba(255,255,255,.08)'};border-radius:7px;padding:6px 2px;text-align:center;">
+              <div style="font-size:15px;font-weight:900;color:${sleepColor};">${sleepH>0?sleepH+'h':'—'}</div>
+              <div style="font-size:7px;color:var(--grey);margin-top:1px;">😴 Sueño</div>
+            </div>
+            <div style="background:${ci&&ci.water_glasses>=6?'rgba(34,197,94,.15)':ci&&ci.water_glasses>=4?'rgba(245,158,11,.1)':'rgba(255,255,255,.04)'};border:1px solid ${ci&&ci.water_glasses>=6?'rgba(34,197,94,.35)':ci&&ci.water_glasses>=4?'rgba(245,158,11,.3)':'rgba(255,255,255,.08)'};border-radius:7px;padding:6px 2px;text-align:center;">
+              <div style="font-size:15px;font-weight:900;color:${ci?waterColor:'var(--grey)'}">${ci?(ci.water_glasses??'—'):'—'}</div>
               <div style="font-size:7px;color:var(--grey);margin-top:1px;">💧 Agua</div>
             </div>
-            <div style="background:${ci&&ci.energy_level>=4?'rgba(34,197,94,.12)':ci&&ci.energy_level>=2?'rgba(245,158,11,.08)':'rgba(255,255,255,.04)'};border:1px solid ${ci&&ci.energy_level>=4?'rgba(34,197,94,.3)':ci&&ci.energy_level>=2?'rgba(245,158,11,.25)':'rgba(255,255,255,.08)'};border-radius:7px;padding:6px 4px;text-align:center;">
-              <div style="font-size:16px;font-weight:900;color:${ci?energyColor:'var(--grey)'}">${ci?(ci.energy_level??'—'):'—'}</div>
+            <div style="background:${ci&&ci.energy_level>=4?'rgba(34,197,94,.12)':ci&&ci.energy_level>=2?'rgba(245,158,11,.08)':'rgba(255,255,255,.04)'};border:1px solid ${ci&&ci.energy_level>=4?'rgba(34,197,94,.3)':ci&&ci.energy_level>=2?'rgba(245,158,11,.25)':'rgba(255,255,255,.08)'};border-radius:7px;padding:6px 2px;text-align:center;">
+              <div style="font-size:15px;font-weight:900;color:${ci?energyColor:'var(--grey)'}">${ci?(ci.energy_level??'—'):'—'}</div>
               <div style="font-size:7px;color:var(--grey);margin-top:1px;">⚡ Energía</div>
             </div>
-            <div style="background:rgba(0,201,232,.04);border:1px solid rgba(0,201,232,.1);border-radius:7px;padding:6px 4px;text-align:center;">
-              <div style="font-size:16px;font-weight:900;color:${ci&&ci.surf_hours?'var(--cyan)':'var(--grey)'}">${ci?(ci.surf_hours??0)+'h':'—'}</div>
-              <div style="font-size:7px;color:var(--grey);margin-top:1px;">🌊 Agua</div>
+            <div style="background:${ci&&ci.surf_hours>=2?'rgba(0,201,232,.15)':ci&&ci.surf_hours>0?'rgba(245,158,11,.1)':'rgba(0,201,232,.04)'};border:1px solid ${ci&&ci.surf_hours>=2?'rgba(0,201,232,.35)':ci&&ci.surf_hours>0?'rgba(245,158,11,.25)':'rgba(0,201,232,.1)'};border-radius:7px;padding:6px 2px;text-align:center;">
+              <div style="font-size:15px;font-weight:900;color:${ci&&ci.surf_hours?'var(--cyan)':'var(--grey)'}">${ci?(ci.surf_hours??0)+'h':'—'}</div>
+              <div style="font-size:7px;color:var(--grey);margin-top:1px;">🏄 Surf</div>
             </div>
-            <div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.18);border-radius:7px;padding:6px 4px;text-align:center;">
-              <div style="font-size:16px;font-weight:900;color:${ws==='—'?'var(--grey)':'var(--purple)'}">${ws}</div>
+            <div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.18);border-radius:7px;padding:6px 2px;text-align:center;">
+              <div style="font-size:15px;font-weight:900;color:${ws==='—'?'var(--grey)':'var(--purple)'}">${ws}</div>
               <div style="font-size:7px;color:var(--grey);margin-top:1px;">⭐ Índice</div>
             </div>
           </div>
