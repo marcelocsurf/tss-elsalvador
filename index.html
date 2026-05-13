@@ -1668,7 +1668,7 @@ async function loadHoy(date){
     }
 
     let ciHtml='';
-    const ciComplete = ci && (ci.water_glasses || ci.energy_level || ci.focus_level) && !window._ciEditMode;
+    const ciComplete = ci && (ci.water_glasses || ci.energy_level || ci.focus_level) && ci.sleep_hours && !window._ciEditMode;
     window._ciEditMode = false; // reset flag after use
     if(ciComplete){
       ciHtml=`<div class="card card-green anim-up">
@@ -1680,6 +1680,7 @@ async function loadHoy(date){
           </div>
         </div>
         <div class="checkin-grid">
+          ${ci.sleep_hours?`<div class="checkin-box"><div class="checkin-val" style="color:${ci.sleep_hours>=7.5?'var(--green)':ci.sleep_hours>=6?'var(--amber)':'var(--red)'};">${ci.sleep_hours}h</div><div class="checkin-lbl">😴 Sueño</div></div>`:''}
           <div class="checkin-box"><div class="checkin-val" style="color:var(--cyan);">${ci.water_glasses??0}${ci.water_glasses>=8?'+':''}</div><div class="checkin-lbl">💧 Vasos agua</div></div>
           <div class="checkin-box"><div class="checkin-val" style="color:var(--amber);">${ci.energy_level??0}/5</div><div class="checkin-lbl">⚡ Energía</div></div>
           <div class="checkin-box"><div class="checkin-val" style="color:${ci.nutrition==='Si'?'var(--green)':ci.nutrition==='Medio'?'var(--amber)':ci.nutrition?'var(--red)':'var(--grey)'};">${ci.nutrition||'—'}</div><div class="checkin-lbl">🥗 Nutrición</div></div>
@@ -1693,6 +1694,12 @@ async function loadHoy(date){
       ciHtml=`<div class="card anim-up">
         <div class="sec-title">Mi Check-in Diario</div>
         <div id="ciForm">
+          <label class="inp-label">😴 Horas que dormiste ayer (incluye siestas)</label>
+          <div class="opt-row" id="sleepRow">
+            ${[5,6,7,7.5,8,8.5,9,10].map(h=>`<button type="button" class="opt-pill" onclick="pickSleep(${h},this)">${h}h</button>`).join('')}
+          </div>
+          <input type="hidden" id="ci-sleep" value="${ci?.sleep_hours||''}">
+
           <label class="inp-label">💧 Vasos de agua hoy</label>
           <div class="water-row" id="waterRow">${[1,2,3,4,5,6,7,'8+'].map((v,i)=>`<button type="button" class="water-btn" onclick="pickWater(${i+1},this)">${v}</button>`).join('')}</div>
           <input type="hidden" id="ci-water" value="0">
@@ -1732,6 +1739,13 @@ async function loadHoy(date){
     // Pre-fill form with existing values when editing
     if(!ciComplete && ci){
       setTimeout(()=>{
+        if(ci.sleep_hours){
+          const sleepBtns=document.querySelectorAll('#sleepRow .opt-pill');
+          const sleepVals=[5,6,7,7.5,8,8.5,9,10];
+          const idx=sleepVals.indexOf(parseFloat(ci.sleep_hours));
+          if(idx>=0 && sleepBtns[idx]) pickSleep(ci.sleep_hours, sleepBtns[idx]);
+          document.getElementById('ci-sleep').value=ci.sleep_hours;
+        }
         if(ci.water_glasses){ const wb=document.querySelectorAll('.water-btn'); if(wb[ci.water_glasses-1]){ pickWater(ci.water_glasses, wb[ci.water_glasses-1]); }}
         if(ci.energy_level){ const se=document.getElementById('sc-ci-energy'); if(se){se.value=ci.energy_level; const esr=se.previousElementSibling; if(esr&&esr.classList.contains('scale-row')){esr.querySelectorAll('.se-n').forEach((b,i)=>{b.classList.remove('on');if(i+1===ci.energy_level)b.classList.add('on');});}}}
         if(ci.nutrition){ document.getElementById('ci-nutri').value=ci.nutrition; document.querySelectorAll('#ciForm .opt-pill').forEach(b=>{if(b.textContent.trim()===(ci.nutrition==='Si'?'Sí':ci.nutrition))b.classList.add(ci.nutrition==='Si'?'on-green':ci.nutrition==='Medio'?'on-amber':'on-red');});}
@@ -2268,6 +2282,12 @@ function pickWater(val,btn){
   btn.classList.add('on');
   document.getElementById('ci-water').value=val;
 }
+function pickSleep(val,btn){
+  document.querySelectorAll('#sleepRow .opt-pill').forEach(b=>b.classList.remove('on','on-green','on-amber','on-red'));
+  const cls = val>=7.5?'on-green':val>=6?'on-amber':'on-red';
+  btn.classList.add(cls);
+  document.getElementById('ci-sleep').value=val;
+}
 function pickOpt(hiddenId,btn,val,onClass){
   btn.closest('.opt-row').querySelectorAll('.opt-pill').forEach(b=>{b.classList.remove('on','on-green','on-red','on-amber');});
   btn.classList.add(onClass||'on');
@@ -2305,6 +2325,9 @@ async function saveCheckin(date){
   const nutri=gv('ci-nutri');
   const focus=parseInt(gv('sc-ci-focus')||0);
   const goal=gv('ci-goal');
+  const sleepRaw = gv('ci-sleep');
+  const sleep = sleepRaw ? parseFloat(sleepRaw) : null;
+  if(!sleep){toast('Indica cuántas horas dormiste ayer','error');return;}
   if(!water){toast('Indica cuántos vasos de agua tomaste','error');return;}
   if(!energy){toast('Indica tu nivel de energía','error');return;}
   if(!nutri){toast('Indica tu nutrición','error');return;}
@@ -2316,7 +2339,7 @@ async function saveCheckin(date){
   showLoad(true);
   try {
     const surfHours = parseFloat(document.getElementById('ci-surf-hours')?.value||0)||null;
-    const checkinData = {water_glasses:water,energy_level:energy,nutrition:nutri,focus_level:focus,goal_achieved:goal||'',notes:gv('ci-notes'),surf_hours:surfHours};
+    const checkinData = {water_glasses:water,energy_level:energy,nutrition:nutri,focus_level:focus,goal_achieved:goal||'',notes:gv('ci-notes'),surf_hours:surfHours,sleep_hours:sleep};
     const existing = (await db.from('tss_daily_checkins').select('*').eq('athlete_id',S.user.id).eq('date',date).maybeSingle()).data;
     let error;
     if(existing){
