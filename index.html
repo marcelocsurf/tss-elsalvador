@@ -3750,21 +3750,7 @@ const EVAL_FULL_BLOCKS = [
 const EVAL_FULL_ITEMS = {
   fisico: {
     sections: [
-      {key:'capacidades', label:'A · Capacidades surf-específicas', items:[
-        {id:'aerobic',   label:'Capacidad aeróbica de sesión',  hint:'Sostiene >70% calidad técnica toda la sesión'},
-        {id:'recovery',  label:'Recuperación entre esfuerzos', hint:'Vuelve a esfuerzo máx en 60-90s tras ola/set'},
-        {id:'paddle_power', label:'Potencia de paddle (sprint)', hint:'5-10 paladas máx para take-off sin descomponer técnica'},
-        {id:'popup_power',  label:'Potencia de pop-up',         hint:'Una sola fase <1s, sin rodillazo, sin pasos'},
-        {id:'specific_strength', label:'Fuerza específica al patrón', hint:'Cadena tracción-empuje-core-glúteo-isquios'},
-        {id:'hip_ankle_mobility', label:'Movilidad cadera y tobillo', hint:'Compresión profunda, BT profundo sin compensar'},
-        {id:'thorax_shoulder_mobility', label:'Movilidad torácica y hombro', hint:'Rotación completa de torso, braceada eficiente'},
-        {id:'breathing', label:'Respiración (apnea·sincronía·recuperación)', hint:'Tolera two-wave hold-down sin pánico'},
-      ]},
-      {key:'motor', label:'B · Coordinación y control motor', items:[
-        {id:'body_awareness', label:'Body awareness / propiocepción', hint:'Conciencia de cada segmento corporal en agua, aire, tabla'},
-        {id:'dynamic_balance', label:'Balance dinámico bajo carga', hint:'Estable en cambios de rail, turbulencia, aterrizajes asimétricos'},
-      ]},
-      {key:'tests', label:'C · Batería Test Físico TSS · 13 tests objetivos (retest cada 4–6 semanas)', type:'number', items:[
+      {key:'tests', label:'Batería Test Físico TSS · 13 tests objetivos (retest cada 4–6 semanas)', type:'number', items:[
         {id:'popup_1min',          label:'1. Pop-up x 1 min (# reps)',                  hint:'Tabla en el piso. Pop-ups continuos en 1 min. Solo reps completas (postura estable).'},
         {id:'paddle_20m',          label:'2. Velocidad 20m con tabla · paddle sprint (s)', hint:'Agua plana, salida en parado. Cronometrar de salida a línea final.'},
         {id:'swim_20m',            label:'3. Velocidad 20m sin tabla · nado libre (s)',  hint:'Salida desde pared o de pie. Cronometrar.'},
@@ -3778,13 +3764,6 @@ const EVAL_FULL_ITEMS = {
         {id:'burpees_1min',        label:'11. Burpees x 1 min (# reps)',                 hint:'Burpee completo: pecho al piso + salto vertical con manos arriba. Reps completas en 1 min.'},
         {id:'balance_eyes_closed', label:'12. Balance unipodal · ojos cerrados (s)',     hint:'De pie sobre un pie, ojos cerrados, brazos al lado. Cronometrar hasta perder balance o apoyar otro pie.'},
         {id:'flexibility_check',   label:'13. Flexibilidad — chequeo libre (opcional)',   hint:'Observación cualitativa: forward fold (tocar piso), shoulder flexion (brazos arriba), apertura de cadera.', type:'text'},
-      ]},
-      {key:'medical', label:'D · Histórico médico (info)', type:'text', items:[
-        {id:'injuries_active',   label:'Lesiones activas / restricciones del día'},
-        {id:'injuries_history',  label:'Lesiones históricas relevantes'},
-        {id:'fragile_areas',     label:'Áreas frágiles · zonas de cuidado'},
-        {id:'medication',        label:'Medicación o tratamiento en curso'},
-        {id:'bottleneck',        label:'🚨 Cuello de botella físico que limita lo técnico hoy'},
       ]},
     ]
   },
@@ -4393,18 +4372,24 @@ async function saveEvalFull(){
   const belt = gv('ef-belt');
 
   // Calcular promedios por bloque (solo de ratings)
+  // Maniobras: items no evaluados cuentan como 0 ("no las domina")
   const blockAvg = bId => {
     const data = blockData[bId] || {};
     const block = EVAL_FULL_ITEMS[bId];
     if(!block) return null;
     const ratings = [];
+    const treatMissingAsZero = (bId === 'maniobras');
     block.sections.forEach(sec => {
       const isRating = !sec.type || sec.type === 'rating';
       if(!isRating) return;
       sec.items.forEach(it => {
         if(it.type && it.type !== 'rating') return;
         const v = data[it.id];
-        if(typeof v === 'number' && v > 0 && v <= 5) ratings.push(v);
+        if(typeof v === 'number' && v > 0 && v <= 5){
+          ratings.push(v);
+        } else if(treatMissingAsZero){
+          ratings.push(0);
+        }
       });
     });
     return ratings.length ? Math.round(ratings.reduce((a,b)=>a+b,0)/ratings.length * 10)/10 : null;
@@ -4514,14 +4499,18 @@ async function openEvalFullDetail(evalId){
       const meta = EVAL_FULL_BLOCKS.find(b=>b.id===bId);
       const block = EVAL_FULL_ITEMS[bId];
       if(!block) return '';
+      const treatMissingAsZero = (bId === 'maniobras');
       const secsHtml = block.sections.map(sec => {
         const itemsLines = sec.items.map(it => {
           const v = data[it.id];
-          if(v===undefined||v===null||v==='') return '';
           const itemType = it.type || sec.type || 'rating';
+          const isMissing = (v===undefined||v===null||v==='');
+          if(isMissing && !(treatMissingAsZero && itemType === 'rating')) return '';
           if(itemType === 'rating'){
-            const color = v>=4?'var(--green)':v>=3?'var(--amber)':'var(--red)';
-            return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border2);font-size:11px;"><span style="color:var(--grey);">${esc(it.label)}</span><span style="color:${color};font-weight:700;">${v}/5</span></div>`;
+            const value = isMissing ? 0 : v;
+            const color = value>=4?'var(--green)':value>=3?'var(--amber)':value>=1?'var(--red)':'var(--red)';
+            const tag = value===0?' <span style="font-size:9px;color:var(--red);font-weight:600;">· no domina</span>':'';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border2);font-size:11px;"><span style="color:var(--grey);">${esc(it.label)}</span><span style="color:${color};font-weight:700;">${value}/5${tag}</span></div>`;
           } else {
             return `<div style="margin-bottom:6px;"><div style="font-size:10px;color:var(--grey);">${esc(it.label)}</div><div style="font-size:11px;color:var(--white);">${esc(String(v))}</div></div>`;
           }
