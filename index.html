@@ -5862,12 +5862,14 @@ async function loadCompForCoach(athleteId){
   // Sección unificada de Competencias del Atleta (consolida loadCompetencias + heats + auto-eval)
   const el=document.getElementById('compHeatsSection'); if(!el) return;
   const isCoach = S.user.role==='coach'||S.user.role==='acoach';
+  const isOwnerAthlete = S.user.role==='athlete' && S.user.id===athleteId;
+  const canManage = isCoach || isOwnerAthlete;
   try {
     const{data:comps}=await db.from('tss_competitions').select('*').eq('athlete_id',athleteId).order('date',{ascending:false}).limit(20);
 
     let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <div class="sec-title" style="margin-bottom:0;">🏆 Competencias del Atleta</div>
-      ${isCoach?`<button class="btn btn-xs btn-cyan" onclick="openCompModal('${athleteId}',null)" style="padding:5px 10px;font-size:10px;">+ Nueva</button>`:''}
+      <div class="sec-title" style="margin-bottom:0;">🏆 Competencias${isOwnerAthlete?' · Mis Campeonatos':' del Atleta'}</div>
+      ${canManage?`<button class="btn btn-xs btn-cyan" onclick="openCompModal('${athleteId}',null)" style="padding:5px 10px;font-size:10px;">+ Nueva</button>`:''}
     </div>`;
 
     if(!comps||!comps.length){
@@ -5923,7 +5925,7 @@ async function loadCompForCoach(athleteId){
             </div>`:''}
             <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
               <button class="btn btn-xs btn-amber" style="padding:5px 10px;font-size:10px;" onclick="vCompetencia('${c.id}')">🏆 ${c.status==='finalizada'?'Ver Competencia':'Modo Competencia'}</button>
-              ${isCoach?`<button class="btn btn-xs btn-outline" style="padding:5px 10px;font-size:10px;" onclick="openCompModal('${athleteId}','${c.id}')">✏️ Editar</button>
+              ${canManage?`<button class="btn btn-xs btn-outline" style="padding:5px 10px;font-size:10px;" onclick="openCompModal('${athleteId}','${c.id}')">✏️ Editar</button>
               <button class="btn btn-xs btn-red" style="padding:5px 10px;font-size:10px;" onclick="deleteComp('${c.id}','${athleteId}')">🗑</button>`:''}
             </div>
           </div>
@@ -10038,8 +10040,9 @@ async function saveComp(athleteId, existId){
     if(error) throw error;
     toast('✅ Competencia guardada','success');
     closeModal('compModal');
-    // Reload profile competitions section
-    loadCompetencias(athleteId);
+    // Reload sección unificada de competencias en el perfil
+    if(typeof loadCompForCoach==='function') loadCompForCoach(athleteId);
+    if(typeof loadCompetencias==='function') loadCompetencias(athleteId);
   } catch(e){toast('Error al guardar: '+e.message,'error');console.error(e);}
   finally{showLoad(false);}
 }
