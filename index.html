@@ -5097,7 +5097,7 @@ async function vPanel(){
     const [{data:sessions},{data:evals},{data:checkins}] = await Promise.all([
       db.from('tss_presencial_sessions').select('athlete_ids,date').gte('date',(()=>{const d=new Date();d.setDate(d.getDate()-90);return d.toISOString().split('T')[0];})()).order('date',{ascending:false}),
       db.from('tss_evaluations').select('athlete_id,physical,technique,mindset,competitive,date').gte('date',offFloor).order('date',{ascending:false}).limit(300),
-      db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes,sesion_result,goal_achieved').eq('date',today),
+      db.from('tss_daily_checkins').select('athlete_id,date,progress_pct,blocks_completed,comp_state,water_glasses,energy_level,focus_level,nutrition,surf_hours,notes,sesion_result,goal_achieved,sleep_hours').eq('date',today),
     ]);
 
     // last session per athlete
