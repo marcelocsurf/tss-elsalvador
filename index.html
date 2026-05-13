@@ -3750,7 +3750,7 @@ const EVAL_FULL_BLOCKS = [
 const EVAL_FULL_ITEMS = {
   fisico: {
     sections: [
-      {key:'tests', label:'Batería Test Físico TSS · 13 tests objetivos (retest cada 4–6 semanas)', type:'number', items:[
+      {key:'tests', label:'A · Batería Test Físico TSS · 13 tests objetivos (retest cada 4–6 semanas)', type:'number', items:[
         {id:'popup_1min',          label:'1. Pop-up x 1 min (# reps)',                  hint:'Tabla en el piso. Pop-ups continuos en 1 min. Solo reps completas (postura estable).'},
         {id:'paddle_20m',          label:'2. Velocidad 20m con tabla · paddle sprint (s)', hint:'Agua plana, salida en parado. Cronometrar de salida a línea final.'},
         {id:'swim_20m',            label:'3. Velocidad 20m sin tabla · nado libre (s)',  hint:'Salida desde pared o de pie. Cronometrar.'},
@@ -3764,6 +3764,13 @@ const EVAL_FULL_ITEMS = {
         {id:'burpees_1min',        label:'11. Burpees x 1 min (# reps)',                 hint:'Burpee completo: pecho al piso + salto vertical con manos arriba. Reps completas en 1 min.'},
         {id:'balance_eyes_closed', label:'12. Balance unipodal · ojos cerrados (s)',     hint:'De pie sobre un pie, ojos cerrados, brazos al lado. Cronometrar hasta perder balance o apoyar otro pie.'},
         {id:'flexibility_check',   label:'13. Flexibilidad — chequeo libre (opcional)',   hint:'Observación cualitativa: forward fold (tocar piso), shoulder flexion (brazos arriba), apertura de cadera.', type:'text'},
+      ]},
+      {key:'medical', label:'B · Histórico médico (info)', type:'text', items:[
+        {id:'injuries_active',   label:'Lesiones activas / restricciones del día'},
+        {id:'injuries_history',  label:'Lesiones históricas relevantes'},
+        {id:'fragile_areas',     label:'Áreas frágiles · zonas de cuidado'},
+        {id:'medication',        label:'Medicación o tratamiento en curso'},
+        {id:'bottleneck',        label:'🚨 Cuello de botella físico que limita lo técnico hoy'},
       ]},
     ]
   },
