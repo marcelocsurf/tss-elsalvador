@@ -4486,8 +4486,14 @@ async function saveEvalFull(){
     }
 
     toast('✅ ' + (s.editingId?'Cambios guardados':'Evaluación completa guardada') + (belt?' · cinta '+getBelt(belt).name+' otorgada':''), 'success');
+    const savedAthleteId = s.athleteId;
     _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[], editingId:null };
     evalTab('hist');
+    // Auto-seleccionar el atleta recién guardado en el dropdown de evals completas
+    setTimeout(()=>{
+      const sel = document.getElementById('efHistSel');
+      if(sel && savedAthleteId){ sel.value = savedAthleteId; loadEvalFullHist(); }
+    }, 200);
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
@@ -4919,6 +4925,13 @@ async function saveCompEval(){
 async function renderEvalHist(){
   try {
   document.getElementById('evalTabArea').innerHTML=`
+    <div class="sec-title">📊 Historial — Evaluaciones Completas</div>
+    <select class="sel" id="efHistSel" onchange="loadEvalFullHist()" style="margin-bottom:12px;">
+      <option value="">— Ver historial —</option>
+      ${S.athletes.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+    </select>
+    <div id="evalFullHistArea"></div>
+    <div style="height:1px;background:var(--border2);margin:20px 0;"></div>
     <div class="sec-title">Historial — Entrenamiento</div>
     <select class="sel" id="eaHistSel" onchange="loadEvalHist()" style="margin-bottom:12px;">
       <option value="">— Ver historial —</option>
@@ -4933,6 +4946,40 @@ async function renderEvalHist(){
     </select>
     <div id="compEvalHistArea"></div>`;
   } catch(e){ console.error("renderEvalHist",e); }
+}
+
+async function loadEvalFullHist(){
+  const id=gv('efHistSel'); const el=document.getElementById('evalFullHistArea');
+  if(!id){el.innerHTML='';return;}
+  el.innerHTML='<p style="padding:16px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p>';
+  try {
+    const{data,error}=await db.from('tss_evaluations_full').select('*').eq('athlete_id',id).order('date',{ascending:false});
+    if(error) throw error;
+    if(!data||!data.length){el.innerHTML='<p style="padding:16px;text-align:center;color:var(--grey);font-size:12px;">Sin evaluaciones completas todavía</p>';return;}
+    el.innerHTML=data.map(ev=>{
+      const typeLabel = ev.eval_type==='inicial'?'Inicial':ev.eval_type==='promocion_cinta'?'🎗 Promoción':'Periódica';
+      const discLabel = ev.discipline==='shortboard'?'🏄 Shortboard':ev.discipline==='longboard'?'🌊 Longboard':'⚡ Ambas';
+      const blocks = (ev.blocks_evaluated||[]).map(b=>EVAL_FULL_BLOCKS.find(x=>x.id===b)?.label||b).join(' · ');
+      const blockIcons = (ev.blocks_evaluated||[]).map(b=>EVAL_FULL_BLOCKS.find(x=>x.id===b)?.icon||'').join(' ');
+      return `<div class="card anim-up" style="margin-bottom:10px;border-left:3px solid var(--cyan);cursor:pointer;" onclick="openEvalFullDetail('${ev.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:800;color:var(--white);">${typeLabel}</div>
+            <div style="font-size:11px;color:var(--grey);margin-top:2px;">${fmtDate(ev.date)} · ${discLabel}</div>
+            <div style="font-size:16px;margin-top:6px;">${blockIcons}</div>
+            <div style="font-size:10px;color:var(--cyan);margin-top:4px;">${blocks}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            ${ev.belt_assigned?beltChipHtml(ev.belt_assigned,'sm'):''}
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-xs btn-cyan" onclick="event.stopPropagation();editEvalFull('${ev.id}')" title="Editar">✏️</button>
+              <button class="btn btn-xs btn-red" onclick="event.stopPropagation();deleteEvalFull('${ev.id}')" title="Borrar">🗑</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){ console.error(e); el.innerHTML='<p style="padding:16px;text-align:center;color:var(--red);font-size:12px;">Error: '+esc(e.message)+'</p>'; }
 }
 
 async function loadEvalHist(){
