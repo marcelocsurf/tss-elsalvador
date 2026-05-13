@@ -1755,34 +1755,38 @@ async function loadHoy(date){
       },100);
     }
 
-    // Widget de sueño — destacado arriba del plan
+    // Widget de sueño — visualización (registro se hace dentro del check-in)
     const sleepHrs = ci?.sleep_hours;
-    const sleepColor = sleepHrs ? (sleepHrs>=7.5?'var(--green)':sleepHrs>=6?'var(--amber)':'var(--red)') : 'var(--grey)';
+    const sleepColor = sleepHrs ? (sleepHrs>=7.5?'var(--green)':sleepHrs>=6?'var(--amber)':'var(--red)') : 'var(--amber)';
     const sleepLabel = sleepHrs ? (sleepHrs>=7.5?'✅ Bien descansado':sleepHrs>=6?'⚡ Sueño limitado':'❌ Riesgo de fatiga') : '';
     const sleepPct = sleepHrs ? Math.min((sleepHrs/8)*100, 100) : 0;
-    const sleepHtml = `<div class="card anim-up" style="margin-bottom:12px;border:1px solid ${sleepHrs?'var(--border)':'rgba(245,158,11,.3)'};background:${sleepHrs?'var(--bg2)':'rgba(245,158,11,.05)'};">
+    const sleepHtml = sleepHrs ? `<div class="card anim-up" style="margin-bottom:12px;border:1px solid var(--border);background:var(--bg2);">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
         <div style="flex:1;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
             <span style="font-size:18px;">😴</span>
-            <span style="font-size:11px;font-weight:700;color:var(--white);letter-spacing:.5px;">¿Cuántas horas dormiste ayer?</span>
+            <span style="font-size:11px;font-weight:700;color:var(--white);letter-spacing:.5px;">Sueño registrado ayer</span>
           </div>
-          ${sleepHrs?`<div style="font-size:10px;color:var(--grey);">Meta: 8h · incluye siestas</div>`:`<div style="font-size:10px;color:var(--amber);">Meta: 8h diarias (incluye siestas)</div>`}
+          <div style="font-size:10px;color:var(--grey);">Meta: 8h · incluye siestas</div>
         </div>
-        ${sleepHrs?`<div style="text-align:right;">
+        <div style="text-align:right;">
           <div style="font-size:22px;font-weight:900;color:${sleepColor};font-family:'Space Mono',monospace;line-height:1;">${sleepHrs}<span style="font-size:11px;">h</span></div>
           <div style="font-size:9px;color:${sleepColor};margin-top:2px;">${sleepLabel}</div>
-        </div>`:''}
+        </div>
       </div>
-      ${sleepHrs?`<div style="height:6px;background:var(--bg3);border-radius:6px;margin-top:8px;overflow:hidden;">
+      <div style="height:6px;background:var(--bg3);border-radius:6px;margin-top:8px;overflow:hidden;">
         <div style="height:100%;width:${sleepPct}%;background:${sleepColor};border-radius:6px;transition:width .5s;"></div>
-      </div>`:''}
-      <div style="display:flex;gap:4px;margin-top:8px;">
-        ${[5,6,7,7.5,8,8.5,9,10].map(h=>`<button type="button" onclick="saveSleepHours(${h})" style="flex:1;padding:6px 0;background:${sleepHrs==h?sleepColor:'var(--bg3)'};color:${sleepHrs==h?'#000':'var(--white)'};border:1px solid ${sleepHrs==h?sleepColor:'var(--border2)'};border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">${h}h</button>`).join('')}
       </div>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
-        <input type="number" step="0.5" min="0" max="24" id="sleep-custom" placeholder="Otra (ej 6.5)" value="${sleepHrs||''}" style="flex:1;padding:6px 8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);font-size:11px;">
-        <button type="button" onclick="saveSleepHours(parseFloat(document.getElementById('sleep-custom').value))" style="padding:6px 10px;background:var(--cyan);color:#000;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">💾</button>
+    </div>` : `<div class="card anim-up" style="margin-bottom:12px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.05);cursor:pointer;" onclick="document.getElementById('ciForm')?.scrollIntoView({behavior:'smooth',block:'center'});">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:18px;">😴</span>
+            <span style="font-size:11px;font-weight:700;color:var(--white);letter-spacing:.5px;">Falta registrar tu sueño</span>
+          </div>
+          <div style="font-size:10px;color:var(--amber);">Llena el check-in diario · tap aquí para ir 👇</div>
+        </div>
+        <div style="font-size:22px;color:var(--amber);">→</div>
       </div>
     </div>`;
 
@@ -1790,22 +1794,11 @@ async function loadHoy(date){
   } catch(e){ el.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar</p>'; console.error(e); }
 }
 
+// DEPRECATED — sleep_hours ahora se guarda únicamente vía saveCheckin (ruta única + validación)
+// Se mantiene la función como no-op para evitar errores si algún cache antiguo todavía la invoca.
 async function saveSleepHours(hours){
-  if(!hours || hours<0 || hours>24){ toast('Valor inválido','error'); return; }
-  const date = todayStr();
-  showLoad(true);
-  try {
-    // Si ya existe checkin, update; si no, insert
-    const{data:existing}=await db.from('tss_daily_checkins').select('id').eq('athlete_id',S.user.id).eq('date',date).maybeSingle();
-    if(existing){
-      await db.from('tss_daily_checkins').update({sleep_hours:hours}).eq('id',existing.id);
-    } else {
-      await db.from('tss_daily_checkins').insert({athlete_id:S.user.id,date,sleep_hours:hours});
-    }
-    toast('✅ '+hours+'h registradas','success');
-    loadHoy(date);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
-  finally { showLoad(false); }
+  toast('Llena el check-in completo para registrar el sueño','info');
+  document.getElementById('ciForm')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 /* ── COMPLETION TRACKING — saved to Supabase ── */
@@ -2348,7 +2341,7 @@ async function saveCheckin(date){
       ({error} = await db.from('tss_daily_checkins').insert({athlete_id:S.user.id,date,...checkinData}));
     }
     if(error) throw error;
-    toast('✅ Check-in guardado','success');
+    toast(`✅ Check-in guardado · 😴 ${sleep}h registradas`,'success');
     loadHoy(date);
   } catch(e){toast('Error al guardar','error');console.error(e);}
   finally{showLoad(false);}
@@ -6664,6 +6657,11 @@ async function vPerfil(athleteId=null,athleteName=null){
     const pct=waveScore/5*100;
     const avgEnergy=checkins?.length?(checkins.reduce((s,c)=>s+(c.energy_level||0),0)/checkins.length).toFixed(1):'—';
     const avgFocus=checkins?.length?(checkins.reduce((s,c)=>s+(c.focus_level||0),0)/checkins.length).toFixed(1):'—';
+    // Sleep stats — promedio y últimas 7 noches
+    const sleepCheckins=(checkins||[]).filter(c=>c.sleep_hours!=null && c.sleep_hours>0);
+    const avgSleep=sleepCheckins.length?(sleepCheckins.reduce((s,c)=>s+(parseFloat(c.sleep_hours)||0),0)/sleepCheckins.length).toFixed(1):'—';
+    const sleepNights7=sleepCheckins.slice(0,7);
+    const lastSleep=sleepCheckins[0];
     // Surf hours stats
     const totalSurfHours=(checkins||[]).reduce((s,c)=>s+(c.surf_hours||0),0);
     const today7=new Date(); today7.setDate(today7.getDate()-7);
@@ -6881,10 +6879,17 @@ async function vPerfil(athleteId=null,athleteName=null){
       <div class="card" style="margin-bottom:10px;">
         <div class="sec-title">Promedios Check-in (últimos ${checkins.length} días)</div>
         <div class="stat-grid" style="margin-bottom:0;">
+          <div class="stat-box"><div class="stat-n" style="font-size:20px;color:${avgSleep!=='—' && parseFloat(avgSleep)>=7.5?'var(--green)':avgSleep!=='—' && parseFloat(avgSleep)>=6?'var(--amber)':avgSleep!=='—'?'var(--red)':'var(--grey)'};">${avgSleep}${avgSleep!=='—'?'h':''}</div><div class="stat-l">😴 Sueño</div></div>
           <div class="stat-box"><div class="stat-n" style="font-size:20px;">${avgEnergy}</div><div class="stat-l">⚡ Energía</div></div>
           <div class="stat-box"><div class="stat-n" style="font-size:20px;">${avgFocus}</div><div class="stat-l">🎯 Enfoque</div></div>
           <div class="stat-box"><div class="stat-n" style="font-size:20px;">${checkins.filter(c=>c.goal_achieved==='Si').length}</div><div class="stat-l">✅ Logros</div></div>
         </div>
+        ${sleepNights7.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <div style="font-size:10px;color:var(--grey);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Últimas ${sleepNights7.length} noches</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            ${sleepNights7.map(c=>{const h=parseFloat(c.sleep_hours)||0;const col=h>=7.5?'var(--green)':h>=6?'var(--amber)':'var(--red)';return `<div style="flex:1;min-width:50px;text-align:center;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:4px;"><div style="font-size:13px;font-weight:800;color:${col};font-family:'Space Mono',monospace;">${h}h</div><div style="font-size:8px;color:var(--grey);">${c.date.slice(5)}</div></div>`;}).join('')}
+          </div>
+        </div>`:`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--amber);">⚠️ Sin registros de sueño todavía</div>`}
       </div>`:''}
       ${isCoach?`<div class="sec-title" style="margin-top:14px;">Sesiones Presenciales Recientes</div>
       ${(sessions||[]).length?sessions.map(s=>{
