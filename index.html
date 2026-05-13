@@ -4108,7 +4108,7 @@ async function saveEval(athleteId){
    renderEvalFullSetup, renderEvalFullForm, saveEvalFull, deleteEvalFull
    loadEvalFullHist, openEvalFullDetail, loadEvalFullForAthlete
    ════════════════════════════════════════════════════════════════════ */
-let _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[] };
+let _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[], editingId:null };
 
 function renderEvalFullSetup(){
   const el = document.getElementById('evalTabArea');
@@ -4207,6 +4207,7 @@ function proceedEvalFull(){
     location: gv('ef-location')||'',
     conditions: gv('ef-conditions')||'',
     blocks,
+    editingId: null,
   };
   renderEvalFullForm();
 }
@@ -4271,7 +4272,10 @@ function renderEvalFullForm(){
     ${blockHtml}
     ${summaryHtml}
 
-    <button class="save-btn" style="margin-top:14px;" onclick="saveEvalFull()">💾 Guardar Evaluación Completa</button>
+    ${s.editingId?`<div style="margin-top:14px;padding:10px 14px;background:rgba(0,201,232,.1);border:1px solid rgba(0,201,232,.3);border-radius:10px;font-size:11px;color:var(--cyan);display:flex;align-items:center;gap:8px;">
+      <span>✏️</span><span><b>Modo edición</b> · estás modificando una evaluación ya guardada. Al guardar se actualizan los cambios sobre la misma.</span>
+    </div>`:''}
+    <button class="save-btn" style="margin-top:14px;" onclick="saveEvalFull()">💾 ${s.editingId?'Guardar Cambios':'Guardar Evaluación Completa'}</button>
     <div style="height:30px;"></div>
   `;
 }
@@ -4437,12 +4441,17 @@ async function saveEvalFull(){
       belt_assigned:   belt || null,
       blocks_evaluated: s.blocks,
     };
-    const{error:e1} = await db.from('tss_evaluations_full').insert(payload);
-    if(e1) throw e1;
+    if(s.editingId){
+      const{error:e1u} = await db.from('tss_evaluations_full').update(payload).eq('id',s.editingId);
+      if(e1u) throw e1u;
+    } else {
+      const{error:e1} = await db.from('tss_evaluations_full').insert(payload);
+      if(e1) throw e1;
+    }
 
     // 2. Guardar también la eval simple (para que el radar/barras se actualicen)
     if(physAvg || techAvg || tactAvg || mentAvg){
-      await db.from('tss_evaluations').insert({
+      const simplePayload = {
         athlete_id: s.athleteId,
         coach_id: S.user.id,
         date: s.date,
@@ -4453,7 +4462,20 @@ async function saveEvalFull(){
         strengths: summary.strengths.join(' · ') || null,
         limitations: summary.improvements.join(' · ') || null,
         recommendations: actionPlan.drills || null,
-      });
+      };
+      if(s.editingId){
+        // Si estamos editando, actualizar la fila simple matching más reciente por (athlete,coach,date)
+        const{data:existingSimple} = await db.from('tss_evaluations')
+          .select('id').eq('athlete_id',s.athleteId).eq('coach_id',S.user.id).eq('date',s.date)
+          .order('created_at',{ascending:false}).limit(1).maybeSingle();
+        if(existingSimple){
+          await db.from('tss_evaluations').update(simplePayload).eq('id',existingSimple.id);
+        } else {
+          await db.from('tss_evaluations').insert(simplePayload);
+        }
+      } else {
+        await db.from('tss_evaluations').insert(simplePayload);
+      }
     }
 
     // 3. Si es promoción de cinta y se otorgó, actualizar profile
@@ -4463,9 +4485,90 @@ async function saveEvalFull(){
       if(idx>=0) S.athletes[idx].current_belt = belt;
     }
 
-    toast('✅ Evaluación completa guardada' + (belt?' · cinta '+getBelt(belt).name+' otorgada':''), 'success');
-    _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[] };
+    toast('✅ ' + (s.editingId?'Cambios guardados':'Evaluación completa guardada') + (belt?' · cinta '+getBelt(belt).name+' otorgada':''), 'success');
+    _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[], editingId:null };
     evalTab('hist');
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function editEvalFull(evalId){
+  if(S.user.role==='athlete'){ toast('Solo el coach puede editar','error'); return; }
+  showLoad(true);
+  try {
+    const{data:ev,error} = await db.from('tss_evaluations_full').select('*').eq('id',evalId).maybeSingle();
+    if(error) throw error;
+    if(!ev){ toast('No se encontró la evaluación','error'); return; }
+    // Hidratar el setup en modo edición
+    _evalFullSetup = {
+      athleteId: ev.athlete_id,
+      discipline: ev.discipline || 'shortboard',
+      evalType: ev.eval_type || 'periodica',
+      date: ev.date || todayStr(),
+      location: ev.location || '',
+      conditions: ev.conditions || '',
+      blocks: (ev.blocks_evaluated && ev.blocks_evaluated.length) ? ev.blocks_evaluated : ['fisico','tecnica','maniobras','tactica','mental'],
+      editingId: ev.id,
+    };
+    closeModal('evalFullDetail');
+    // Asegurar que estamos en la vista de Eval
+    if(typeof switchView==='function') switchView('evaluar');
+    if(typeof evalTab==='function') evalTab('full');
+    renderEvalFullForm();
+    // Pre-llenar inputs con los valores guardados (en setTimeout para que el DOM exista)
+    setTimeout(()=>{
+      const blockMap = { fisico:'physical_json', tecnica:'tech_json', maniobras:'maneuvers_json', longboard:'longboard_json', tactica:'tactical_json', mental:'mental_json' };
+      _evalFullSetup.blocks.forEach(bId => {
+        const data = ev[blockMap[bId]];
+        if(!data || typeof data !== 'object') return;
+        const block = EVAL_FULL_ITEMS[bId];
+        if(!block) return;
+        block.sections.forEach(sec => {
+          sec.items.forEach(it => {
+            const v = data[it.id];
+            if(v===undefined||v===null||v==='') return;
+            const itemType = it.type || sec.type || 'rating';
+            const inputId = `ef-${bId}-${it.id}`;
+            const el = document.getElementById(inputId);
+            if(!el) return;
+            if(itemType === 'rating'){
+              el.value = v;
+              const row = document.getElementById(inputId+'-row');
+              if(row){
+                row.querySelectorAll('.se-n').forEach((b,i)=>{
+                  b.classList.remove('on');
+                  if(i+1 === Number(v)) b.classList.add('on');
+                });
+              }
+            } else {
+              el.value = String(v);
+            }
+          });
+        });
+      });
+      // Resumen (strengths / improvements)
+      const sm = ev.summary_json || {};
+      ['strength1','strength2','strength3'].forEach((k,i)=>{ const el=document.getElementById('ef-'+k); if(el && sm.strengths && sm.strengths[i]) el.value=sm.strengths[i]; });
+      ['improve1','improve2','improve3'].forEach((k,i)=>{ const el=document.getElementById('ef-'+k); if(el && sm.improvements && sm.improvements[i]) el.value=sm.improvements[i]; });
+      // Diagnóstico
+      const dx = ev.diagnosis_json || {};
+      if(document.getElementById('ef-observation')) document.getElementById('ef-observation').value = dx.observation || '';
+      if(document.getElementById('ef-recommendation')) document.getElementById('ef-recommendation').value = dx.recommendation || '';
+      // Plan
+      const pl = ev.action_plan_json || {};
+      if(document.getElementById('ef-next-eval')) document.getElementById('ef-next-eval').value = pl.next_eval_date || '';
+      // Narrativa
+      if(document.getElementById('ef-narrative')) document.getElementById('ef-narrative').value = ev.coach_narrative || '';
+      // Belt (si es promoción)
+      if(ev.belt_assigned && document.getElementById('ef-belt')){
+        document.getElementById('ef-belt').value = ev.belt_assigned;
+        const beltBtn = document.querySelector(`[data-belt="${ev.belt_assigned}"]`);
+        if(beltBtn) pickEfBelt(ev.belt_assigned, beltBtn);
+      }
+      // Scroll arriba para que el coach vea el banner de modo edición
+      window.scrollTo({top:0,behavior:'smooth'});
+    }, 100);
+    toast('✏️ Eval cargada en modo edición','info');
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
@@ -4575,7 +4678,10 @@ async function openEvalFullDetail(evalId){
         <div style="font-size:12px;color:var(--white);line-height:1.6;white-space:pre-wrap;">${esc(ev.coach_narrative)}</div>
       </div>`:''}
 
-      <button class="btn btn-red" style="width:100%;margin-top:14px;" onclick="deleteEvalFull('${ev.id}')">🗑 Borrar esta evaluación</button>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-cyan" style="flex:1;" onclick="editEvalFull('${ev.id}')">✏️ Editar evaluación</button>
+        <button class="btn btn-red" style="flex:1;" onclick="deleteEvalFull('${ev.id}')">🗑 Borrar</button>
+      </div>
     `;
   } catch(e){ document.getElementById('efd-body').innerHTML='<p style="color:var(--red);padding:20px;">Error: '+esc(e.message)+'</p>'; console.error(e); }
 }
