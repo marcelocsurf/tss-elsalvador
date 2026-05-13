@@ -6414,9 +6414,27 @@ async function loadAthleteAppts(athleteId){
   try {
     const today = todayStr();
     const {data} = await db.from('tss_appointments').select('*').eq('athlete_id',athleteId)
-      .gte('date',today).in('status',['programada','confirmada']).order('date').order('time').limit(10);
+      .order('date',{ascending:false}).order('time').limit(50);
     if(!data||!data.length){ el.innerHTML=''; return; }
-    el.innerHTML = `<div class="sec-title">📅 Próximas Citas (${data.length})</div>${data.map(renderApptCard).join('')}`;
+    // Próximas = futuras + activas (no cumplidas ni canceladas)
+    const upcoming = data.filter(a => a.date >= today && a.status !== 'cumplida' && a.status !== 'cancelada')
+                         .sort((a,b)=>a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''));
+    // Pasadas = ya pasó la fecha O fue marcada como cumplida/cancelada
+    const past = data.filter(a => a.date < today || a.status === 'cumplida' || a.status === 'cancelada');
+    let html = '';
+    if(upcoming.length){
+      html += `<div class="sec-title">📅 Próximas Citas (${upcoming.length})</div>${upcoming.map(renderApptCard).join('')}`;
+    }
+    if(past.length){
+      // Colapsado por defecto para no abrumar
+      html += `<details style="margin-top:14px;">
+        <summary style="cursor:pointer;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--grey);font-weight:700;letter-spacing:.5px;list-style:none;">
+          📋 Citas pasadas (${past.length}) · tap para ver
+        </summary>
+        <div style="margin-top:10px;opacity:.75;">${past.map(renderApptCard).join('')}</div>
+      </details>`;
+    }
+    el.innerHTML = html;
   } catch(e){ console.error(e); }
 }
 
