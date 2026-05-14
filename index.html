@@ -9197,32 +9197,120 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
       y+=5;
     }
 
-    // Evals completas
+    // Evals completas — detalle expandido por evaluación
     if(efList.length){
-      if(y>240){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
-      txt('EVALUACIONES COMPLETAS TSS CANON v8.1 (' + efList.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
-      efList.slice(0,5).forEach(ef=>{
-        if(y>260){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
-        rect(M, y, CW, 16, BG_CARD, 2);
-        stroke(M, y, CW, 16, BORDER, 2);
-        const typeLabel = ef.eval_type==='inicial'?'Inicial':ef.eval_type==='promocion_cinta'?'🎗 Promoción':'Periódica';
+      doc.addPage();
+      drawPageHeader('EVALUACIONES DETALLADAS');
+      y = 22;
+      txt('EVALUACIONES COMPLETAS TSS CANON v8.1 (' + efList.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=10;
+
+      const BLOCK_MAP = {fisico:'💪 Físico',tecnica:'🎯 Técnica',maniobras:'🏄 Maniobras',longboard:'🌊 Longboard',tactica:'♟ Táctica',mental:'🧠 Mental'};
+      const BLOCK_JSON = {fisico:'physical_json',tecnica:'tech_json',maniobras:'maneuvers_json',longboard:'longboard_json',tactica:'tactical_json',mental:'mental_json'};
+
+      efList.forEach((ef, idx) => {
+        // Header de eval
+        if(y>250){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+        const typeLabel = ef.eval_type==='inicial'?'Inicial':ef.eval_type==='promocion_cinta'?'🎗 Promoción Cinta':'Periódica';
         const discLabel = ef.discipline==='shortboard'?'Shortboard':ef.discipline==='longboard'?'Longboard':'Ambas';
-        txt(fmtDate(ef.date), M+3, y+5, 8, NAVY, 'bold');
-        txt(typeLabel + ' · ' + discLabel, M+3, y+10, 7, TEXT_GREY);
-        const blocksTxt = (ef.blocks_evaluated||[]).map(b => ({fisico:'Físico',tecnica:'Técnica',maniobras:'Maniobras',longboard:'Longboard',tactica:'Táctica',mental:'Mental'})[b] || b).join(' · ');
-        txt(blocksTxt, M+3, y+14, 6, TEXT_LIGHT);
+        // Card de header
+        rect(M, y, CW, 14, NAVY, 2);
+        txt('EVAL #' + (idx+1) + ' · ' + fmtDate(ef.date), M+3, y+5, 9, [255,255,255], 'bold');
+        txt(typeLabel + ' · ' + discLabel + (ef.location?' · '+ef.location:''), M+3, y+10, 7, CYAN);
         if(ef.belt_assigned){
           const b = getBelt(ef.belt_assigned);
-          if(b) txt('🎗 '+b.name, W-M-3, y+5, 7, AMBER, 'bold', 'right');
+          if(b) txt('🎗 '+b.name, W-M-3, y+8, 8, AMBER, 'bold', 'right');
         }
-        y+=20;
+        y+=18;
+
+        // Detalle por bloque
+        (ef.blocks_evaluated||[]).forEach(bId => {
+          const data = ef[BLOCK_JSON[bId]];
+          if(!data || typeof data !== 'object' || !Object.keys(data).length) return;
+          const block = EVAL_FULL_ITEMS[bId];
+          if(!block) return;
+          if(y>260){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+          // Subheader del bloque
+          txt(BLOCK_MAP[bId]||bId, M, y+3, 8, CYAN, 'bold');
+          y+=6;
+          // Items del bloque
+          block.sections.forEach(sec => {
+            sec.items.forEach(it => {
+              const v = data[it.id];
+              if(v===undefined||v===null||v==='') return;
+              if(y>275){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+              const itemType = it.type || sec.type || 'rating';
+              const lines = doc.splitTextToSize(it.label, CW-30);
+              txt('• '+lines[0], M+2, y+3, 6.5, TEXT_DARK);
+              if(itemType === 'rating'){
+                const color = v>=4?GREEN:v>=3?AMBER:RED;
+                txt(v+'/5', W-M-3, y+3, 7, color, 'bold', 'right');
+              } else if(itemType === 'number'){
+                txt(String(v), W-M-3, y+3, 7, NAVY, 'bold', 'right');
+              } else {
+                // text
+                const txtLines = doc.splitTextToSize(String(v), CW-30);
+                txt(txtLines[0].slice(0,40)+(txtLines[0].length>40?'…':''), W-M-3, y+3, 6, TEXT_GREY, 'normal', 'right');
+              }
+              y+=5;
+            });
+          });
+          y+=2;
+        });
+
+        // Resumen (fortalezas / mejoras)
+        const sm = ef.summary_json || {};
+        if((sm.strengths&&sm.strengths.length) || (sm.improvements&&sm.improvements.length)){
+          if(y>250){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+          rect(M, y, CW, 4+(((sm.strengths||[]).length+(sm.improvements||[]).length)*4)+4, BG_CARD, 2);
+          stroke(M, y, CW, 4+(((sm.strengths||[]).length+(sm.improvements||[]).length)*4)+4, BORDER, 2);
+          let yi = y+4;
+          (sm.strengths||[]).forEach(s=>{ txt('+ '+s.slice(0,80), M+3, yi+2, 6.5, GREEN); yi+=4; });
+          (sm.improvements||[]).forEach(s=>{ txt('- '+s.slice(0,80), M+3, yi+2, 6.5, AMBER); yi+=4; });
+          y = yi+4;
+        }
+
+        // Diagnóstico libre
+        const dx = ef.diagnosis_json || {};
+        if(dx.observation || dx.recommendation){
+          if(y>260){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+          if(dx.observation){
+            txt('OBSERVACIÓN:', M, y+3, 6.5, TEXT_GREY, 'bold');
+            const obs = doc.splitTextToSize(dx.observation, CW);
+            obs.slice(0,3).forEach((ln,i)=>{ txt(ln, M, y+7+i*3.5, 6.5, TEXT_DARK); });
+            y += 7 + Math.min(obs.length,3)*3.5 + 1;
+          }
+          if(dx.recommendation){
+            if(y>270){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+            txt('RECOMENDACIÓN:', M, y+3, 6.5, CYAN, 'bold');
+            const rec = doc.splitTextToSize(dx.recommendation, CW);
+            rec.slice(0,3).forEach((ln,i)=>{ txt(ln, M, y+7+i*3.5, 6.5, TEXT_DARK); });
+            y += 7 + Math.min(rec.length,3)*3.5 + 1;
+          }
+        }
+
+        // Narrativa del coach
+        if(ef.coach_narrative){
+          if(y>260){doc.addPage();drawPageHeader('EVALUACIONES (cont.)');y=22;}
+          txt('NOTA DEL COACH:', M, y+3, 6.5, PURPLE, 'bold');
+          const nar = doc.splitTextToSize(ef.coach_narrative, CW);
+          nar.slice(0,3).forEach((ln,i)=>{ txt(ln, M, y+7+i*3.5, 6.5, TEXT_DARK); });
+          y += 7 + Math.min(nar.length,3)*3.5 + 1;
+        }
+
+        // Separador entre evals
+        y+=4;
+        line(M, y, W-M, y, BORDER, 0.3);
+        y+=4;
       });
+      drawPageFooter();
     }
 
-    // Competencias + heats
+    // Competencias + heats — detalle expandido
     if(compList.length){
-      if(y>240){doc.addPage();drawPageHeader('COMPETENCIAS');y=22;}
-      txt('COMPETENCIAS (' + compList.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
+      doc.addPage();
+      drawPageHeader('RESULTADOS DE EVENTOS');
+      y = 22;
+      txt('COMPETENCIAS (' + compList.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=10;
       // Load heats
       const compIds = compList.map(c=>c.id);
       let heatsByComp = {};
@@ -9231,34 +9319,178 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
         (hs||[]).forEach(h=>{ (heatsByComp[h.competition_id]=heatsByComp[h.competition_id]||[]).push(h); });
       } catch(e){}
       compList.forEach(c=>{
-        if(y>250){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
+        if(y>240){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
         const heats = heatsByComp[c.id]||[];
-        rect(M, y, CW, 12, BG_CARD, 2);
-        stroke(M, y, CW, 12, BORDER, 2);
-        txt('🏆 '+c.name, M+3, y+5, 9, NAVY, 'bold');
+        // Header card
+        rect(M, y, CW, 14, NAVY, 2);
+        txt('🏆 '+c.name, M+3, y+5, 9, [255,255,255], 'bold');
         const sub = [fmtDate(c.date), c.place, c.category].filter(Boolean).join(' · ');
-        txt(sub, M+3, y+10, 7, TEXT_GREY);
+        txt(sub, M+3, y+10, 7, CYAN);
         const statusColor = c.status==='finalizada'?GREEN:c.status==='en_curso'?CYAN:AMBER;
         const statusLabel = c.status==='finalizada'?'FINALIZADA':c.status==='en_curso'?'EN CURSO':'PROGRAMADA';
         txt(statusLabel, W-M-3, y+5, 7, statusColor, 'bold', 'right');
-        txt(heats.length+' heat(s)', W-M-3, y+10, 6, TEXT_LIGHT, 'normal', 'right');
-        y+=14;
+        txt(heats.length+' heat(s)', W-M-3, y+10, 6, [255,255,255], 'normal', 'right');
+        y+=18;
+
+        // Heats detallados
+        if(heats.length){
+          if(y>250){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
+          txt('HEATS:', M, y+3, 7, TEXT_GREY, 'bold'); y+=5;
+          heats.forEach(h=>{
+            if(y>270){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
+            let waves=[]; try{ waves=h.waves_json?(typeof h.waves_json==='object'?h.waves_json:JSON.parse(h.waves_json)):[]; }catch(e){}
+            const top2 = (waves||[]).filter(w=>w&&w.score>0).map(w=>parseFloat(w.score)||0).sort((a,b)=>b-a).slice(0,2);
+            const total = top2.reduce((a,b)=>a+b,0).toFixed(2);
+            rect(M, y, CW, 9, BG_CARD, 1.5);
+            stroke(M, y, CW, 9, BORDER, 1.5);
+            txt('Heat '+(h.heat_number||'?'), M+3, y+5.5, 7, NAVY, 'bold');
+            if(h.round) txt(h.round, M+22, y+5.5, 6.5, TEXT_GREY);
+            if(h.result) txt(h.result, M+42, y+5.5, 6.5, TEXT_GREY);
+            // Top 2 scores
+            top2.forEach((s,i)=>{
+              txt(s.toFixed(2), W-M-30+i*14, y+5.5, 7, NAVY, 'bold', 'right');
+            });
+            txt('TOTAL '+total, W-M-3, y+5.5, 7, GREEN, 'bold', 'right');
+            y+=11;
+          });
+        }
+
         // Auto-eval del atleta
         let fe=null; try{fe=c.athlete_final_eval?(typeof c.athlete_final_eval==='object'?c.athlete_final_eval:JSON.parse(c.athlete_final_eval)):null;}catch(e){}
         if(fe){
+          if(y>260){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
+          txt('AUTO-EVALUACIÓN POST-HEAT:', M, y+3, 7, TEXT_GREY, 'bold'); y+=5;
+          rect(M, y, CW, 12, BG_CARD, 2);
+          stroke(M, y, CW, 12, BORDER, 2);
           const feLabels = [['Físico','fisico'],['Técnica','tecnica'],['Táctica','tactica'],['Olas','eleccion_olas'],['Equipo','equipo'],['Mental','mental']];
           const feW = CW/6;
           feLabels.forEach((it,i)=>{
             const fx = M+i*feW;
             const v = fe[it[1]]||0;
             const col = v>=4?GREEN:v>=3?AMBER:v>0?RED:TEXT_LIGHT;
-            txt(it[0], fx+feW/2, y+2, 5, TEXT_LIGHT, 'normal', 'center');
-            txt((v||'—')+'/5', fx+feW/2, y+6, 8, col, 'bold', 'center');
+            txt(it[0], fx+feW/2, y+4, 5, TEXT_GREY, 'normal', 'center');
+            txt((v||'—')+'/5', fx+feW/2, y+9, 8, col, 'bold', 'center');
           });
-          y+=10;
+          y+=14;
         }
-        y+=3;
+
+        // Notas del atleta sobre la competencia
+        if(c.athlete_final_notes){
+          if(y>260){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
+          txt('NOTAS DEL ATLETA:', M, y+3, 7, CYAN, 'bold'); y+=4;
+          const nlines = doc.splitTextToSize(c.athlete_final_notes, CW);
+          nlines.slice(0,4).forEach((ln,i)=>{ txt(ln, M, y+3+i*3.5, 6.5, TEXT_DARK); });
+          y += 3 + Math.min(nlines.length,4)*3.5;
+        }
+
+        // Notas internas
+        if(c.notes){
+          if(y>260){doc.addPage();drawPageHeader('COMPETENCIAS (cont.)');y=22;}
+          txt('NOTAS:', M, y+3, 7, TEXT_GREY, 'bold'); y+=4;
+          const nlines = doc.splitTextToSize(c.notes, CW);
+          nlines.slice(0,2).forEach((ln,i)=>{ txt(ln, M, y+3+i*3.5, 6.5, TEXT_DARK); });
+          y += 3 + Math.min(nlines.length,2)*3.5;
+        }
+
+        y+=4;
+        line(M, y, W-M, y, BORDER, 0.3);
+        y+=4;
       });
+      drawPageFooter();
+    }
+
+    // Comp evaluations (eval rápida post-heat con análisis detallado)
+    if(comps.length){
+      doc.addPage();
+      drawPageHeader('EVALUACIONES DE COMPETENCIA');
+      y = 22;
+      txt('EVALUACIONES POST-COMPETENCIA (' + comps.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=10;
+
+      comps.forEach((ce, idx) => {
+        if(y>240){doc.addPage();drawPageHeader('EVAL COMPETENCIA (cont.)');y=22;}
+        // Header
+        rect(M, y, CW, 14, NAVY, 2);
+        txt('🏆 '+(ce.event_name||'Sin nombre'), M+3, y+5, 9, [255,255,255], 'bold');
+        const sub2 = [fmtDate(ce.date), ce.event_level, ce.athlete_category, ce.round_reached].filter(Boolean).join(' · ');
+        txt(sub2, M+3, y+10, 7, CYAN);
+        if(ce.final_ranking) txt('🥇 '+ce.final_ranking, W-M-3, y+8, 8, AMBER, 'bold', 'right');
+        y+=18;
+
+        // Scores de heat
+        if(ce.heat_total || ce.highest_wave || ce.avg_wave_score){
+          if(y>260){doc.addPage();drawPageHeader('EVAL COMPETENCIA (cont.)');y=22;}
+          txt('SCORES:', M, y+3, 7, TEXT_GREY, 'bold'); y+=5;
+          rect(M, y, CW, 10, BG_CARD, 2);
+          stroke(M, y, CW, 10, BORDER, 2);
+          const cols = [
+            ['Heat Total', ce.heat_total||'—'],
+            ['Mejor ola', ce.highest_wave||'—'],
+            ['Peor ola', ce.lowest_wave||'—'],
+            ['Promedio', ce.avg_wave_score||'—'],
+          ];
+          const cw = CW/4;
+          cols.forEach((c2,i)=>{
+            txt(c2[0], M+i*cw+cw/2, y+4, 5, TEXT_LIGHT, 'normal', 'center');
+            txt(String(c2[1]), M+i*cw+cw/2, y+8, 8, NAVY, 'bold', 'center');
+          });
+          y+=12;
+        }
+
+        // Pilares de eval (1-5)
+        const pillarItems = [
+          ['Mental Focus',ce.mental_focus],['Presión',ce.pressure_response],
+          ['Control Emo.',ce.emotional_control],['Resiliencia',ce.resilience],
+          ['Compromiso',ce.commitment],['Decisiones',ce.decisions_pressure],
+          ['Take-off',ce.takeoff_quality],['Velocidad',ce.speed_generation],
+          ['Flow',ce.wave_flow],['Wave Choice',ce.wave_choice],
+          ['Prioridad',ce.priority_usage],['Posición',ce.lineup_positioning],
+          ['Paddle Timing',ce.paddle_timing],['Plan Ejec.',ce.plan_executed],
+          ['Adapt. Cond.',ce.adapted_conditions],['Adapt. Riv.',ce.adapted_opponents],
+          ['Heat Prep',ce.heat_prep],['Tabla',ce.board_performance],
+        ].filter(p=>p[1]&&p[1]>0);
+        if(pillarItems.length){
+          if(y>250){doc.addPage();drawPageHeader('EVAL COMPETENCIA (cont.)');y=22;}
+          txt('PILARES (1-5):', M, y+3, 7, TEXT_GREY, 'bold'); y+=5;
+          const colsPerRow = 3, rowH = 5;
+          pillarItems.forEach((p,i)=>{
+            const r = Math.floor(i/colsPerRow), c2 = i%colsPerRow;
+            const x = M + c2*(CW/colsPerRow);
+            const yy = y + r*rowH;
+            if(yy>275){return;}
+            const col = p[1]>=4?GREEN:p[1]>=3?AMBER:RED;
+            txt(p[0]+':', x+1, yy+3, 6, TEXT_DARK);
+            txt(p[1]+'/5', x+CW/colsPerRow-2, yy+3, 6.5, col, 'bold', 'right');
+          });
+          y += Math.ceil(pillarItems.length/colsPerRow)*rowH + 3;
+        }
+
+        // Diagnóstico libre
+        const fields = [
+          ['main_strength','💪 Fortaleza principal',GREEN],
+          ['key_limitation','⚠️ Limitación clave',AMBER],
+          ['critical_error','❌ Error crítico',RED],
+          ['pattern','🔁 Patrón detectado',TEXT_GREY],
+          ['diagnosis','🔍 Diagnóstico',CYAN],
+          ['what_worked','✅ Qué funcionó',GREEN],
+          ['what_failed','❌ Qué falló',RED],
+          ['top_priority','🎯 Prioridad top',NAVY],
+          ['concrete_action','📋 Acción concreta',NAVY],
+        ];
+        fields.forEach(([k,lbl,col])=>{
+          const v = ce[k];
+          if(!v||!v.trim()) return;
+          if(y>265){doc.addPage();drawPageHeader('EVAL COMPETENCIA (cont.)');y=22;}
+          txt(lbl+':', M, y+3, 6.5, col, 'bold');
+          const lines = doc.splitTextToSize(v, CW);
+          lines.slice(0,3).forEach((ln,i)=>{ txt(ln, M, y+7+i*3.5, 6.5, TEXT_DARK); });
+          y += 7 + Math.min(lines.length,3)*3.5 + 1;
+        });
+
+        y+=4;
+        line(M, y, W-M, y, BORDER, 0.3);
+        y+=4;
+      });
+      drawPageFooter();
     }
 
     drawPageFooter();
