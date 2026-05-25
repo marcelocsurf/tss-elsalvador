@@ -6877,7 +6877,54 @@ async function vPerfil(athleteId=null,athleteName=null){
         ${athBio.goal_long_term?`<div><div style="font-size:10px;color:var(--purple);font-weight:700;letter-spacing:.5px;">LARGO PLAZO · 4 AÑOS</div><div style="font-size:12px;color:var(--white);margin-top:3px;line-height:1.5;">${esc(athBio.goal_long_term)}</div></div>`:''}
       </div>` : '';
 
+    // ─── Banner de Ficha Técnica ──────────────────────────────────────
+    // Aparece si el viewer es el atleta dueño o el head coach
+    // Solo muestra si faltan campos importantes de la ficha técnica
+    const fichaFields = [
+      {k:'nickname',         lbl:'apodo deportivo'},
+      {k:'gender',           lbl:'sexo'},
+      {k:'birth_place',      lbl:'lugar de nacimiento'},
+      {k:'passport_number',  lbl:'pasaporte'},
+      {k:'passport_expiry_date', lbl:'vencimiento pasaporte'},
+      {k:'favorite_maneuver',lbl:'maniobra favorita'},
+      {k:'dominant_hand',    lbl:'mano dominante'},
+      {k:'dominant_foot',    lbl:'pie dominante'},
+      {k:'sponsors',         lbl:'patrocinadores'},
+      {k:'years_competing',  lbl:'años compitiendo'},
+      {k:'events_per_year',  lbl:'eventos por año'},
+      {k:'palmares_historico', lbl:'palmarés histórico'},
+    ];
+    const filled = fichaFields.filter(f => athBio[f.k] !== null && athBio[f.k] !== undefined && String(athBio[f.k]).trim() !== '');
+    const missingFields = fichaFields.filter(f => !filled.includes(f));
+    const fichaPct = Math.round((filled.length / fichaFields.length) * 100);
+    const isOwnerView = S.user.id === id;
+    const isHeadCoach = S.user.role === 'coach';
+    const showFichaBanner = (isOwnerView || isHeadCoach) && fichaPct < 100;
+    const barColor = fichaPct < 30 ? 'var(--red)' : fichaPct < 70 ? 'var(--amber)' : 'var(--green)';
+    const bgTint = fichaPct < 30 ? 'rgba(239,68,68,.08)' : fichaPct < 70 ? 'rgba(245,158,11,.08)' : 'rgba(34,197,94,.08)';
+    const borderTint = fichaPct < 30 ? 'rgba(239,68,68,.3)' : fichaPct < 70 ? 'rgba(245,158,11,.35)' : 'rgba(34,197,94,.3)';
+    const top4Missing = missingFields.slice(0,4).map(f=>f.lbl).join(' · ');
+    const fichaBannerHtml = showFichaBanner ? `
+      <div class="card anim-up" style="margin-bottom:10px;background:${bgTint};border:1px solid ${borderTint};cursor:pointer;" onclick="openInfoCompletaModal('${id}','ficha')">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:24px;flex-shrink:0;">📋</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:var(--white);margin-bottom:2px;">
+              ${isOwnerView?'Tu ficha técnica':'Ficha técnica de '+esc(name)} · ${fichaPct}% completa
+            </div>
+            <div style="font-size:10px;color:var(--grey);">
+              ${missingFields.length>0?'Faltan: '+esc(top4Missing)+(missingFields.length>4?' y '+(missingFields.length-4)+' más':''):'Llena para generar PDF oficial'}
+            </div>
+            <div style="height:5px;background:rgba(255,255,255,.06);border-radius:5px;margin-top:6px;overflow:hidden;">
+              <div style="height:100%;width:${fichaPct}%;background:${barColor};transition:width .5s;"></div>
+            </div>
+          </div>
+          <div style="font-size:18px;color:${barColor};flex-shrink:0;">→</div>
+        </div>
+      </div>` : '';
+
     document.getElementById('perfilContent').innerHTML=`
+      ${fichaBannerHtml}
       ${injuryCardHtml}
       ${metasCardHtml}
       ${isCoach?`<div class="card card-cyan wave-score-wrap">
@@ -7434,13 +7481,15 @@ function buildPillarRadar(evals){
    INFO COMPLETA — Modal con 5 secciones acordeón
    openInfoCompletaModal, saveInfoCompleta, accordionToggle
    ════════════════════════════════════════════════════════════════════ */
-async function openInfoCompletaModal(athleteId){
+async function openInfoCompletaModal(athleteId, autoSection){
   let m = document.getElementById('infoCompletaModal');
   if(m) m.remove();
   m = document.createElement('div'); m.className='modal-overlay'; m.id='infoCompletaModal';
   m.innerHTML=`<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;"><div class="modal-head"><div class="modal-title">📋 Información del Atleta</div><button class="btn-icon" onclick="closeModal('infoCompletaModal')">✕</button></div><div id="ic-body" style="padding:6px 0;"><p style="text-align:center;color:var(--grey);padding:30px;">Cargando...</p></div></div>`;
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) closeModal('infoCompletaModal'); };
+  // Si se pidió auto-expandir una sección, hacerlo después de renderizar
+  window._icAutoSection = autoSection || null;
 
   try {
     const{data:prof}=await db.from('tss_profiles').select('*').eq('id',athleteId).single();
@@ -7561,6 +7610,27 @@ async function openInfoCompletaModal(athleteId){
 
       ${canEdit?`<button class="btn btn-cyan" style="margin-top:14px;" onclick="saveInfoCompleta('${athleteId}')">💾 Guardar Información</button>`:''}
     `;
+    // Auto-expandir sección si fue solicitado (ej. desde banner Ficha Técnica)
+    if(window._icAutoSection === 'ficha'){
+      setTimeout(()=>{
+        // Cerrar la primera sección que está abierta por default
+        const sec1Body = document.getElementById('ic-sec1-body');
+        const sec1Icon = document.getElementById('ic-sec1-icon');
+        if(sec1Body && sec1Body.style.display !== 'none'){
+          sec1Body.style.display = 'none';
+          if(sec1Icon) sec1Icon.style.transform = 'rotate(0deg)';
+        }
+        // Expandir sección 6 (Ficha Técnica) y hacer scroll a ella
+        const sec6Body = document.getElementById('ic-sec6-body');
+        const sec6Icon = document.getElementById('ic-sec6-icon');
+        if(sec6Body){
+          sec6Body.style.display = 'block';
+          if(sec6Icon) sec6Icon.style.transform = 'rotate(180deg)';
+          sec6Body.scrollIntoView({behavior:'smooth',block:'start'});
+        }
+        window._icAutoSection = null;
+      }, 100);
+    }
   } catch(e){ document.getElementById('ic-body').innerHTML='<p style="color:var(--red);padding:20px;">Error: '+esc(e.message)+'</p>'; console.error(e); }
 }
 
