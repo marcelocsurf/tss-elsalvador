@@ -6794,6 +6794,7 @@ async function vPerfil(athleteId=null,athleteName=null){
     </div>
     ${isCoach?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-cyan btn-sm" onclick="openPdfRangeModal('${id}','${escAttr(name)}')">📈 Reporte PDF</button>
+      <button class="btn btn-sm" style="background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.3);" onclick="generateFichaTecnicaPDF('${id}','${escAttr(name)}')">📋 Ficha Técnica</button>
       <button class="btn btn-sm" style="background:rgba(0,201,232,.08);color:var(--cyan);border:1px solid rgba(0,201,232,.2);" onclick="openWeeklyReport('${id}','${escAttr(name)}')">📊 Semana</button>
       <button class="btn btn-sm" style="background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);" onclick="openEditBio('${id}')">✏️ Bio</button>
       <button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="confirmDeactivate('${id}','${escAttr(name)}')">🗑 Desactivar</button>
@@ -7517,6 +7518,47 @@ async function openInfoCompletaModal(athleteId){
         ${ta('why_train','¿Por qué entrenas con TSS?', prof.why_train,'Tu motivación...')}
       `)}
 
+      ${section('ic-sec6', '📋 6. Ficha Técnica · Datos para perfil oficial', `
+        <div style="font-size:11px;color:var(--cyan);margin-bottom:10px;padding:8px 10px;background:rgba(0,201,232,.08);border-radius:8px;">
+          Estos datos se usan para generar tu ficha técnica oficial (federación, sponsors, comunicación deportiva).
+        </div>
+
+        ${inp('nickname','🎽 Apodo deportivo', prof.nickname,'text','Ej: Pink Panther')}
+        ${inp('nationality','🌎 Nacionalidad', prof.nationality||'Salvadoreña','text','Salvadoreña')}
+        ${sel('gender','Sexo', prof.gender, [{v:'',l:'— Elige —'},{v:'Masculino',l:'Masculino'},{v:'Femenino',l:'Femenino'},{v:'Otro',l:'Otro'}])}
+        ${inp('birth_place','📍 Lugar de nacimiento', prof.birth_place,'text','Ciudad, país')}
+        ${sel('civil_status','Estado civil', prof.civil_status, [{v:'',l:'— Elige —'},{v:'Soltero(a)',l:'Soltero(a)'},{v:'Casado(a)',l:'Casado(a)'},{v:'Divorciado(a)',l:'Divorciado(a)'},{v:'Unión libre',l:'Unión libre'}])}
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border2);">
+          <div style="font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:8px;">🛂 PASAPORTE</div>
+          ${inp('passport_number','Número de pasaporte', prof.passport_number,'text','Ej: B05936869')}
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;">${inp('passport_issue_date','Fecha de emisión', prof.passport_issue_date,'date')}</div>
+            <div style="flex:1;">${inp('passport_expiry_date','Fecha de vencimiento', prof.passport_expiry_date,'date')}</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border2);">
+          <div style="font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:8px;">🏄 PERFIL DEPORTIVO</div>
+          ${inp('favorite_maneuver','Maniobra favorita', prof.favorite_maneuver,'text','Ej: Tubo, aéreo, snap...')}
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;">${sel('dominant_hand','Mano dominante', prof.dominant_hand, [{v:'',l:'— Elige —'},{v:'Diestra',l:'Diestra'},{v:'Zurda',l:'Zurda'}])}</div>
+            <div style="flex:1;">${sel('dominant_foot','Pie dominante', prof.dominant_foot, [{v:'',l:'— Elige —'},{v:'Diestro',l:'Diestro'},{v:'Zurdo',l:'Zurdo'}])}</div>
+          </div>
+          ${inp('club_academy','🏠 Club / Academia', prof.club_academy||'Puro Surf','text','Ej: Puro Surf')}
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;">${inp('years_competing','Años compitiendo', prof.years_competing,'number','Ej: 8')}</div>
+            <div style="flex:1;">${inp('events_per_year','Eventos por año (aprox.)', prof.events_per_year,'number','Ej: 14')}</div>
+          </div>
+          ${ta('sponsors','💼 Patrocinadores', prof.sponsors,'Lista de sponsors separados por comas. Ej: Hurley, Red Bull, FCS...')}
+        </div>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border2);">
+          <div style="font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:8px;">🏆 PALMARÉS HISTÓRICO</div>
+          ${ta('palmares_historico','Resultados anteriores destacados', prof.palmares_historico,'Escribe libremente tus mejores resultados de años pasados. Ej:\\n2024 · Centroamericano Junior – 2° lugar\\n2023 · Open Nacional – Campeón\\n...')}
+        </div>
+      `)}
+
       ${canEdit?`<button class="btn btn-cyan" style="margin-top:14px;" onclick="saveInfoCompleta('${athleteId}')">💾 Guardar Información</button>`:''}
     `;
   } catch(e){ document.getElementById('ic-body').innerHTML='<p style="color:var(--red);padding:20px;">Error: '+esc(e.message)+'</p>'; console.error(e); }
@@ -7558,6 +7600,23 @@ async function saveInfoCompleta(athleteId){
     goal_mid_term: txt('goal_mid_term'),
     goal_long_term: txt('goal_long_term'),
     why_train: txt('why_train'),
+    // Ficha técnica
+    nickname: txt('nickname'),
+    nationality: txt('nationality'),
+    gender: txt('gender'),
+    birth_place: txt('birth_place'),
+    civil_status: txt('civil_status'),
+    passport_number: txt('passport_number'),
+    passport_issue_date: txt('passport_issue_date'),
+    passport_expiry_date: txt('passport_expiry_date'),
+    favorite_maneuver: txt('favorite_maneuver'),
+    dominant_hand: txt('dominant_hand'),
+    dominant_foot: txt('dominant_foot'),
+    club_academy: txt('club_academy'),
+    sponsors: txt('sponsors'),
+    events_per_year: num('events_per_year'),
+    years_competing: num('years_competing'),
+    palmares_historico: txt('palmares_historico'),
   };
   showLoad(true);
   try {
@@ -8830,6 +8889,298 @@ function setPdfRange(daysOrSeason){
    PDF V2 · DISEÑO PROFESIONAL · 4 páginas con gráficos
    Paleta clara · navy + cyan · gris medio · cards de fondo claro
    ════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   PDF · FICHA TÉCNICA (perfil deportivo oficial)
+   ════════════════════════════════════════════════════════════════════ */
+async function generateFichaTecnicaPDF(athleteId, athleteName){
+  if(S.user.role !== 'coach'){ toast('Solo el head coach puede generar la ficha técnica','error'); return; }
+  toast('Generando ficha técnica...','info');
+  showLoad(true);
+  try {
+    // Fetch all data
+    const today = todayStr();
+    const periodFrom = OFFICIAL_START;
+    const [{data:prof},{data:checkins},{data:evals},{data:compEvals},{data:sessions},{data:competitions}] = await Promise.all([
+      db.from('tss_profiles').select('*').eq('id',athleteId).maybeSingle(),
+      db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',periodFrom).lte('date',today),
+      db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',periodFrom).lte('date',today).order('date',{ascending:false}),
+      db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',periodFrom).lte('date',today).order('date',{ascending:false}),
+      db.from('tss_presencial_sessions').select('id,date,title,athlete_ids,status').gte('date',periodFrom).lte('date',today),
+      db.from('tss_competitions').select('*').eq('athlete_id',athleteId).gte('date',periodFrom).lte('date',today).order('date',{ascending:false}),
+    ]);
+    if(!prof){ toast('No se encontró el atleta','error'); return; }
+    const ath = prof;
+    const cis = checkins||[];
+    const evs = evals||[];
+    const comps = compEvals||[];
+    const compList = competitions||[];
+    const attended = (sessions||[]).filter(s=>{ try{ const ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]'); return ids.includes(athleteId); }catch(e){return false;} });
+
+    // Stats del período
+    const totalH = cis.reduce((s,c)=>s+(parseFloat(c.surf_hours)||0),0);
+    const checkinDays = cis.filter(c=>c.water_glasses||c.energy_level||c.notes).length;
+    const totalDays = Math.max(1, Math.ceil((new Date(today) - new Date(periodFrom))/(1000*60*60*24)));
+    const planPct = cis.length ? Math.round(cis.reduce((s,c)=>s+(c.progress_pct||0),0)/cis.length) : 0;
+    const energyVals = cis.filter(c=>c.energy_level>0).map(c=>c.energy_level);
+    const avgEnergy = energyVals.length ? (energyVals.reduce((a,b)=>a+b,0)/energyVals.length) : 0;
+    const focusVals = cis.filter(c=>c.focus_level>0).map(c=>c.focus_level);
+    const avgFocus = focusVals.length ? (focusVals.reduce((a,b)=>a+b,0)/focusVals.length) : 0;
+    const pillarAvg = key => {
+      const v = evs.map(e=>e[key]).filter(x=>x&&x>0);
+      return v.length ? (v.reduce((a,b)=>a+b,0)/v.length) : 0;
+    };
+    const physAvg = pillarAvg('physical');
+    const techAvg = pillarAvg('technique');
+    const tactAvg = pillarAvg('tactical');
+    const mentAvg = pillarAvg('mindset');
+    const nonZero = [physAvg,techAvg,tactAvg,mentAvg].filter(x=>x>0);
+    const idxGlobal = nonZero.length ? (nonZero.reduce((a,b)=>a+b,0)/nonZero.length) : 0;
+
+    // Edad
+    let edad = '—';
+    if(ath.birth_date){
+      const bd = new Date(ath.birth_date+'T00:00:00');
+      const now = new Date();
+      let a = now.getFullYear()-bd.getFullYear();
+      const m = now.getMonth()-bd.getMonth();
+      if(m<0 || (m===0 && now.getDate()<bd.getDate())) a--;
+      edad = a + ' años';
+    }
+    // Belt
+    const beltName = ath.current_belt ? (getBelt(ath.current_belt)?.name || ath.current_belt) : '—';
+
+    // ── PDF SETUP ────────────────────────────
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210, H=297, M=18, CW=W-M*2;
+    const NAVY=[10,37,64], CYAN=[0,180,210], BG_CARD=[245,247,250], BORDER=[220,228,235];
+    const TEXT_DARK=[30,41,59], TEXT_GREY=[100,116,139], TEXT_LIGHT=[148,163,184];
+    const GREEN=[34,197,94], AMBER=[245,158,11], RED=[239,68,68], MISSING=[239,68,68];
+
+    const setFill = c=>doc.setFillColor(...c);
+    const setStroke = c=>doc.setDrawColor(...c);
+    const setText = c=>doc.setTextColor(...c);
+    const rect = (x,y,w,h,c,r=2)=>{setFill(c);doc.roundedRect(x,y,w,h,r,r,'F');};
+    const stroke = (x,y,w,h,c,r=2,lw=0.4)=>{setStroke(c);doc.setLineWidth(lw);doc.roundedRect(x,y,w,h,r,r,'S');};
+    const txt = (t,x,y,sz,col,style='normal',align='left')=>{setText(col);doc.setFontSize(sz);doc.setFont('helvetica',style);doc.text(String(t),x,y,{align});};
+    const line = (x1,y1,x2,y2,c=BORDER,lw=0.3)=>{setStroke(c);doc.setLineWidth(lw);doc.line(x1,y1,x2,y2);};
+
+    let pageNum = 0;
+    const drawHeader = () => {
+      rect(0,0,W,22,NAVY,0);
+      txt('TSS · THE SURF SEQUENCE METHOD®', M, 9, 8, [200,210,220]);
+      txt('FICHA TÉCNICA', M, 16, 14, [255,255,255], 'bold');
+      txt('PERFIL DEPORTIVO DEL ATLETA', W-M, 16, 9, CYAN, 'bold', 'right');
+      rect(0,22,W,1.5,CYAN,0);
+    };
+    const drawFooter = () => {
+      pageNum++;
+      txt('Documento generado por TSS · ' + new Date().toLocaleDateString('es-SV',{day:'2-digit',month:'long',year:'numeric'}), M, H-8, 7, TEXT_LIGHT);
+      txt('Página '+pageNum, W-M, H-8, 7, TEXT_LIGHT, 'normal','right');
+      line(M, H-13, W-M, H-13, BORDER, 0.2);
+    };
+
+    // ─── Helper para fila key-value ───
+    const TBL_LBL_W = 55;
+    const drawRow = (lbl, val, y) => {
+      const isMissing = !val || String(val).trim()==='' || val==='—';
+      const display = isMissing ? '[POR COMPLETAR]' : String(val);
+      rect(M, y, TBL_LBL_W, 7, [248,250,253], 1);
+      stroke(M, y, TBL_LBL_W, 7, BORDER, 1, 0.2);
+      txt(lbl, M+3, y+4.8, 8, TEXT_GREY, 'bold');
+      rect(M+TBL_LBL_W, y, CW-TBL_LBL_W, 7, [255,255,255], 1);
+      stroke(M+TBL_LBL_W, y, CW-TBL_LBL_W, 7, BORDER, 1, 0.2);
+      txt(display, M+TBL_LBL_W+3, y+4.8, 8, isMissing ? MISSING : TEXT_DARK, isMissing ? 'italic' : 'normal');
+      return y+7;
+    };
+    const drawSection = (num, title, y) => {
+      if(y>270){ doc.addPage(); drawHeader(); y=30; }
+      rect(M, y, CW, 9, NAVY, 1.5);
+      txt(num+'. '+title.toUpperCase(), M+3, y+6, 10, [255,255,255], 'bold');
+      return y+12;
+    };
+
+    // ═══ PÁGINA 1 ═══
+    drawHeader();
+    let y = 28;
+
+    // Nombre destacado
+    rect(M, y, CW, 18, CYAN, 2);
+    txt(ath.name, M+4, y+8, 14, [255,255,255], 'bold');
+    const subParts = [ath.discipline==='shortboard'?'Shortboard':ath.discipline==='longboard'?'Longboard':'Surf'];
+    if(ath.nickname) subParts.unshift('"'+ath.nickname+'"');
+    txt(subParts.join(' · '), M+4, y+14, 9, [220,240,250], 'italic');
+    if(ath.current_belt) txt('🎗 '+beltName, W-M-4, y+10, 10, [255,255,255], 'bold','right');
+    y += 22;
+
+    // Encabezado meta
+    txt('Presentado por: Marcelo Castellanos · Entrenador', M, y+3, 8, TEXT_GREY); y+=4;
+    txt('Período del reporte: '+fmtDate(periodFrom)+' al '+fmtDate(today)+' ('+totalDays+' días)', M, y+3, 8, TEXT_GREY); y+=8;
+
+    // ─── 1. Datos personales ───
+    y = drawSection(1, 'Datos personales', y);
+    y = drawRow('Nombre completo', ath.name, y);
+    y = drawRow('Apodo deportivo', ath.nickname, y);
+    y = drawRow('Fecha de nacimiento', ath.birth_date?fmtDate(ath.birth_date):null, y);
+    y = drawRow('Edad', edad, y);
+    y = drawRow('Lugar de nacimiento', ath.birth_place, y);
+    y = drawRow('Nacionalidad', ath.nationality||'Salvadoreña', y);
+    y = drawRow('Sexo', ath.gender, y);
+    y = drawRow('Dirección', ath.address, y);
+    y = drawRow('Teléfono', ath.phone, y);
+    y = drawRow('Correo electrónico', ath.email, y);
+    const pasaTxt = ath.passport_number ? (ath.passport_number + (ath.passport_issue_date?' · emitido '+fmtDate(ath.passport_issue_date):'') + (ath.passport_expiry_date?' · vence '+fmtDate(ath.passport_expiry_date):'')) : null;
+    y = drawRow('Pasaporte', pasaTxt, y);
+    y = drawRow('DUI', ath.dui, y);
+    y = drawRow('Estado civil', ath.civil_status, y);
+    y += 4;
+
+    // ─── 2. Datos físicos y técnicos ───
+    if(y>240){ doc.addPage(); drawHeader(); y=30; }
+    y = drawSection(2, 'Datos físicos y técnicos', y);
+    y = drawRow('Altura', ath.height_cm ? (ath.height_cm/100).toFixed(2)+' m' : null, y);
+    y = drawRow('Peso', ath.weight_kg ? ath.weight_kg+' kg' : null, y);
+    y = drawRow('Stance', ath.stance, y);
+    y = drawRow('Disciplina', ath.discipline==='shortboard'?'Shortboard':ath.discipline==='longboard'?'Longboard':ath.discipline==='both'?'Ambas':null, y);
+    y = drawRow('Años practicando surf', ath.years_surfing ? ath.years_surfing+' años' : null, y);
+    y = drawRow('Años compitiendo', ath.years_competing ? ath.years_competing+' años' : null, y);
+    y = drawRow('Maniobra favorita', ath.favorite_maneuver, y);
+    y = drawRow('Mano dominante', ath.dominant_hand, y);
+    y = drawRow('Pie dominante', ath.dominant_foot, y);
+    y = drawRow('Seguro médico', ath.insurance_provider ? ath.insurance_provider+(ath.insurance_number?' · póliza '+ath.insurance_number:'') : null, y);
+    y += 4;
+
+    drawFooter();
+
+    // ═══ PÁGINA 2 ═══
+    doc.addPage(); drawHeader(); y = 30;
+
+    // ─── 3. Perfil deportivo actual ───
+    y = drawSection(3, 'Perfil deportivo actual', y);
+    y = drawRow('Período evaluado', fmtDate(periodFrom)+' al '+fmtDate(today), y);
+    y = drawRow('Índice global de desempeño', idxGlobal>0 ? idxGlobal.toFixed(1)+' / 5' : null, y);
+    y = drawRow('Pilar físico', physAvg>0 ? physAvg.toFixed(1)+' / 5' : null, y);
+    y = drawRow('Pilar técnico', techAvg>0 ? techAvg.toFixed(1)+' / 5' : null, y);
+    y = drawRow('Pilar táctico', tactAvg>0 ? tactAvg.toFixed(1)+' / 5' : null, y);
+    y = drawRow('Pilar mental', mentAvg>0 ? mentAvg.toFixed(1)+' / 5' : null, y);
+    y = drawRow('Capacidad de crear scores', ath.score_capacity ? ath.score_capacity+' / 10' : null, y);
+    y = drawRow('Horas de surf', totalH>0 ? totalH.toFixed(1)+' h en '+attended.length+' sesiones' : null, y);
+    y = drawRow('Cumplimiento del plan', cis.length ? planPct+' %  ('+checkinDays+' días con check-in)' : null, y);
+    y = drawRow('Bienestar - energía', avgEnergy>0 ? avgEnergy.toFixed(1)+' / 5' : null, y);
+    y = drawRow('Bienestar - enfoque', avgFocus>0 ? avgFocus.toFixed(1)+' / 5' : null, y);
+    y = drawRow('Nivel TSS', beltName!=='—' ? 'Cinta '+beltName : null, y);
+    y += 4;
+
+    // ─── 4. Resultados recientes ───
+    if(y>200){ doc.addPage(); drawHeader(); y=30; }
+    y = drawSection(4, 'Resultados recientes', y);
+    if(compList.length || comps.length){
+      // Header tabla
+      rect(M, y, CW, 8, [248,250,253], 1);
+      stroke(M, y, CW, 8, BORDER, 1, 0.3);
+      const colW = [25, 60, 45, CW-130];
+      txt('Fecha', M+3, y+5.5, 7, TEXT_GREY, 'bold');
+      txt('Evento', M+colW[0]+3, y+5.5, 7, TEXT_GREY, 'bold');
+      txt('Ubicación', M+colW[0]+colW[1]+3, y+5.5, 7, TEXT_GREY, 'bold');
+      txt('Resultado / Score', M+colW[0]+colW[1]+colW[2]+3, y+5.5, 7, TEXT_GREY, 'bold');
+      y += 8;
+
+      // Merge competitions + comp_evals por fecha
+      const allEvents = [];
+      compList.forEach(c=>allEvents.push({date:c.date,name:c.name,place:c.place,result:c.status==='finalizada'?'Finalizada':c.category||'',type:'comp'}));
+      comps.forEach(c=>{
+        const r = [];
+        if(c.round_reached) r.push(c.round_reached);
+        if(c.heat_total) r.push('Heat total '+c.heat_total);
+        if(c.highest_wave) r.push('Mejor ola '+c.highest_wave);
+        if(c.avg_wave_score) r.push('Promedio '+c.avg_wave_score);
+        allEvents.push({date:c.date,name:c.event_name,place:c.event_level||'',result:r.join(' · ')||'—',type:'eval'});
+      });
+      allEvents.sort((a,b)=>b.date.localeCompare(a.date));
+      const top = allEvents.slice(0,8);
+      top.forEach(ev=>{
+        if(y>270){ doc.addPage(); drawHeader(); y=30; }
+        const h = 10;
+        stroke(M, y, CW, h, BORDER, 0.5, 0.2);
+        txt(fmtDate(ev.date), M+3, y+6, 7, NAVY, 'bold');
+        txt(doc.splitTextToSize(ev.name||'—', colW[1]-3)[0], M+colW[0]+3, y+6, 7, TEXT_DARK);
+        txt(doc.splitTextToSize(ev.place||'—', colW[2]-3)[0], M+colW[0]+colW[1]+3, y+6, 7, TEXT_GREY);
+        const resLines = doc.splitTextToSize(ev.result||'—', colW[3]-3);
+        txt(resLines[0], M+colW[0]+colW[1]+colW[2]+3, y+6, 7, TEXT_DARK);
+        y += h;
+      });
+      y += 4;
+    } else {
+      txt('Sin resultados registrados en el período.', M, y+5, 8, TEXT_LIGHT, 'italic'); y+=10;
+    }
+
+    // ─── 5. Volumen competitivo anual ───
+    if(y>240){ doc.addPage(); drawHeader(); y=30; }
+    y = drawSection(5, 'Volumen competitivo anual', y);
+    y = drawRow('Eventos por año (aprox.)', ath.events_per_year ? ath.events_per_year+' eventos' : null, y);
+    y += 4;
+
+    // ─── 6. Equipo de trabajo + Patrocinadores ───
+    if(y>230){ doc.addPage(); drawHeader(); y=30; }
+    y = drawSection(6, 'Equipo de trabajo y patrocinios', y);
+    y = drawRow('Entrenador personal', 'Marcelo Castellanos', y);
+    y = drawRow('Metodología', 'The Surf Sequence Method', y);
+    y = drawRow('Club / academia', ath.club_academy||'Puro Surf', y);
+    y = drawRow('Patrocinadores', ath.sponsors, y);
+    y += 4;
+
+    // ─── Palmarés histórico ───
+    if(ath.palmares_historico && ath.palmares_historico.trim()){
+      if(y>230){ doc.addPage(); drawHeader(); y=30; }
+      y = drawSection(7, 'Palmarés histórico', y);
+      const palmLines = doc.splitTextToSize(ath.palmares_historico, CW-6);
+      const blockH = palmLines.length*4 + 6;
+      rect(M, y, CW, blockH, [248,250,253], 1.5);
+      stroke(M, y, CW, blockH, BORDER, 1.5, 0.3);
+      palmLines.forEach((ln,i)=>{
+        if(y+i*4>275){ return; }
+        txt(ln, M+3, y+5+i*4, 8, TEXT_DARK);
+      });
+      y += blockH + 4;
+    }
+
+    // ─── Observaciones / Lesiones ───
+    if(ath.injury || (ath.passport_expiry_date && new Date(ath.passport_expiry_date)<new Date())){
+      if(y>230){ doc.addPage(); drawHeader(); y=30; }
+      rect(M, y, CW, 9, AMBER, 1.5);
+      txt('OBSERVACIONES', M+3, y+6, 10, [255,255,255], 'bold');
+      y += 12;
+      if(ath.passport_expiry_date && new Date(ath.passport_expiry_date)<new Date()){
+        const lines = doc.splitTextToSize('• El pasaporte se encuentra vencido (vencimiento '+fmtDate(ath.passport_expiry_date)+'). Se recomienda gestionar la renovación con prioridad antes del próximo viaje internacional.', CW-6);
+        lines.forEach(ln=>{ txt(ln, M+3, y+3, 8, TEXT_DARK); y+=4.5; });
+        y += 2;
+      }
+      if(ath.injury){
+        const txtLine = '• Lesión activa / observación médica: '+ath.injury+(ath.injury_since?' (desde '+ath.injury_since+')':'');
+        const lines = doc.splitTextToSize(txtLine, CW-6);
+        lines.forEach(ln=>{ txt(ln, M+3, y+3, 8, TEXT_DARK); y+=4.5; });
+        y += 2;
+      }
+    }
+
+    // ─── Firma ───
+    if(y>260){ doc.addPage(); drawHeader(); y=30; }
+    y += 10;
+    line(M, y, M+70, y, NAVY, 0.5);
+    txt('Marcelo Castellanos', M, y+5, 9, TEXT_DARK, 'bold');
+    txt('Entrenador personal · The Surf Sequence Method®', M, y+9, 7, TEXT_GREY);
+    txt('La Libertad, El Salvador', M, y+13, 7, TEXT_GREY);
+
+    drawFooter();
+
+    // Guardar PDF
+    const fileName = 'Ficha_Tecnica_'+(athleteName||ath.name||'atleta').replace(/[^a-zA-Z0-9_-]+/g,'_')+'.pdf';
+    doc.save(fileName);
+    toast('✅ Ficha técnica descargada','success');
+  } catch(e){ toast('Error generando ficha: '+e.message,'error'); console.error(e); }
+  finally{ showLoad(false); }
+}
+
 async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
   closeModal('pdfRangeModal');
   if(!fromDate || !toDate){ toast('Selecciona fechas','error'); return; }
