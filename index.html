@@ -44,6 +44,14 @@ html{scroll-behavior:smooth;}
 body{font-family:'Work Sans',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;overflow-x:hidden;font-size:14px;line-height:1.6;max-width:480px;margin:0 auto;-webkit-font-smoothing:antialiased;}
 h1,h2,h3,h4,h5,h6{font-family:'Outfit',sans-serif;font-weight:800;letter-spacing:-.01em;}
 .tagline{font-family:'Instrument Serif',serif;font-style:italic;}
+.ic{display:inline-block;vertical-align:-3px;flex-shrink:0;}
+button .ic,.btn .ic{vertical-align:middle;margin-right:6px;}
+.nav-btn .ic{margin:0 0 4px 0;display:block;vertical-align:baseline;}
+.ic-foam{color:var(--foam);}
+.ic-coral{color:var(--coral);}
+.ic-sunset{color:var(--sunset);}
+.ic-golden{color:var(--golden);}
+.ic-cyan{color:var(--cyan);}
 body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 75% 5%,rgba(0,210,255,.07) 0%,transparent 55%),radial-gradient(ellipse 50% 70% at 15% 95%,rgba(0,168,196,.05) 0%,transparent 50%),radial-gradient(ellipse 30% 30% at 50% 50%,rgba(0,210,255,.02) 0%,transparent 70%);pointer-events:none;z-index:0;}
 
 #loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9000;flex-direction:column;gap:16px;}
@@ -324,9 +332,9 @@ header{padding:10px 16px;display:flex;align-items:center;justify-content:space-b
   <div style="font-size:13px;color:var(--grey);margin-bottom:8px;line-height:1.7;">Equipo El Salvador · Temporada 2026</div>
   <div style="margin-bottom:32px;font-size:11px;color:#4A6070;letter-spacing:1px;">by Marcelo Castellanos</div>
   <div id="roleButtons" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;">
-    <button class="btn btn-cyan" onclick="showPin('coach')">🏆 Head Coach</button>
-    <button class="btn btn-amber" onclick="showPin('acoach')">📋 Coach Manager</button>
-    <button class="btn btn-green" onclick="showPin('athlete')">🌊 Atleta</button>
+    <button class="btn btn-cyan" onclick="showPin('coach')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>Head Coach</span></button>
+    <button class="btn btn-amber" onclick="showPin('acoach')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Coach Manager</span></button>
+    <button class="btn btn-green" onclick="showPin('athlete')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>Atleta</span></button>
   </div>
   <div id="pinPad" style="display:none;width:100%;max-width:300px;">
     <div class="sec-title" style="text-align:center;margin-bottom:16px;" id="pinTitle">INGRESA TU PIN</div>
@@ -409,6 +417,73 @@ function daysSince(ds){ if(!ds) return 999; return Math.floor((Date.now()-new Da
 function todayStr(){ return new Date().toLocaleDateString('en-CA', {timeZone:'America/El_Salvador'}); }
 function render(html){ document.getElementById('mainContent').innerHTML=html; }
 function gv(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
+
+/* ════════════════════════════════════════════════════════════════════
+   ICON SYSTEM · Lucide Icons inline SVG
+   Brand Manual v5.0 — Precise, not Academic
+   ════════════════════════════════════════════════════════════════════ */
+const ICONS = {
+  // Navegación
+  'home':         '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  'calendar':     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  'calendar-days':'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+  'clipboard':    '<rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>',
+  'bar-chart':    '<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  'mail':         '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+  'users':        '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'user':         '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'star':         '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  'waves':        '<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+  // Métricas
+  'droplet':      '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+  'moon':         '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  'target':       '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  'zap':          '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  'flame':        '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  'salad':        '<path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7 2.51 2.51 0 0 1 .03 1.1"/><path d="m13 12 4-4"/><path d="M10.9 7.25A3.99 3.99 0 0 0 4 10c0 .73.2 1.41.54 2"/>',
+  // Pilares
+  'dumbbell':     '<path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/>',
+  'brain':        '<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>',
+  // Status
+  'check':        '<polyline points="20 6 9 17 4 12"/>',
+  'check-circle': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  'x-circle':     '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+  'alert':        '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  'info':         '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  // Acciones
+  'edit':         '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+  'trash':        '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  'pencil':       '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
+  'plus':         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'save':         '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  'message':      '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  'file-text':    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+  // Cintas / Premios / Surf
+  'award':        '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>',
+  'trophy':       '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  'medal':        '<path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/>',
+  'activity':     '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  // Tiempo
+  'clock':        '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  'timer':        '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>',
+  // Trend
+  'trending-up':  '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  // Status dot (relleno, no stroke)
+  'dot':          '<circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/>',
+  // Fallback
+  'help-circle':  '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+};
+
+function icon(name, opts){
+  opts = opts || {};
+  const size = opts.size || 18;
+  const color = opts.color || 'currentColor';
+  const stroke = opts.stroke || 2;
+  const cls = opts.className || '';
+  const fill = opts.fill || 'none';
+  const path = ICONS[name] || ICONS['help-circle'];
+  return '<svg class="ic '+cls+'" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="'+fill+'" stroke="'+color+'" stroke-width="'+stroke+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>';
+}
 
 function scaleRow(name,val=0,max=5,colorFn){
   let b='';
@@ -1159,10 +1234,10 @@ function updateHeaderAvatar(){
 function buildNav(){
   const r=S.user.role;
   let tabs;
-  if(r==='coach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'planeacion',icon:'📋',lbl:'Plan'},{id:'citas',icon:'📅',lbl:'Citas'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Eval'},{id:'mensajes',icon:'✉️',lbl:'Msg'},{id:'atletas',icon:'👥',lbl:'Equipo'},{id:'perfil',icon:'👤',lbl:'Perfil'}];
-  else if(r==='acoach') tabs=[{id:'panel',icon:'📊',lbl:'Panel'},{id:'citas',icon:'📅',lbl:'Citas'},{id:'presencial',icon:'🏄',lbl:'Sesión'},{id:'evaluar',icon:'⭐',lbl:'Eval'},{id:'mensajes',icon:'✉️',lbl:'Msg'},{id:'atletas',icon:'👥',lbl:'Equipo'},{id:'perfil',icon:'👤',lbl:'Perfil'}];
-  else tabs=[{id:'hoy',icon:'🌊',lbl:'Hoy'},{id:'semana',icon:'📅',lbl:'Semana'},{id:'mensajes',icon:'✉️',lbl:'Mensajes'},{id:'perfil',icon:'👤',lbl:'Mi Perfil'}];
-  document.getElementById('bottomNav').innerHTML=tabs.map(t=>`<button class="nav-btn" id="nb-${t.id}" onclick="switchView('${t.id}')"><span class="icon">${t.icon}</span><span>${t.lbl}</span></button>`).join('');
+  if(r==='coach') tabs=[{id:'panel',icon:'bar-chart',lbl:'Panel'},{id:'planeacion',icon:'clipboard',lbl:'Plan'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'presencial',icon:'activity',lbl:'Sesión'},{id:'evaluar',icon:'star',lbl:'Eval'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'atletas',icon:'users',lbl:'Equipo'},{id:'perfil',icon:'user',lbl:'Perfil'}];
+  else if(r==='acoach') tabs=[{id:'panel',icon:'bar-chart',lbl:'Panel'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'presencial',icon:'activity',lbl:'Sesión'},{id:'evaluar',icon:'star',lbl:'Eval'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'atletas',icon:'users',lbl:'Equipo'},{id:'perfil',icon:'user',lbl:'Perfil'}];
+  else tabs=[{id:'hoy',icon:'waves',lbl:'Hoy'},{id:'semana',icon:'calendar',lbl:'Semana'},{id:'mensajes',icon:'mail',lbl:'Mensajes'},{id:'perfil',icon:'user',lbl:'Mi Perfil'}];
+  document.getElementById('bottomNav').innerHTML=tabs.map(t=>`<button class="nav-btn" id="nb-${t.id}" onclick="switchView('${t.id}')">${icon(t.icon,{size:22})}<span>${t.lbl}</span></button>`).join('');
 }
 
 function switchView(view){
@@ -5437,7 +5512,7 @@ async function vPanel(){
 
     render(`
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div><div class="page-title">Coach Panel</div><div class="page-sub">TSS El Salvador · ${today}</div></div>
+      <div><div class="page-title">Coach Panel</div><div class="page-sub">The Surf Sequence · El Salvador · ${today}</div></div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:rgba(0,210,255,.08);border:1px solid rgba(0,210,255,.2);border-radius:10px;padding:6px 10px;">
         <input type="checkbox" ${showOfficialOnly?'checked':''} onchange="showOfficialOnly=this.checked;vPanel();" style="accent-color:var(--cyan);">
         <span style="font-size:9px;color:var(--cyan);font-weight:700;letter-spacing:.5px;">OFICIAL</span>
@@ -6882,7 +6957,7 @@ async function vPerfil(athleteId=null,athleteName=null){
   if(isCoach && isOwnProfile){
     const roleLabel = S.user.role==='coach'?'Head Coach':'Coach Asistente';
     const roleColor = S.user.role==='coach'?'var(--amber)':'var(--purple)';
-    render(`<div class="page-title">Mi Perfil</div><div class="page-sub">TSS El Salvador 2026</div>
+    render(`<div class="page-title">Mi Perfil</div><div class="page-sub">The Surf Sequence · El Salvador 2026</div>
     <div class="card card-cyan anim-up" style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
       <div onclick="uploadMyAvatar()" style="cursor:pointer;position:relative;flex-shrink:0;">
         ${avatarHtml}
@@ -7689,7 +7764,7 @@ async function openInfoCompletaModal(athleteId, autoSection){
         ${ta('goal_short_term','🎯 Corto plazo (1 mes)', prof.goal_short_term,'¿Qué quieres lograr este mes?')}
         ${ta('goal_mid_term','🎯 Mediano plazo (6 meses)', prof.goal_mid_term,'¿Dónde quieres estar en 6 meses?')}
         ${ta('goal_long_term','🎯 Largo plazo (4 años)', prof.goal_long_term,'¿Cuál es tu sueño grande?')}
-        ${ta('why_train','¿Por qué entrenas con TSS?', prof.why_train,'Tu motivación...')}
+        ${ta('why_train','¿Por qué entrenas con The Surf Sequence?', prof.why_train,'Tu motivación...')}
       `)}
 
       ${section('ic-sec6', '📋 6. Ficha Técnica · Datos para perfil oficial', `
@@ -7983,7 +8058,7 @@ async function genPDF(athleteId, athleteName){
     doc.rect(0,0,W,16,'F');
     doc.setTextColor(255,255,255);
     doc.setFontSize(12); doc.setFont('helvetica','bold');
-    doc.text('TSS — THE SURF SEQUENCE®',M,10);
+    doc.text('THE SURF SEQUENCE METHOD®',M,10);
     doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.text('El Salvador 2026',W-M,10,{align:'right'});
 
@@ -9256,7 +9331,7 @@ async function generateFichaTecnicaPDF(athleteId, athleteName){
     const discTxt = ath.discipline==='shortboard'?'Shortboard':ath.discipline==='longboard'?'Longboard':ath.discipline==='both'?'Shortboard · Longboard':'Surf';
     txt(discTxt + (ath.stance?'  ·  '+ath.stance:''), INFO_X, y+24, 9, [220,235,245]);
     if(ath.current_belt){
-      txt('NIVEL TSS · CINTA '+beltName.toUpperCase(), INFO_X, y+30, 8, AMBER, 'bold');
+      txt('NIVEL THE SURF SEQUENCE · CINTA '+beltName.toUpperCase(), INFO_X, y+30, 8, AMBER, 'bold');
     }
     // Edad y nacionalidad abajo
     const lowerBits = [];
@@ -10254,7 +10329,7 @@ async function genAnalyticsPDF(athleteId, athleteName, fromDate, toDate){
     // Header bar
     setF(dark); doc.rect(0,0,W,22,'F');
     setF(cyan); doc.rect(0,22,W,2,'F');
-    txt('TSS EL SALVADOR',M,10,8,grey,'normal');
+    txt('THE SURF SEQUENCE METHOD® · EL SALVADOR',M,10,8,grey,'normal');
     txt('REPORTE INDIVIDUAL DE ATLETA',M,16,11,white,'bold');
     doc.setTextColor(...grey); doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.text(today,W-M,16,{align:'right'});
     y=32;
@@ -10588,7 +10663,7 @@ async function genAnalyticsPDF(athleteId, athleteName, fromDate, toDate){
     for(let p=1;p<=pageCount;p++){
       doc.setPage(p);
       setF(dark); doc.rect(0,287,W,10,'F');
-      txt('TSS El Salvador  ·  Sistema de Entrenamiento Técnico de Surf  ·  Generado '+today,W/2,293,6,grey,'normal');
+      txt('The Surf Sequence Method®  ·  El Salvador  ·  Generado '+today,W/2,293,6,grey,'normal');
       doc.setTextColor(...grey); doc.setFontSize(6); doc.text('Pág. '+p+' / '+pageCount,W-M,293,{align:'right'});
     }
 
@@ -10809,7 +10884,7 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
   for(let i=1;i<=pages;i++){
     doc.setPage(i);
     doc.setFontSize(7); doc.setTextColor(107,138,154);
-    doc.text('TSS El Salvador · Reporte generado '+new Date().toLocaleDateString('es-SV'),M,292);
+    doc.text('The Surf Sequence Method® · El Salvador · Reporte '+new Date().toLocaleDateString('es-SV'),M,292);
     doc.text('Pág '+i+'/'+pages,210-M,292,{align:'right'});
   }
 
