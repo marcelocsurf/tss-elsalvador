@@ -3319,15 +3319,14 @@ async function savePlan(date, scope, existId){ saveBlock(date, existId); }
 /* COPY WEEK
    Duplica TODOS los planes (general/grupo/individual + bloques + tasks)
    de la semana ORIGEN al lunes de la semana DESTINO.
-   Usa localDateStr para evitar bug TZ (UTC-6 corría fechas después de 6PM). */
+   Usa localDateStr para evitar bug TZ (UTC-6 corría fechas después de 6PM).
+   Safeguards: warning si destino < origen, preview de fechas explícitas, botón muestra rango. */
 function openCopyWeek(fromDate){
-  // Calcular lunes de la semana del fromDate
-  const fd = new Date(fromDate+'T00:00:00');
-  const fDay = fd.getDay()||7;
-  const fMon = new Date(fd); fMon.setDate(fd.getDate()-(fDay-1));
-  // Por defecto: copiar A la próxima semana (lunes que viene)
-  const nextMon = new Date(); const today = new Date(); const tDay = today.getDay()||7;
-  nextMon.setDate(today.getDate() + (8 - tDay)); // próximo lunes
+  // Por defecto: ORIGEN = lunes de la semana actual (no del fromDate, evita confusión)
+  const today = new Date(); const tDay = today.getDay()||7;
+  const currentMon = new Date(today); currentMon.setDate(today.getDate()-(tDay-1));
+  // DESTINO = próximo lunes (semana siguiente a la actual)
+  const nextMon = new Date(currentMon); nextMon.setDate(currentMon.getDate()+7);
   const m=document.createElement('div'); m.className='modal-overlay'; m.id='copyWeekModal';
   m.innerHTML=`<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
     <div class="modal-head">
@@ -3335,13 +3334,13 @@ function openCopyWeek(fromDate){
       <button class="modal-close" onclick="closeModal('copyWeekModal')">✕</button>
     </div>
 
-    <label class="inp-label">Semana ORIGEN — cualquier día</label>
-    <input type="date" class="inp" id="cwFrom" value="${localDateStr(fMon)}" onchange="previewCopyWeek()">
-    <div id="cwFromHint" style="font-size:11px;color:var(--cyan);margin-top:4px;"></div>
+    <label class="inp-label">📥 ORIGEN — semana a copiar (cualquier día de esa semana)</label>
+    <input type="date" class="inp" id="cwFrom" value="${localDateStr(currentMon)}" onchange="previewCopyWeek()">
+    <div id="cwFromHint" style="font-size:11px;color:var(--cyan);margin-top:4px;font-weight:700;"></div>
 
-    <label class="inp-label" style="margin-top:14px;">Semana DESTINO — cualquier día</label>
+    <label class="inp-label" style="margin-top:14px;">📤 DESTINO — semana donde pegar (cualquier día de esa semana)</label>
     <input type="date" class="inp" id="cwTo" value="${localDateStr(nextMon)}" onchange="previewCopyWeek()">
-    <div id="cwToHint" style="font-size:11px;color:var(--cyan);margin-top:4px;"></div>
+    <div id="cwToHint" style="font-size:11px;color:var(--cyan);margin-top:4px;font-weight:700;"></div>
 
     <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;">
       <button type="button" class="btn btn-xs btn-outline" onclick="setCopyWeekShortcut('next')">⏭ Próxima semana</button>
@@ -3353,9 +3352,11 @@ function openCopyWeek(fromDate){
       <p style="color:var(--grey);">Calculando...</p>
     </div>
 
+    <div id="cwWarning" style="display:none;margin-top:10px;padding:12px;background:rgba(239,68,68,.12);border:2px solid var(--red);border-radius:10px;font-size:12px;color:var(--white);"></div>
+
     <p style="font-size:11px;color:var(--amber);margin-top:10px;line-height:1.6;">⚠️ Solo copia planes que no existan ya en la semana destino. Si un día ya tiene plan, ese día se salta.</p>
 
-    <button class="save-btn" style="margin-top:14px;" onclick="execCopyWeek()">📋 Copiar Semana</button>
+    <button class="save-btn" id="cwExecBtn" style="margin-top:14px;" onclick="execCopyWeek()">📋 Copiar Semana</button>
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) closeModal('copyWeekModal'); };
@@ -3380,6 +3381,8 @@ async function previewCopyWeek(){
   const elPrev = document.getElementById('cwPreview');
   const elFromHint = document.getElementById('cwFromHint');
   const elToHint = document.getElementById('cwToHint');
+  const elWarning = document.getElementById('cwWarning');
+  const elBtn = document.getElementById('cwExecBtn');
   if(!fromVal||!toVal||!elPrev){ return; }
   const fd = new Date(fromVal+'T00:00:00');
   const td = new Date(toVal+'T00:00:00');
@@ -3389,10 +3392,34 @@ async function previewCopyWeek(){
   const fSun = new Date(fMon); fSun.setDate(fMon.getDate()+6);
   const tMon = new Date(td); tMon.setDate(td.getDate()-(tDay-1));
   const tSun = new Date(tMon); tSun.setDate(tMon.getDate()+6);
-  elFromHint.textContent = `📅 ${fmtDate(localDateStr(fMon))} → ${fmtDate(localDateStr(fSun))}`;
-  elToHint.textContent = `📅 ${fmtDate(localDateStr(tMon))} → ${fmtDate(localDateStr(tSun))}`;
+  const fromRange = `${fmtDate(localDateStr(fMon))} → ${fmtDate(localDateStr(fSun))}`;
+  const toRange = `${fmtDate(localDateStr(tMon))} → ${fmtDate(localDateStr(tSun))}`;
+  elFromHint.textContent = `📅 ${fromRange}`;
+  elToHint.textContent = `📅 ${toRange}`;
   const diff = Math.round((tMon-fMon)/(1000*60*60*24));
-  if(diff===0){ elPrev.innerHTML = '<p style="color:var(--red);">⚠️ Las semanas son iguales.</p>'; return; }
+
+  // Reset warning
+  if(elWarning){ elWarning.style.display='none'; elWarning.innerHTML=''; }
+  if(elBtn){ elBtn.disabled = false; elBtn.style.opacity = '1'; elBtn.textContent = '📋 Copiar Semana'; }
+
+  if(diff===0){
+    elPrev.innerHTML = '<p style="color:var(--red);">⚠️ Las semanas son iguales.</p>';
+    if(elBtn){ elBtn.disabled = true; elBtn.style.opacity = '0.5'; }
+    return;
+  }
+
+  // ⚠️ SAFEGUARD: si destino < origen, mostrar warning rojo
+  if(diff < 0 && elWarning){
+    elWarning.style.display = 'block';
+    elWarning.innerHTML = `
+      <div style="font-size:14px;font-weight:800;color:var(--red);margin-bottom:6px;">⚠️ Estás copiando hacia el PASADO</div>
+      <div style="font-size:12px;color:var(--white);line-height:1.5;">
+        El destino (<b>${toRange}</b>) es ANTES que el origen (<b>${fromRange}</b>).<br>
+        ¿Estás seguro? Si querías la próxima semana, tap "⏭ Próxima semana" arriba.
+      </div>
+    `;
+  }
+
   // Fetch plans from origin week
   const dates=[];
   for(let i=0;i<7;i++){ const d=new Date(fMon); d.setDate(fMon.getDate()+i); dates.push(localDateStr(d)); }
@@ -3400,7 +3427,9 @@ async function previewCopyWeek(){
     elPrev.innerHTML = '<p style="color:var(--grey);">Cargando preview...</p>';
     const{data:plans}=await db.from('tss_daily_plans').select('date,scope,target_id,work_type,objective').in('date',dates);
     if(!plans||!plans.length){
-      elPrev.innerHTML = '<p style="color:var(--amber);">⚠️ No hay planes en la semana origen.</p>'; return;
+      elPrev.innerHTML = `<p style="color:var(--amber);">⚠️ No hay planes en la semana origen (${fromRange}).</p>`;
+      if(elBtn){ elBtn.disabled = true; elBtn.style.opacity = '0.5'; }
+      return;
     }
     // Check destination: cuántos ya existen
     const destDates = dates.map(d=>{ const nd=new Date(d+'T00:00:00'); nd.setDate(nd.getDate()+diff); return localDateStr(nd); });
@@ -3415,15 +3444,20 @@ async function previewCopyWeek(){
     const scopeCount = {general:0, group:0, individual:0};
     plans.forEach(p=>{ scopeCount[p.scope]=(scopeCount[p.scope]||0)+1; });
     elPrev.innerHTML = `
-      <div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:6px;">📊 Resumen:</div>
-      <div style="font-size:12px;color:var(--white);">
-        ✅ Se van a copiar: <b style="color:var(--green);">${willCopy} planes</b><br>
-        ⏭️ Se saltarán (ya existen): <b style="color:var(--amber);">${willSkip} planes</b><br>
+      <div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:6px;">📊 Resumen de la copia:</div>
+      <div style="font-size:12px;color:var(--white);line-height:1.6;">
+        📥 <b style="color:var(--cyan);">DE:</b> ${fromRange}<br>
+        📤 <b style="color:var(--cyan);">A:</b> ${toRange}<br>
+        ✅ Copiarán: <b style="color:var(--green);">${willCopy} planes</b><br>
+        ⏭️ Se saltan (ya existen): <b style="color:var(--amber);">${willSkip} planes</b>
       </div>
       <div style="font-size:11px;color:var(--grey);margin-top:6px;">
         Tipos en origen: ${scopeCount.general||0} general · ${scopeCount.group||0} grupo · ${scopeCount.individual||0} individual
       </div>
     `;
+    if(elBtn){
+      elBtn.textContent = `📋 Copiar ${willCopy} planes → ${toRange}`;
+    }
   } catch(e){
     elPrev.innerHTML = '<p style="color:var(--red);">Error cargando preview: '+esc(e.message)+'</p>';
   }
@@ -3439,6 +3473,13 @@ async function execCopyWeek(){
   const toMon=new Date(toDate); toMon.setDate(toDate.getDate()-(toDay-1));
   const diff=Math.round((toMon-fromMon)/(1000*60*60*24));
   if(diff===0){toast('Las semanas son iguales','error');return;}
+  // Confirm si destino < origen (hacia el pasado)
+  if(diff < 0){
+    const fSun = new Date(fromMon); fSun.setDate(fromMon.getDate()+6);
+    const tSun = new Date(toMon); tSun.setDate(toMon.getDate()+6);
+    const ok = confirm(`⚠️ Estás copiando hacia el PASADO.\n\nORIGEN: ${fmtDate(localDateStr(fromMon))} → ${fmtDate(localDateStr(fSun))}\nDESTINO: ${fmtDate(localDateStr(toMon))} → ${fmtDate(localDateStr(tSun))}\n\n¿Continuar?`);
+    if(!ok){ return; }
+  }
 
   showLoad(true);
   try {
