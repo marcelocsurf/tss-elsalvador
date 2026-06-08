@@ -4211,9 +4211,9 @@ function getBelt(id){ return BELTS.find(b=>b.id===id) || null; }
 function beltChipHtml(beltId, size='md'){
   const b = getBelt(beltId);
   if(!b) return '';
-  const pad = size==='sm'?'2px 8px':'3px 11px';
-  const fs = size==='sm'?'9px':'10px';
-  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:${pad};border-radius:20px;background:${b.color};color:${b.text};font-size:${fs};font-weight:800;letter-spacing:.5px;box-shadow:0 0 8px ${b.glow};white-space:nowrap;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>${b.name}</span>`;
+  const pad = size==='sm'?'3px 11px':'4px 14px';
+  const fs = size==='sm'?'9px':'11px';
+  return `<span style="display:inline-block;padding:${pad};border-radius:20px;background:${b.color};color:${b.text};font-size:${fs};font-weight:800;letter-spacing:.8px;box-shadow:0 0 12px ${b.glow};white-space:nowrap;text-transform:uppercase;">${b.name}</span>`;
 }
 
 /* ============================================================
