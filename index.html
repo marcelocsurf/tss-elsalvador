@@ -397,7 +397,7 @@ const OFFICIAL_START = '2026-05-06';
 let showOfficialOnly = true;
 
 /* STATE */
-let S = { user:null, pin:'', loginRole:'', athletes:[], coaches:[], groups:[], videoLibrary:[], view:null, selDate:null, activeTeam:null, _membersByGroup:{} };
+let S = { user:null, pin:'', loginRole:'', athletes:[], coaches:[], groups:[], videoLibrary:[], view:null, selDate:null, activeTeam:null, activeAthlete:null, _membersByGroup:{} };
 
 /* ════════════════════════════════════════════════════════════════════
    MODO EQUIPO · Team scoping helpers
@@ -436,6 +436,50 @@ function teamBannerHtml(){
     </div>
     <button class="btn btn-xs btn-outline" style="flex-shrink:0;font-size:11px;padding:6px 12px;" onclick="exitTeam()">← Salir</button>
   </div>`;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   MODO ATLETA · Single athlete scoping
+   ════════════════════════════════════════════════════════════════════ */
+function getActiveAthlete(){
+  if(!S.activeAthlete) return null;
+  return S.athletes.find(a=>a.id===S.activeAthlete) || S._athleteCache || null;
+}
+function enterAthlete(athleteId, athleteName){
+  S.activeAthlete = athleteId;
+  const a = S.athletes.find(x=>x.id===athleteId);
+  if(a) S._athleteCache = a;
+  else if(athleteName) S._athleteCache = {id:athleteId, name:athleteName};
+  try{ localStorage.setItem('tss_active_athlete', athleteId); }catch(e){}
+  if(typeof switchView==='function' && S.view) switchView(S.view);
+}
+function exitAthlete(){
+  S.activeAthlete = null;
+  S._athleteCache = null;
+  try{ localStorage.removeItem('tss_active_athlete'); }catch(e){}
+  if(typeof switchView==='function' && S.view) switchView(S.view);
+}
+function athleteBannerHtml(){
+  const a = getActiveAthlete();
+  if(!a) return '';
+  const init = (a.name||'?').charAt(0).toUpperCase();
+  const avatar = a.avatar_url
+    ? `<img src="${a.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);flex-shrink:0;">`
+    : `<div style="width:36px;height:36px;border-radius:50%;background:rgba(0,210,255,.15);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;color:var(--cyan);font-weight:800;font-size:14px;flex-shrink:0;">${esc(init)}</div>`;
+  return `<div style="background:linear-gradient(135deg,rgba(168,85,247,.18),rgba(0,210,255,.05));border:1px solid var(--purple);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+      ${avatar}
+      <div style="min-width:0;">
+        <div style="font-size:9px;color:var(--purple);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Modo atleta</div>
+        <div style="font-size:14px;font-weight:800;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.name||'Atleta')}</div>
+      </div>
+    </div>
+    <button class="btn btn-xs btn-outline" style="flex-shrink:0;font-size:11px;padding:6px 12px;" onclick="exitAthlete()">← Salir</button>
+  </div>`;
+}
+function contextBannerHtml(){
+  return athleteBannerHtml() + teamBannerHtml();
 }
 
 /* HUB de Equipos para head coach
@@ -663,7 +707,7 @@ const LOCALES = ['La Paz','El Tunco','El Zonte','El Sunzal','Las Flores','Punta 
 function vPresencial(){
   const isCoach = S.user.role === 'coach';
   const isACoach = S.user.role === 'acoach';
-  render(`${teamBannerHtml()}<div class="page-title">Sesiones Presenciales</div>
+  render(`${contextBannerHtml()}<div class="page-title">Sesiones Presenciales</div>
     <div class="page-sub">Entrenamientos en agua y en tierra</div>
     <div class="inner-tabs">
       <button class="itab active" id="it-sp-hoy" onclick="spTab('hoy')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Hoy</button>
@@ -1264,11 +1308,13 @@ async function bootApp(){
       (S._membersByGroup[m.group_id] = S._membersByGroup[m.group_id]||[]).push(m.athlete_id);
     });
 
-    // Recuperar equipo activo persistido (solo coach/acoach)
+    // Recuperar equipo activo y atleta activo persistidos (solo coach/acoach)
     if(S.user.role==='coach' || S.user.role==='acoach'){
       try {
-        const saved = localStorage.getItem('tss_active_team');
-        if(saved && S.groups.some(g=>g.id===saved)) S.activeTeam = saved;
+        const savedTeam = localStorage.getItem('tss_active_team');
+        if(savedTeam && S.groups.some(g=>g.id===savedTeam)) S.activeTeam = savedTeam;
+        const savedAth = localStorage.getItem('tss_active_athlete');
+        if(savedAth) S.activeAthlete = savedAth;
       } catch(e){}
     }
 
@@ -2886,7 +2932,7 @@ let planOffset=0;
    openSaveTemplate, openApplyTemplate, applyTemplate
    ════════════════════════════════════════════════════════════════════ */
 function vPlaneacion(){
-  render(`${teamBannerHtml()}<div class="page-title">Planeación</div><div class="page-sub">Planes diarios del equipo</div>
+  render(`${contextBannerHtml()}<div class="page-title">Planeación</div><div class="page-sub">Planes diarios del equipo</div>
     <div class="inner-tabs">
       <button class="itab active" id="it-dias" onclick="pTab('dias')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Días</button>
       <button class="itab" id="it-grupos" onclick="pTab('grupos')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Grupos</button>
@@ -3228,8 +3274,12 @@ function openAddBlockModalWithFilter(date){
 
 function openAddBlockModal(date, existData=null){
   _planTasks = existData&&existData._blocks ? (Array.isArray(existData._blocks)?existData._blocks:JSON.parse(existData._blocks)) : [];
-  const curScope = existData?existData.scope:'general';
-  const curTarget = existData?existData.target_id||'':'';
+  // Pre-selección automática según modo activo
+  let defaultScope = 'general', defaultTarget = '';
+  if(S.activeAthlete && !existData){ defaultScope='individual'; defaultTarget=S.activeAthlete; }
+  else if(S.activeTeam && !existData){ defaultScope='group'; defaultTarget=S.activeTeam; }
+  const curScope = existData?existData.scope:defaultScope;
+  const curTarget = existData?(existData.target_id||''):defaultTarget;
   const groupOpts = S.groups.map(g=>`<option value="${g.id}" ${curTarget===g.id?'selected':''}>${g.name}</option>`).join('');
   const athOpts = S.athletes.map(a=>`<option value="${a.id}" ${curTarget===a.id?'selected':''}>${a.name}</option>`).join('');
   const m=document.createElement('div'); m.className='modal-overlay'; m.id='blockModal';
@@ -4327,7 +4377,7 @@ function beltChipHtml(beltId, size='md'){
    EVAL — COACH + ASISTENTE
 ============================================================ */
 function vEvaluar(){
-  render(`${teamBannerHtml()}<div class="page-title">Evaluar Atleta</div><div class="page-sub">Evaluaciones formales del equipo</div>
+  render(`${contextBannerHtml()}<div class="page-title">Evaluar Atleta</div><div class="page-sub">Evaluaciones formales del equipo</div>
     <div class="itab-wrap" style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;">
       <button class="itab active" id="it-ev-train" onclick="evalTab('train')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Rápida</button>
       <button class="itab" id="it-ev-full" onclick="evalTab('full')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Completa</button>
@@ -5619,7 +5669,7 @@ async function vPanel(){
     });
 
     render(`
-    ${teamBannerHtml()}
+    ${contextBannerHtml()}
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <div><div class="page-title">Coach Panel</div><div class="page-sub">The Surf Sequence · El Salvador · ${today}</div></div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:rgba(0,210,255,.08);border:1px solid rgba(0,210,255,.2);border-radius:10px;padding:6px 10px;">
@@ -6290,7 +6340,7 @@ function fmtApptTime(t){ if(!t) return ''; return t.substring(0,5); }
 async function vCitas(){
   const isCoach = S.user.role==='coach' || S.user.role==='acoach';
   if(!isCoach){ render('<p style="padding:20px;color:var(--grey);">Sin acceso</p>'); return; }
-  render(`${teamBannerHtml()}<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+  render(`${contextBannerHtml()}<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
       <div><div class="page-title"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Citas</div><div class="page-sub">Gestión de citas y evaluaciones del equipo</div></div>
       <button class="btn btn-cyan" style="width:auto;padding:9px 14px;font-size:12px;flex-shrink:0;" onclick="openApptForm()">+ Nueva</button>
     </div>
@@ -7104,6 +7154,10 @@ async function vPerfil(athleteId=null,athleteName=null){
       </div>
     </div>
     ${isCoach?`<div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${S.activeAthlete===id
+        ? `<button class="btn btn-sm" style="background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(0,210,255,.1));color:var(--purple);border:1px solid var(--purple);font-weight:800;" onclick="exitAthlete()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Salir del Atleta</button>`
+        : `<button class="btn btn-sm" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,210,255,.08));color:var(--purple);border:1px solid var(--purple);font-weight:800;" onclick="enterAthlete('${id}','${escAttr(name)}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="9 18 15 12 9 6"/></svg>Entrar al Atleta</button>`
+      }
       <button class="btn btn-cyan btn-sm" onclick="openPdfRangeModal('${id}','${escAttr(name)}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Reporte PDF</button>
       <button class="btn btn-sm" style="background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.3);" onclick="generateFichaTecnicaPDF('${id}','${escAttr(name)}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Ficha Técnica</button>
       <button class="btn btn-sm" style="background:rgba(0,210,255,.08);color:var(--cyan);border:1px solid rgba(0,210,255,.2);" onclick="openWeeklyReport('${id}','${escAttr(name)}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Semana</button>
@@ -8443,7 +8497,7 @@ function vAtletas(){
   const isCoach = S.user.role === 'coach';
   // F1: head coach ve tabs Equipos | Atletas | Coaches; acoach ve sus equipos también
   if(isCoach){
-    render(`${teamBannerHtml()}<div class="page-title">Equipo</div>
+    render(`${contextBannerHtml()}<div class="page-title">Equipo</div>
     <div class="page-sub">Equipos, atletas y staff</div>
     <div class="inner-tabs">
       <button class="itab active" id="it-team-teams" onclick="vTeamTab('teams')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>Equipos</button>
