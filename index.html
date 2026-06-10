@@ -849,7 +849,7 @@ async function startSp(sessionId){
       .update({status:'live', started_at: new Date().toISOString()})
       .eq('id', sessionId);
     if(error) throw error;
-    toast('<svg class="ic" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="color:var(--foam);vertical-align:0;margin-right:4px;"><circle cx="12" cy="12" r="6"/></svg> Sesión iniciada','success');
+    toast('Sesión iniciada','success');
     loadSpHoy();
   } catch(e){ toast('Error','error'); console.error(e); } finally { showLoad(false); }
 }
@@ -945,7 +945,7 @@ async function finalizeSp(sessionId){
       if(fbErr) throw fbErr;
     }
 
-    toast(`<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sesión finalizada · ${feedbacks.length} atletas registrados`, 'success');
+    toast(`Sesión finalizada · ${feedbacks.length} atletas registrados`, 'success');
     closeModal('spFeedbackModal');
     spTab('hoy');
   } catch(e){ toast('Error al finalizar','error'); console.error(e); } finally { showLoad(false); }
@@ -1196,14 +1196,14 @@ async function saveSp(existId){
     if(existId){
       const {error} = await db.from('tss_presencial_sessions').update(payload).eq('id', existId);
       if(error) throw error;
-      toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sesión actualizada','success');
+      toast('Sesión actualizada','success');
     } else {
       const {error} = await db.from('tss_presencial_sessions').insert(payload);
       if(error) throw error;
-      toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sesión publicada','success');
+      toast('Sesión publicada','success');
     }
     spTab('hoy');
-  } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); } finally { showLoad(false); }
+  } catch(e){ toast('Error al guardar:'+e.message,'error'); console.error(e); } finally { showLoad(false); }
 }
 
 async function editSp(sessionId){
@@ -2533,7 +2533,7 @@ async function saveCheckin(date){
       ({error} = await db.from('tss_daily_checkins').insert({athlete_id:S.user.id,date,...checkinData}));
     }
     if(error) throw error;
-    toast(`<svg class="ic ic-foam" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Check-in guardado · <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>${sleep}h registradas`,'success');
+    toast(`Check-in guardado · ${sleep}h registradas`,'success');
     loadHoy(date);
   } catch(e){toast('Error al guardar','error');console.error(e);}
   finally{showLoad(false);}
@@ -2849,7 +2849,7 @@ async function saveSes(){
   try {
     const{error}=await db.from('tss_sessions').insert({athlete_id:S.user.id,date:gv('sd'),type:gv('st'),duration,intensity,notes:gv('sn'),video_url:gv('sv')||null});
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sesión guardada','success'); sTab('hist');
+    toast('Sesión guardada','success'); sTab('hist');
   } catch(e){toast('Error al guardar','error');console.error(e);}
   finally{showLoad(false);}
 }
@@ -2975,7 +2975,7 @@ async function openSaveTemplate(date){
       name:name.trim(), created_by:S.user.id, blocks:JSON.stringify(blocks)
     });
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Template "'+name.trim()+'" guardado','success');
+    toast('Template "'+name.trim()+'" guardado','success');
   } catch(e){ toast('Error guardando template','error'); console.error(e); }
   finally{ showLoad(false); }
 }
@@ -3046,7 +3046,7 @@ async function applyTemplate(templateId, date){
     const{error}=await db.from('tss_daily_plans').insert(inserts);
     if(error) throw error;
     closeModal('templateModal');
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Template "'+tmpl.name+'" aplicado','success');
+    toast('Template "'+tmpl.name+'" aplicado','success');
     loadPlanDay(date);
   } catch(e){ toast('Error aplicando template','error'); console.error(e); }
   finally{ showLoad(false); }
@@ -3405,7 +3405,7 @@ async function saveCompTrainResult(planId, date){
       ({error}=await db.from('tss_daily_checkins').insert({athlete_id:S.user.id,date,sesion_result:newSR}));
     }
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Resultados guardados','success');
+    toast('Resultados guardados','success');
     // Recalculate and save progress to DB (comp_training now counts towards completion)
     try {
       const compKey = `tss_comp_${S.user.id}_${date}`;
@@ -3415,7 +3415,7 @@ async function saveCompTrainResult(planId, date){
     } catch(e){ console.error('Progress reload error',e); }
     // Reload the full day view to show saved state
     setTimeout(()=>{try{loadHoy(date);}catch(e){}},500);
-  } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error al guardar:'+e.message,'error'); console.error(e); }
 }
 
 async function saveSesionResult(planId, result, date){
@@ -3437,7 +3437,7 @@ async function saveSesionResult(planId, result, date){
     });
     const active = document.querySelector(`[data-sesion-plan="${planId}"][data-sesion-val="${result}"]`);
     if(active){ active.classList.add('sesion-'+result.replace(' ','')); active.style.opacity='1'; }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Resultado guardado','success');
+    toast('Resultado guardado','success');
     // Recalculate and save progress to DB (sesion now counts towards completion)
     try {
       const compKey = `tss_comp_${S.user.id}_${date}`;
@@ -3488,10 +3488,10 @@ async function saveBlock(date, existId){
       const{error}=await db.from('tss_daily_plans').insert(payload);
       if(error) throw error;
     }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Actividad guardada','success');
+    toast('Actividad guardada','success');
     closeModal('blockModal');
     loadPlanDay(date);
-  } catch(e){ toast('Error al guardar: '+e.message,'error'); console.error(e); } finally { showLoad(false); }
+  } catch(e){ toast('Error al guardar:'+e.message,'error'); console.error(e); } finally { showLoad(false); }
 }
 
 async function deleteBlock(planId, date){
@@ -3695,10 +3695,10 @@ async function execCopyWeek(){
         skipped++;
       }
     }
-    toast(`<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ${copied} planes copiados${skipped?' · '+skipped+' saltados':''}`,'success');
+    toast(`${copied} planes copiados${skipped?' · '+skipped+' saltados':''}`,'success');
     closeModal('copyWeekModal');
     if(typeof renderPlanDias==='function') renderPlanDias();
-  } catch(e){toast('Error: '+e.message,'error');console.error(e);}
+  } catch(e){toast('Error:'+e.message,'error');console.error(e);}
   finally{showLoad(false);}
 }
 
@@ -3801,7 +3801,7 @@ async function saveGroup(existId){
     // Refresh groups
     const{data:grps}=await db.from('tss_groups').select('*').order('name');
     S.groups=grps||[];
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Grupo guardado','success'); closeModal('groupModal'); renderGrupos();
+    toast('Grupo guardado','success'); closeModal('groupModal'); renderGrupos();
   } catch(e){toast('Error','error');console.error(e);}
   finally{showLoad(false);}
 }
@@ -3956,18 +3956,18 @@ async function saveVideo(){
       if(error) throw error;
       const i = (S.videoLibrary||[]).findIndex(v=>v.id===editId);
       if(i>=0) S.videoLibrary[i] = {...S.videoLibrary[i], title, video_url:url, pillar, description};
-      toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Video actualizado','success');
+      toast('Video actualizado','success');
     } else {
       const{data,error}=await db.from('tss_video_library')
         .insert({title,video_url:url,pillar,description,created_by:S.user.id})
         .select().single();
       if(error) throw error;
       (S.videoLibrary = S.videoLibrary||[]).unshift(data);
-      toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Video agregado','success');
+      toast('Video agregado','success');
     }
     closeModal('videoModal');
     paintVideoLibrary();
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -3979,9 +3979,9 @@ async function deleteVideo(videoId){
     const{error}=await db.from('tss_video_library').update({archived:true}).eq('id',videoId);
     if(error) throw error;
     S.videoLibrary = (S.videoLibrary||[]).filter(v=>v.id!==videoId);
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Video eliminado','success');
+    toast('Video eliminado','success');
     paintVideoLibrary();
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -4058,7 +4058,7 @@ function pickVideoFromLib(videoId){
   if(objEl && !objEl.value.trim()){ objEl.value = v.title || ''; }
   if(notesEl && !notesEl.value.trim() && v.description){ notesEl.value = v.description; }
   closeModal('videoPickerModal');
-  toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Video cargado · podés ajustar título o notas','success');
+  toast('Video cargado · podés ajustar título o notas','success');
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -4417,16 +4417,16 @@ async function saveEval(athleteId){
         await db.from('tss_profiles').update({current_belt:newBelt}).eq('id',athleteId);
         // Update local cache
         const ath = (S.athletes||[]).find(a=>a.id===athleteId); if(ath) ath.current_belt = newBelt;
-        toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evaluación guardada · cinta actualizada a '+getBelt(newBelt).name,'success');
+        toast('Evaluación guardada · cinta actualizada a'+getBelt(newBelt).name,'success');
       } else {
-        toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evaluación guardada','success');
+        toast('Evaluación guardada','success');
       }
     } else {
-      toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evaluación guardada','success');
+      toast('Evaluación guardada','success');
     }
     document.getElementById('eaSel').value=''; document.getElementById('evalFormArea').innerHTML='';
     setTimeout(()=>{ if(typeof vPanel==='function') vPanel(); if(typeof renderEvalHist==='function') renderEvalHist(); },300);
-  } catch(e){toast('Error al guardar: '+e.message,'error');console.error(e);}
+  } catch(e){toast('Error al guardar:'+e.message,'error');console.error(e);}
   finally{showLoad(false);}
 }
 
@@ -4812,7 +4812,7 @@ async function saveEvalFull(){
       if(idx>=0) S.athletes[idx].current_belt = belt;
     }
 
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + (s.editingId?'Cambios guardados':'Evaluación completa guardada') + (belt?' · cinta '+getBelt(belt).name+' otorgada':''), 'success');
+    toast('' + (s.editingId?'Cambios guardados':'Evaluación completa guardada') + (belt?' · cinta '+getBelt(belt).name+' otorgada':''), 'success');
     const savedAthleteId = s.athleteId;
     _evalFullSetup = { athleteId:'', disciplina:'shortboard', evalType:'periodica', blocks:[], editingId:null };
     evalTab('hist');
@@ -4821,7 +4821,7 @@ async function saveEvalFull(){
       const sel = document.getElementById('efHistSel');
       if(sel && savedAthleteId){ sel.value = savedAthleteId; loadEvalFullHist(); }
     }, 200);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -4901,8 +4901,8 @@ async function editEvalFull(evalId){
       // Scroll arriba para que el coach vea el banner de modo edición
       window.scrollTo({top:0,behavior:'smooth'});
     }, 100);
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>Eval cargada en modo edición','info');
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+    toast('Eval cargada en modo edición','info');
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -4913,11 +4913,11 @@ async function deleteEvalFull(evalId){
   try {
     const{error}=await db.from('tss_evaluations_full').delete().eq('id',evalId);
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evaluación borrada','success');
+    toast('Evaluación borrada','success');
     closeModal('evalFullDetail');
     if(typeof loadEvalFullHist==='function') loadEvalFullHist();
     if(S.view==='perfil') vPerfil();
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -5242,9 +5242,9 @@ async function saveCompEval(){
   try {
     const{error}=await db.from('tss_comp_evaluations').insert(payload);
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evaluación de competencia guardada','success');
+    toast('Evaluación de competencia guardada','success');
     evalTab('hist');
-  } catch(e){toast('Error al guardar: '+e.message,'error');console.error(e);}
+  } catch(e){toast('Error al guardar:'+e.message,'error');console.error(e);}
   finally{showLoad(false);}
 }
 
@@ -6079,7 +6079,7 @@ async function saveHeat(){
     toast(heatId?'<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Heat actualizado':'<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Heat guardado','success');
     closeModal('heatWizModal');
     vCompetencia(compId);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -6092,7 +6092,7 @@ async function deleteHeat(heatId, compId){
     toast('Heat eliminado','success');
     closeModal('heatWizModal');
     vCompetencia(compId);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -6162,10 +6162,10 @@ async function finalizeCompetition(){
       finalized_by: S.user.id,
     }).eq('id',compId);
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Competencia finalizada','success');
+    toast('Competencia finalizada','success');
     closeModal('compCloseModal');
     vCompetencia(compId);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -6563,7 +6563,7 @@ async function saveAppt(existId, prefAthleteId){
     if(existId){
       const {error} = await db.from('tss_appointments').update({...basePayload, athlete_id: athleteIds[0]}).eq('id', existId);
       if(error) throw error;
-      toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Cita actualizada','success');
+      toast('Cita actualizada','success');
     } else {
       const rows = athleteIds.map(aid => ({...basePayload, athlete_id: aid, batch_id: batchId}));
       const {error} = await db.from('tss_appointments').insert(rows);
@@ -6573,7 +6573,7 @@ async function saveAppt(existId, prefAthleteId){
     closeModal('apptFormModal');
     if(S.view==='citas') citasTab('prox');
     else if(S.view==='perfil') loadAthleteAppts(athleteIds[0]);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -6597,7 +6597,7 @@ async function deleteAppt(id, batchId){
     closeModal('apptFormModal');
     closeModal('apptDetailModal');
     if(S.view==='citas') citasTab('prox');
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -6655,7 +6655,7 @@ async function markApptDone(id, type, athleteId){
   try {
     const {error} = await db.from('tss_appointments').update({status:'cumplida', completed_at:new Date().toISOString()}).eq('id',id);
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Cita marcada como cumplida','success');
+    toast('Cita marcada como cumplida','success');
     closeModal('apptDetailModal');
     // If type triggers an evaluation form, open it after closing
     const t = apptType(type);
@@ -6668,7 +6668,7 @@ async function markApptDone(id, type, athleteId){
       if(S.view==='citas') citasTab('prox');
       else if(S.view==='perfil') loadAthleteAppts(athleteId);
     }
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -6683,7 +6683,7 @@ async function athleteConfirmAppt(id, value){
     closeModal('apptDetailModal');
     if(S.view==='hoy') vHoy();
     else if(S.view==='perfil') vPerfil();
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -6909,9 +6909,9 @@ async function confirmDeactivate(userId, userName, isCoach){
     } else {
       S.athletes = S.athletes.filter(a=>a.id!==userId);
     }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' + userName + ' desactivado','success');
+    toast('' + userName + ' desactivado','success');
     vAtletas();
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
 }
 
 /* F1: Modal unificado de edición de usuario (atleta o coach).
@@ -6975,7 +6975,7 @@ function resetEditUserPin(){
   // Genera un PIN aleatorio de 4 dígitos (no 0000)
   let p; do { p = String(Math.floor(1000+Math.random()*9000)); } while(p==='0000');
   const inp = document.getElementById('editUserPin'); if(inp) inp.value = p;
-  toast('PIN nuevo generado: ' + p, 'info');
+  toast('PIN nuevo generado:' + p, 'info');
 }
 
 async function saveEditUser(){
@@ -7039,10 +7039,10 @@ async function saveEditUser(){
         S.coaches[ci] = {...S.coaches[ci], ...updates};
       }
     }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Datos actualizados','success');
+    toast('Datos actualizados','success');
     closeModal('editUserModal');
     vAtletas();
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -7711,10 +7711,10 @@ async function saveBeltOnly(athleteId){
     if(error) throw error;
     const idx=(S.athletes||[]).findIndex(a=>a.id===athleteId);
     if(idx>=0) S.athletes[idx].current_belt = belt;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Cinta actualizada a '+getBelt(belt).name,'success');
+    toast('Cinta actualizada a'+getBelt(belt).name,'success');
     closeModal('beltModal');
     if(S.view==='perfil') vPerfil(athleteId, (S.athletes||[]).find(a=>a.id===athleteId)?.name);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -7729,7 +7729,7 @@ async function clearBelt(athleteId){
     toast('Cinta eliminada','success');
     closeModal('beltModal');
     if(S.view==='perfil') vPerfil(athleteId, (S.athletes||[]).find(a=>a.id===athleteId)?.name);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -7998,10 +7998,10 @@ async function saveInfoCompleta(athleteId){
     // Refrescar cache local
     const idx=(S.athletes||[]).findIndex(a=>a.id===athleteId);
     if(idx>=0) S.athletes[idx] = {...S.athletes[idx], ...payload};
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Información guardada','success');
+    toast('Información guardada','success');
     closeModal('infoCompletaModal');
     if(S.view==='perfil') vPerfil(athleteId, (S.athletes||[]).find(a=>a.id===athleteId)?.name || S.user.name);
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -8432,7 +8432,7 @@ async function genPDF(athleteId, athleteName){
     }
 
     doc.save(`TSS_${athleteName.replace(/ /g,'_')}_${todayStr()}.pdf`);
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> PDF generado','success');
+    toast('PDF generado','success');
   } catch(e){ toast('Error generando PDF','error'); console.error(e); }
 }
 
@@ -8576,10 +8576,10 @@ async function saveNewUser(){
     if(role==='athlete'){ S.athletes.push(data); }
     else { (S.coaches||[]).push(data); S.coaches.sort((a,b)=>a.name.localeCompare(b.name)); }
     const labels={athlete:'atleta', acoach:'coach asistente', coach:'head coach'};
-    toast(`<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ${name} agregado como ${labels[role]||role}`,'success');
+    toast(`${name} agregado como ${labels[role]||role}`,'success');
     closeModal('addUserModal');
     vAtletas();
-  } catch(e){ toast('Error al crear usuario: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error al crear usuario:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -8626,7 +8626,7 @@ async function saveScoreCap(athleteId, athleteName){
     if(error) throw error;
     const ath = S.athletes.find(a=>a.id===athleteId);
     if(ath) ath.score_capacity = val;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Capacidad guardada','success');
+    toast('Capacidad guardada','success');
     closeModal('scoreCapModal');
     vPerfil(athleteId, athleteName);
   } catch(e){ toast('Error al guardar','error'); console.error(e); }
@@ -8666,7 +8666,7 @@ async function saveInjury(athleteId, athleteName){
     if(error) throw error;
     const ath = S.athletes.find(a=>a.id===athleteId);
     if(ath){ ath.injury = desc; ath.injury_since = since; }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--coral)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Lesión registrada','success');
+    toast('Lesión registrada','success');
     closeModal('injuryModal');
     vPerfil(athleteId, athleteName);
   } catch(e){ toast('Error al guardar lesión','error'); console.error(e); }
@@ -8681,7 +8681,7 @@ async function clearInjury(athleteId, athleteName){
     if(error) throw error;
     const ath = S.athletes.find(a=>a.id===athleteId);
     if(ath){ ath.injury = null; ath.injury_since = null; }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Atleta recuperado','success');
+    toast('Atleta recuperado','success');
     closeModal('injuryModal');
     vPerfil(athleteId, athleteName);
   } catch(e){ toast('Error','error'); console.error(e); }
@@ -8709,9 +8709,9 @@ async function uploadAvatar(athleteId){
       const ath = S.athletes.find(a=>a.id===athleteId);
       if(ath) ath.avatar_url = avatarUrl;
       if(athleteId === S.user.id){ S.user.avatar_url = avatarUrl; updateHeaderAvatar(); }
-      toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Foto actualizada','success');
+      toast('Foto actualizada','success');
       vPerfil(athleteId, athleteId===S.user.id ? S.user.name : S.athletes.find(a=>a.id===athleteId)?.name);
-    } catch(e){ toast('Error al subir foto: '+e.message,'error'); console.error(e); }
+    } catch(e){ toast('Error al subir foto:'+e.message,'error'); console.error(e); }
     finally{ showLoad(false); }
   };
   input.click();
@@ -9206,8 +9206,8 @@ async function genMonthlyPDF(athleteIdOrTeam){
       : `TSS_${athletes[0].name.replace(/ /g,'_')}_${monthName.replace(/ /g,'_')}.pdf`;
     doc.save(fileName);
     if(!isTeam) closeModal('monthlyAthModal');
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Reporte generado','success');
-  } catch(e){ toast('Error al generar reporte: '+e.message,'error'); console.error(e); }
+    toast('Reporte generado','success');
+  } catch(e){ toast('Error al generar reporte:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -9594,8 +9594,8 @@ async function generateFichaTecnicaPDF(athleteId, athleteName){
     // Guardar PDF
     const fileName = 'Ficha_Tecnica_'+(athleteName||ath.name||'atleta').replace(/[^a-zA-Z0-9_-]+/g,'_')+'.pdf';
     doc.save(fileName);
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Ficha técnica descargada','success');
-  } catch(e){ toast('Error generando ficha: '+e.message,'error'); console.error(e); }
+    toast('Ficha técnica descargada','success');
+  } catch(e){ toast('Error generando ficha:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -10330,9 +10330,9 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
 
     // Save
     doc.save('TSS_'+athleteName.replace(/[^\w]/g,'_')+'_'+fromDate+'_to_'+toDate+'.pdf');
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Reporte generado','success');
+    toast('Reporte generado','success');
   } catch(e){
-    toast('Error: '+e.message,'error');
+    toast('Error:'+e.message,'error');
     console.error(e);
   } finally {
     showLoad(false);
@@ -10782,7 +10782,7 @@ async function genAnalyticsPDF(athleteId, athleteName, fromDate, toDate){
     }
 
     doc.save('TSS_'+athleteName.replace(/ /g,'_')+'_'+today+'.pdf');
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Reporte descargado','success');
+    toast('Reporte descargado','success');
   } catch(e){ toast('Error generando reporte','error'); console.error(e); }
 }
 
@@ -11003,7 +11003,7 @@ async function genWeeklyPDF(athleteId, athleteName, mon, sun){
   }
 
   doc.save('TSS_'+athleteName.replace(/\s+/g,'_')+'_semana_'+mon+'.pdf');
-  toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> PDF descargado','success');
+  toast('PDF descargado','success');
   } catch(e){ toast('Error generando PDF','error'); console.error(e); } finally { showLoad(false); }
 }
 
@@ -11057,12 +11057,12 @@ async function saveComp(athleteId, existId){
     if(existId){ ({error}=await db.from('tss_competitions').update(payload).eq('id',existId)); }
     else { ({error}=await db.from('tss_competitions').insert(payload)); }
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Competencia guardada','success');
+    toast('Competencia guardada','success');
     closeModal('compModal');
     // Reload sección unificada de competencias en el perfil
     if(typeof loadCompForCoach==='function') loadCompForCoach(athleteId);
     if(typeof loadCompetencias==='function') loadCompetencias(athleteId);
-  } catch(e){toast('Error al guardar: '+e.message,'error');console.error(e);}
+  } catch(e){toast('Error al guardar:'+e.message,'error');console.error(e);}
   finally{showLoad(false);}
 }
 
@@ -11073,11 +11073,11 @@ async function deleteEval(evalId){
   try {
     const{error}=await db.from('tss_evaluations').delete().eq('id',evalId);
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evaluación borrada','success');
+    toast('Evaluación borrada','success');
     // Refresh wherever it appears
     if(typeof loadEvalHist==='function') loadEvalHist();
     if(S.view==='perfil') { const id=document.querySelector('[data-athlete-id]')?.dataset.athleteId; if(id) vPerfil(id); else vPerfil(); }
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -11088,11 +11088,11 @@ async function deleteCompEval(evalId){
   try {
     const{error}=await db.from('tss_comp_evaluations').delete().eq('id',evalId);
     if(error) throw error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Evaluación de competencia borrada','success');
+    toast('Evaluación de competencia borrada','success');
     closeModal('coachEvalDetail');
     if(typeof loadCompEvalHist==='function') loadCompEvalHist();
     if(S.view==='perfil') { const id=document.querySelector('[data-athlete-id]')?.dataset.athleteId; if(id) vPerfil(id); else vPerfil(); }
-  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error:'+e.message,'error'); console.error(e); }
   finally{ showLoad(false); }
 }
 
@@ -11103,7 +11103,7 @@ async function deleteComp(compId, athleteId){
     const{error}=await db.from('tss_competitions').delete().eq('id',compId);
     if(error) throw error;
     toast('Eliminado','success'); loadCompetencias(athleteId);
-  } catch(e){toast('Error al eliminar: '+e.message,'error');console.error(e);} finally{showLoad(false);}
+  } catch(e){toast('Error al eliminar:'+e.message,'error');console.error(e);} finally{showLoad(false);}
 }
 
 async function loadCompetencias(athleteId){
@@ -11548,8 +11548,8 @@ async function saveCompPrep(kind){
       else { res=await db.from('tss_comp_evaluations').insert(payload); }
       if(res.error) throw res.error;
     }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> '+label+' guardada','success');
-  } catch(e){ toast('Error al guardar '+label.toLowerCase()+': '+e.message,'error'); console.error(e); }
+    toast(''+label+' guardada','success');
+  } catch(e){ toast('Error al guardar'+label.toLowerCase()+': '+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
@@ -11758,12 +11758,12 @@ async function saveHeatEntry(){
       }
     }
     if(res.error) throw res.error;
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Heat guardado','success');
+    toast('Heat guardado','success');
     closeModal('heatEntryModal');
     loadCompMode(compId, athleteId, athleteName);
   } catch(e){
     const msg = (e && (e.message||e.hint||e.details||e.code)) || 'desconocido';
-    toast('Error al guardar heat: '+msg,'error');
+    toast('Error al guardar heat:'+msg,'error');
     console.error('saveHeatEntry error:', e, 'payload was:', { athleteId, eventName, round, wavesStr, result, heatId });
   }
   finally { showLoad(false); }
@@ -11909,10 +11909,10 @@ async function sendMessage(){
       });
       if(error) throw error;
     }
-    toast('<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Mensaje enviado','success');
+    toast('Mensaje enviado','success');
     closeModal('sendMsgModal');
     await loadMessages();
-  } catch(e){ toast('Error al enviar: '+e.message,'error'); console.error(e); }
+  } catch(e){ toast('Error al enviar:'+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
 
