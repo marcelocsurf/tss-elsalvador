@@ -661,7 +661,9 @@ function updateDots(){ for(let i=0;i<4;i++) document.getElementById(`pd${i}`).cl
 async function tryLogin(){
   const pin=S.pin; S.pin=''; updateDots(); showLoad(true);
   try {
-    const{data,error}=await db.from('tss_profiles').select('*').eq('pin',pin);
+    // SEGURIDAD: usa RPC verify_pin (SECURITY DEFINER) en lugar de query directo,
+    // así el PIN nunca se expone via SELECT al anon key.
+    const{data,error}=await db.rpc('verify_pin',{p_pin:pin});
     if(error) throw error;
     if(!data||!data.length){ document.getElementById('athPinErr').style.display='block'; showLoad(false); return; }
     const user=data[0];
@@ -1283,7 +1285,7 @@ async function deleteSp(sessionId){
    ════════════════════════════════════════════════════════════════════ */
 async function bootApp(){
   try {
-    const{data:aths}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active,current_belt').eq('role','athlete').neq('active',false).order('name');
+    const{data:aths}=await db.from('tss_profiles').select('id,name,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active,current_belt').eq('role','athlete').neq('active',false).order('name');
     S.athletes=aths||[];
     // One-time name fix: Cindy → Sindy Portillo
     if(!localStorage.getItem('tss_namefix_sindy')){
@@ -1292,7 +1294,7 @@ async function bootApp(){
         if(cindy&&cindy.length){
           for(const c of cindy){ await db.from('tss_profiles').update({name:'Sindy Portillo'}).eq('id',c.id); }
           // Refresh athletes list
-          const{data:aths2}=await db.from('tss_profiles').select('id,name,pin,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active,current_belt').eq('role','athlete').neq('active',false).order('name');
+          const{data:aths2}=await db.from('tss_profiles').select('id,name,role,avatar_url,birth_date,weight_kg,height_cm,stance,score_capacity,injury,injury_since,active,current_belt').eq('role','athlete').neq('active',false).order('name');
           S.athletes=aths2||[];
         }
         localStorage.setItem('tss_namefix_sindy','done');
@@ -1321,7 +1323,7 @@ async function bootApp(){
     // F1: cargar lista de coaches/acoaches solo si soy head coach (gestión)
     if(S.user.role==='coach'){
       const{data:coachList}=await db.from('tss_profiles')
-        .select('id,name,pin,role,avatar_url,active')
+        .select('id,name,role,avatar_url,active')
         .in('role',['coach','acoach']).neq('active',false).order('name');
       S.coaches=coachList||[];
     } else {
@@ -7051,8 +7053,8 @@ async function saveEditUser(){
     if(pin==='0000'){ toast('Ese PIN no se permite','error'); return; }
     // PIN único (excluyendo el propio usuario)
     try {
-      const{data:exists}=await db.from('tss_profiles').select('id').eq('pin',pin).neq('id',userId).neq('active',false).limit(1);
-      if(exists && exists.length){ toast('Ese PIN ya está en uso por otro usuario','error'); return; }
+      const{data:available}=await db.rpc('check_pin_available',{p_pin:pin, p_exclude_id:userId});
+      if(available===false){ toast('Ese PIN ya está en uso por otro usuario','error'); return; }
     } catch(e){}
     if(newRole !== originalRole){
       const labels={athlete:'Atleta', acoach:'Coach Manager', coach:'Head Coach'};
@@ -8617,9 +8619,9 @@ async function saveNewUser(){
   if(pin==='0000'){ toast('Ese PIN no se permite, elige otro','error'); return; }
   showLoad(true);
   try {
-    // Validar PIN único en TODA la tabla (atletas + coaches activos)
-    const{data:exists}=await db.from('tss_profiles').select('id').eq('pin',pin).neq('active',false).limit(1);
-    if(exists && exists.length){ toast('Ese PIN ya está en uso, elige otro','error'); showLoad(false); return; }
+    // Validar PIN único en TODA la tabla (atletas + coaches activos) via RPC
+    const{data:available}=await db.rpc('check_pin_available',{p_pin:pin});
+    if(available===false){ toast('Ese PIN ya está en uso, elige otro','error'); showLoad(false); return; }
     const payload = { user_id: crypto.randomUUID(), name, role, pin, active: true };
     if(role==='athlete'){
       payload.stance = document.getElementById('newStanceGoofy')?.classList.contains('btn-cyan')?'Goofy':'Regular';
