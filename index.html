@@ -482,6 +482,26 @@ function contextBannerHtml(){
   return athleteBannerHtml() + teamBannerHtml();
 }
 
+
+/* ════════════════════════════════════════════════════════════════════
+   SEGURIDAD · getProfileFull
+   Obtiene el perfil completo del atleta via RPC SECURITY DEFINER.
+   Las columnas sensibles (pin, dui, pasaporte, médico, contactos)
+   están bloqueadas para SELECT directo del rol anon.
+   La RPC valida que el requester (S.user) sea coach o el dueño.
+   ════════════════════════════════════════════════════════════════════ */
+async function getProfileFull(athleteId){
+  if(!S.user || !S.user.id) return { data: null, error: { message: 'No session' } };
+  try {
+    const { data, error } = await db.rpc('get_athlete_full_profile', {
+      p_target_id: athleteId,
+      p_requester_id: S.user.id
+    });
+    if(error) return { data: null, error };
+    return { data: (data && data.length) ? data[0] : null, error: null };
+  } catch(e){ return { data: null, error: e }; }
+}
+
 /* HUB de Equipos para head coach
    Lista todos los grupos con cards · botón "Entrar" para activar modo equipo
    También botón "Vista Global" para resetear */
@@ -680,7 +700,7 @@ async function tryLogin(){
 async function restoreSession(){
   const uid=localStorage.getItem('tss_uid'); if(!uid) return false;
   try {
-    const{data}=await db.from('tss_profiles').select('*').eq('id',uid).single();
+    const {data} = await getProfileFull(uid).then(r=>({data: r.data}));
     if(!data){ localStorage.removeItem('tss_uid'); return false; }
     S.user=data;
     await bootApp();
@@ -7170,7 +7190,7 @@ async function vPerfil(athleteId=null,athleteName=null){
   <div id="perfilContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
   try {
     // Refresh athlete data from DB to get new bio fields
-  const {data:freshAth} = await db.from('tss_profiles').select('*').eq('id',id).maybeSingle();
+  const {data:freshAth} = await getProfileFull(id);
   if(freshAth){ const ai=S.athletes.findIndex(a=>a.id===id); if(ai>=0) S.athletes[ai]={...S.athletes[ai],...freshAth}; }
   const athBio = freshAth || S.athletes.find(a=>a.id===id) || {};
   const profFloor = showOfficialOnly ? OFFICIAL_START : '2000-01-01';
@@ -7857,7 +7877,7 @@ async function openInfoCompletaModal(athleteId, autoSection){
   window._icAutoSection = autoSection || null;
 
   try {
-    const{data:prof}=await db.from('tss_profiles').select('*').eq('id',athleteId).single();
+    const {data:prof} = await getProfileFull(athleteId).then(r=>({data: r.data}));
     if(!prof){ document.getElementById('ic-body').innerHTML='<p style="color:var(--red);padding:20px;">No encontrado</p>'; return; }
     const isOwner = S.user.id === athleteId;
     const isCoach = S.user.role==='coach' || S.user.role==='acoach';
@@ -9350,7 +9370,7 @@ async function generateFichaTecnicaPDF(athleteId, athleteName){
     const today = todayStr();
     const periodFrom = OFFICIAL_START;
     const [{data:prof},{data:checkins},{data:evals},{data:compEvals},{data:sessions},{data:competitions}] = await Promise.all([
-      db.from('tss_profiles').select('*').eq('id',athleteId).maybeSingle(),
+      getProfileFull(athleteId).then(r=>({data: r.data, error: r.error})),
       db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',periodFrom).lte('date',today),
       db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',periodFrom).lte('date',today).order('date',{ascending:false}),
       db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',periodFrom).lte('date',today).order('date',{ascending:false}),
@@ -9669,7 +9689,7 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
       db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
       db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
       db.from('tss_presencial_sessions').select('id,date,title,athlete_ids,status').gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
-      db.from('tss_profiles').select('*').eq('id',athleteId).maybeSingle(),
+      getProfileFull(athleteId).then(r=>({data: r.data, error: r.error})),
       db.from('tss_competitions').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
       db.from('tss_appointments').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date'),
       db.from('tss_evaluations_full').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
@@ -10410,7 +10430,7 @@ async function genAnalyticsPDF(athleteId, athleteName, fromDate, toDate){
       db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}).limit(20),
       db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}),
       db.from('tss_presencial_sessions').select('id,date,title,athlete_ids').gte('date',anaFloor).order('date',{ascending:false}),
-      db.from('tss_profiles').select('*').eq('id',athleteId).maybeSingle(),
+      getProfileFull(athleteId).then(r=>({data: r.data, error: r.error})),
       db.from('tss_competitions').select('*').eq('athlete_id',athleteId).gte('date',OFFICIAL_START).order('date',{ascending:false}).limit(10),
     ]);
 
