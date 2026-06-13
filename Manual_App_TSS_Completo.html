@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Manual del App · The Surf Sequence Method® · El Salvador 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Work+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+@page { size: A4; margin: 20mm 18mm; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0A1628;
+  --brand-blue: #0D2D5E;
+  --cyan: #00D2FF;
+  --cyan-soft: #5AC3E7;
+  --cyan-light: #C2EBF8;
+  --foam: #06D6A0;
+  --coral: #FF6B6B;
+  --sunset: #FF8C42;
+  --golden: #FFD166;
+  --text-dark: #0A1628;
+  --text-mid: #475569;
+  --text-soft: #8A95A8;
+  --border: #E2E8F0;
+  --bg-soft: #F8FAFC;
+  --bg-card: #F2F4F7;
+}
+html, body { font-family: 'Work Sans', sans-serif; color: var(--text-dark); background: white; font-size: 11pt; line-height: 1.55; }
+h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; letter-spacing: -0.01em; color: var(--navy); }
+h1 { font-size: 42pt; font-weight: 900; line-height: 1.05; }
+h2 { font-size: 26pt; font-weight: 800; margin: 18mm 0 4mm; padding-bottom: 3mm; border-bottom: 3px solid var(--cyan); }
+h3 { font-size: 16pt; font-weight: 800; margin: 8mm 0 3mm; color: var(--navy); }
+h4 { font-size: 12pt; font-weight: 700; margin: 4mm 0 2mm; color: var(--brand-blue); }
+p { margin-bottom: 3mm; color: var(--text-dark); }
+.cap, .lbl { font-family: 'DM Mono', monospace; letter-spacing: 0.25em; text-transform: uppercase; font-size: 8pt; color: var(--cyan); font-weight: 500; }
+.tag { font-family: 'Instrument Serif', serif; font-style: italic; color: var(--cyan); font-size: 16pt; }
+.cover {
+  page-break-after: always;
+  height: 257mm;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--brand-blue) 100%);
+  color: white;
+  padding: 30mm 24mm;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.cover .cap { color: var(--cyan); }
+.cover h1 { color: white; font-size: 56pt; line-height: 1.0; }
+.cover .subtitle { font-family: 'Work Sans', sans-serif; font-weight: 300; color: var(--cyan-light); font-size: 14pt; margin-top: 6mm; }
+.cover .footer-meta { color: rgba(194,235,248,.7); font-family: 'DM Mono', monospace; font-size: 8pt; letter-spacing: 0.2em; }
+.cover .wave-mark {
+  position: absolute;
+  bottom: 10mm; right: 20mm;
+  width: 70mm; height: 70mm;
+  opacity: 0.08;
+}
+.toc {
+  page-break-after: always;
+  padding: 0 5mm;
+}
+.toc ol { list-style: none; counter-reset: chapter; }
+.toc ol li {
+  counter-increment: chapter;
+  padding: 3.5mm 0;
+  border-bottom: 1px dotted var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 4mm;
+  font-size: 11pt;
+}
+.toc ol li::before {
+  content: counter(chapter, decimal-leading-zero);
+  font-family: 'DM Mono', monospace;
+  font-size: 8pt;
+  color: var(--cyan);
+  font-weight: 500;
+  letter-spacing: 0.15em;
+}
+.toc ol li .chap-title { font-weight: 700; color: var(--navy); flex: 1; }
+.toc ol li .chap-sub { color: var(--text-soft); font-size: 9pt; }
+.section { page-break-before: always; }
+.section-intro { color: var(--text-mid); font-size: 11pt; max-width: 145mm; }
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4mm;
+  margin: 5mm 0;
+}
+.feature-card {
+  background: var(--bg-card);
+  border-left: 4px solid var(--cyan);
+  border-radius: 6px;
+  padding: 5mm 6mm;
+  page-break-inside: avoid;
+}
+.feature-card h4 { margin-top: 0; color: var(--navy); }
+.feature-card .meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 7pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 2mm;
+  font-weight: 500;
+}
+.feature-card p { margin-bottom: 2mm; font-size: 10.5pt; }
+.feature-card ul { padding-left: 5mm; margin-top: 2mm; }
+.feature-card ul li { font-size: 10pt; color: var(--text-dark); margin-bottom: 1.5mm; }
+.role-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; margin: 5mm 0; }
+.role-card {
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 6mm;
+}
+.role-card.head { border-color: var(--cyan); background: linear-gradient(135deg, rgba(0,210,255,.05), rgba(0,210,255,.01)); }
+.role-card.manager { border-color: var(--brand-blue); background: linear-gradient(135deg, rgba(13,45,94,.05), rgba(13,45,94,.01)); }
+.role-card.athlete { border-color: var(--foam); background: linear-gradient(135deg, rgba(6,214,160,.05), rgba(6,214,160,.01)); }
+.role-card h4 { font-size: 13pt; margin-bottom: 1mm; }
+.role-card .role-meta { font-family: 'DM Mono', monospace; font-size: 7pt; letter-spacing: 0.2em; color: var(--text-mid); margin-bottom: 3mm; }
+.role-card ul { padding-left: 4mm; }
+.role-card ul li { font-size: 9pt; margin-bottom: 1.5mm; }
+.steps {
+  counter-reset: step;
+  list-style: none;
+  padding: 0;
+  margin: 4mm 0;
+}
+.steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 3mm 4mm 3mm 14mm;
+  margin-bottom: 2.5mm;
+  background: var(--bg-soft);
+  border-radius: 5px;
+  font-size: 10pt;
+}
+.steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 4mm; top: 50%;
+  transform: translateY(-50%);
+  width: 7mm; height: 7mm;
+  background: var(--cyan);
+  color: var(--navy);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-weight: 700;
+  font-size: 9pt;
+}
+.kbd { background: var(--navy); color: var(--cyan); padding: 1mm 2.5mm; border-radius: 3px; font-family: 'DM Mono', monospace; font-size: 8.5pt; font-weight: 500; }
+.tag-pill { display: inline-block; background: var(--cyan); color: var(--navy); padding: 0.5mm 2.5mm; border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 7pt; letter-spacing: 0.15em; font-weight: 600; }
+.tag-pill.foam { background: var(--foam); color: white; }
+.tag-pill.sunset { background: var(--sunset); color: white; }
+.tag-pill.coral { background: var(--coral); color: white; }
+.callout {
+  background: linear-gradient(135deg, rgba(0,210,255,.06), rgba(13,45,94,.02));
+  border: 1px solid rgba(0,210,255,.25);
+  border-radius: 8px;
+  padding: 5mm 6mm;
+  margin: 4mm 0;
+}
+.callout .callout-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 7pt;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 2mm;
+  font-weight: 600;
+}
+.callout p { margin-bottom: 0; font-size: 10pt; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 4mm 0; }
+.stat {
+  background: var(--bg-card);
+  border-radius: 6px;
+  padding: 4mm 3mm;
+  text-align: center;
+}
+.stat .v { font-family: 'DM Mono', monospace; font-size: 18pt; font-weight: 700; color: var(--navy); line-height: 1; }
+.stat .l { font-size: 7pt; color: var(--text-mid); margin-top: 1.5mm; letter-spacing: 0.15em; text-transform: uppercase; }
+.tag-quote {
+  text-align: center;
+  margin: 10mm 0 6mm;
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  color: var(--cyan);
+  font-size: 22pt;
+}
+.belt-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2mm;
+  margin: 4mm 0;
+}
+.belt-chip {
+  padding: 4mm 2mm;
+  text-align: center;
+  border-radius: 6px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 10pt;
+}
+.belt-chip .sub { font-family: 'DM Mono', monospace; font-size: 7pt; font-weight: 500; margin-top: 1mm; letter-spacing: 0.1em; }
+.kpi-block { display: grid; grid-template-columns: 1fr; gap: 2.5mm; margin: 4mm 0; }
+.kpi-row { display: grid; grid-template-columns: 60mm 1fr 25mm; gap: 3mm; align-items: center; padding: 2.5mm 3mm; background: var(--bg-soft); border-radius: 4px; font-size: 10pt; }
+.kpi-row .name { font-weight: 600; color: var(--navy); }
+.kpi-row .desc { color: var(--text-mid); font-size: 9.5pt; }
+.kpi-row .pts { text-align: right; font-family: 'DM Mono', monospace; font-weight: 700; color: var(--cyan); font-size: 12pt; }
+.footer-page {
+  page-break-before: always;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--brand-blue) 100%);
+  color: white;
+  padding: 40mm 24mm;
+  height: 257mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+.footer-page .tag { color: var(--cyan-light); font-size: 24pt; display: block; margin: 8mm 0; }
+.footer-page p { color: rgba(194,235,248,.85); font-size: 10pt; }
+.footer-page .cap { color: var(--cyan); font-size: 9pt; }
+.icon-svg { vertical-align: -2px; margin-right: 2mm; }
+.divider { height: 1px; background: var(--border); margin: 6mm 0; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin: 4mm 0; }
+.spec-table { width: 100%; border-collapse: collapse; margin: 4mm 0; font-size: 9.5pt; }
+.spec-table th, .spec-table td { padding: 2.5mm 3mm; text-align: left; border-bottom: 1px solid var(--border); }
+.spec-table th { background: var(--bg-card); font-family: 'DM Mono', monospace; font-size: 7.5pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cyan); }
+.spec-table td:first-child { font-weight: 600; color: var(--navy); }
+</style>
+</head>
+<body>
+
+<!-- ═══ PORTADA ═══ -->
+<div class="cover">
+  <div>
+    <div class="cap">CONFIDENTIAL · INTERNAL USE · V1.0</div>
+    <h1>App<br/>Operations<br/>Manual</h1>
+    <div class="subtitle">The Surf Sequence Method®<br/>El Salvador 2026 · National Team Platform</div>
+  </div>
+  <div>
+    <div class="tag">Evolve through play.</div>
+    <div style="margin-top: 30mm;" class="footer-meta">
+      OWNER · MARCELO CASTELLANOS<br/>
+      ENKRATEIA SA DE CV · JUNE 2026<br/>
+      THIS DOCUMENT IS THE PROPERTY OF THE SURF SEQUENCE METHOD®
+    </div>
+  </div>
+  <svg class="wave-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5 60 Q25 30 50 50 T95 45" stroke="#00D2FF" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </svg>
+</div>
+
+<!-- ═══ TOC ═══ -->
+<div class="toc">
+  <div class="cap">TABLE OF CONTENTS</div>
+  <h1 style="margin-bottom: 8mm;">Contents</h1>
+  <ol>
+    <li><span class="chap-title">Visión general</span><span class="chap-sub">Qué es, para quién, qué resuelve</span></li>
+    <li><span class="chap-title">Arquitectura de roles</span><span class="chap-sub">Head Coach · Coach Manager · Atleta</span></li>
+    <li><span class="chap-title">Hoy del atleta</span><span class="chap-sub">Check-in diario integrado</span></li>
+    <li><span class="chap-title">Sistema de puntos diarios</span><span class="chap-sub">100 pts / día · 7 métricas</span></li>
+    <li><span class="chap-title">Panel del Head Coach</span><span class="chap-sub">Vista del día en 5 boxes</span></li>
+    <li><span class="chap-title">Ranking semanal</span><span class="chap-sub">3 tabs · snapshots automáticos</span></li>
+    <li><span class="chap-title">Planeación de entrenamientos</span><span class="chap-sub">General · Grupo · Individual</span></li>
+    <li><span class="chap-title">Copiar semana</span><span class="chap-sub">Duplicar planes con safeguards</span></li>
+    <li><span class="chap-title">Sesiones presenciales</span><span class="chap-sub">Asistencia y feedback por atleta</span></li>
+    <li><span class="chap-title">Evaluación rápida</span><span class="chap-sub">4 pilares · uso diario</span></li>
+    <li><span class="chap-title">Evaluación Completa Canon v8.1</span><span class="chap-sub">6 bloques modulares con detalle</span></li>
+    <li><span class="chap-title">Test físico TSS</span><span class="chap-sub">13 pruebas objetivas estandarizadas</span></li>
+    <li><span class="chap-title">Competencias</span><span class="chap-sub">Heats, scores y auto-eval post-heat</span></li>
+    <li><span class="chap-title">Sistema de cintas</span><span class="chap-sub">6 cintas · 23 secuencias</span></li>
+    <li><span class="chap-title">Ficha Técnica Oficial</span><span class="chap-sub">Perfil deportivo para federación</span></li>
+    <li><span class="chap-title">Reportes PDF</span><span class="chap-sub">Analytics, semanal y mensual</span></li>
+    <li><span class="chap-title">Citas y agenda</span><span class="chap-sub">Nutricionista, médico, evaluaciones</span></li>
+    <li><span class="chap-title">Mensajes internos</span><span class="chap-sub">Directos y broadcast a grupos</span></li>
+    <li><span class="chap-title">Multi-equipos</span><span class="chap-sub">Modo Equipo · drill-down</span></li>
+    <li><span class="chap-title">Modo Atleta</span><span class="chap-sub">Contexto individual rápido</span></li>
+    <li><span class="chap-title">Seguridad y privacidad</span><span class="chap-sub">RLS, RPCs, columnas protegidas</span></li>
+    <li><span class="chap-title">Stack técnico</span><span class="chap-sub">Frontend, backend, hosting</span></li>
+    <li><span class="chap-title">Capacidad y escalabilidad</span><span class="chap-sub">Límites prácticos por plan</span></li>
+    <li><span class="chap-title">Roadmap</span><span class="chap-sub">Próximas funcionalidades</span></li>
+  </ol>
+</div>
+
+<!-- ═══ CAP 01 — VISIÓN GENERAL ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 01</div>
+  <h2>Visión general</h2>
+  <p class="section-intro">Plataforma operativa única para el entrenamiento, evaluación, planificación y seguimiento del rendimiento de atletas de surf de alto rendimiento. Diseñada para el Equipo Nacional de El Salvador 2026 y replicable para cualquier federación, academia o equipo certificado bajo The Surf Sequence Method®.</p>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="v">22</div><div class="l">Atletas activos</div></div>
+    <div class="stat"><div class="v">4</div><div class="l">Equipos / grupos</div></div>
+    <div class="stat"><div class="v">30+</div><div class="l">Funciones</div></div>
+    <div class="stat"><div class="v">100%</div><div class="l">Cloud · PWA</div></div>
+  </div>
+
+  <h3>El problema que resuelve</h3>
+  <p>Los equipos de alto rendimiento generan data diaria de wellness, planificación, evaluación, competencia y administración que tradicionalmente vive en Excel, WhatsApp, papel, cabezas de coaches y carpetas dispersas. Esta fragmentación hace imposible tomar decisiones basadas en evidencia.</p>
+  <p><strong>Esta plataforma consolida toda la operación deportiva en un solo sistema</strong>, con perfiles persistentes por atleta, métricas estandarizadas (Canon v8.1) y reportes profesionales generables en segundos.</p>
+
+  <h3>Filosofía de producto</h3>
+  <div class="feature-grid" style="grid-template-columns: 1fr 1fr; gap: 4mm;">
+    <div class="feature-card">
+      <div class="meta">Mobile-first</div>
+      <h4>Diseñada para iPhone</h4>
+      <p>Toda interacción ocurre en la pantalla de un teléfono. Touch targets generosos, navegación de un solo dedo, lectura en luz solar.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">Frictionless</div>
+      <h4>Login con PIN de 4 dígitos</h4>
+      <p>Sin emails, sin contraseñas, sin enlaces mágicos. El atleta entra en 2 segundos.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">Offline-capable</div>
+      <h4>PWA que funciona como app nativa</h4>
+      <p>Se instala desde Safari. Ícono en pantalla principal. Funciona sin señal cuando ya cargó.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">Honest data</div>
+      <h4>Toda la data se persiste para siempre</h4>
+      <p>Cualquier reporte de cualquier rango de fechas siempre va a tener la data completa de ese período.</p>
+    </div>
+  </div>
+
+  <div class="tag-quote">Clarity changes everything.</div>
+</div>
+
+<!-- ═══ CAP 02 — ROLES ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 02</div>
+  <h2>Arquitectura de roles</h2>
+  <p class="section-intro">El sistema reconoce tres niveles de acceso. Cada rol ve una interfaz adaptada con las funciones que le corresponden. Los datos sensibles se filtran automáticamente según permisos.</p>
+
+  <div class="role-grid">
+    <div class="role-card head">
+      <div class="role-meta">ROL 01</div>
+      <h4>Head Coach</h4>
+      <p style="font-size: 10pt; color: var(--text-mid); margin-bottom: 3mm;">Marcelo Castellanos · acceso total</p>
+      <ul>
+        <li>Ve todos los atletas y equipos</li>
+        <li>Crea, edita y desactiva atletas</li>
+        <li>Asigna Coach Managers a grupos</li>
+        <li>Acceso a todos los reportes PDF</li>
+        <li>Genera Fichas Técnicas oficiales</li>
+        <li>Crea planes generales para todos</li>
+        <li>Maneja calendario completo</li>
+        <li>Ve mensajes de todos</li>
+      </ul>
+    </div>
+
+    <div class="role-card manager">
+      <div class="role-meta">ROL 02</div>
+      <h4>Coach Manager</h4>
+      <p style="font-size: 10pt; color: var(--text-mid); margin-bottom: 3mm;">Coach asignado · alcance limitado</p>
+      <ul>
+        <li>Solo ve atletas de SUS equipos asignados</li>
+        <li>Crea planes para su equipo</li>
+        <li>Evalúa solo a sus atletas</li>
+        <li>Manda mensajes solo a su equipo</li>
+        <li>Ve ranking solo de su grupo</li>
+        <li>Agenda citas para sus atletas</li>
+        <li>Reportes solo de su alcance</li>
+        <li>Sin acceso a otros equipos</li>
+      </ul>
+    </div>
+
+    <div class="role-card athlete">
+      <div class="role-meta">ROL 03</div>
+      <h4>Atleta</h4>
+      <p style="font-size: 10pt; color: var(--text-mid); margin-bottom: 3mm;">Usuario primario · dueño de su data</p>
+      <ul>
+        <li>Check-in diario de wellness</li>
+        <li>Ve su plan del día</li>
+        <li>Ve su semana completa</li>
+        <li>Edita su propio perfil</li>
+        <li>Agrega sus propias competencias</li>
+        <li>Llena su Ficha Técnica</li>
+        <li>Recibe mensajes y citas</li>
+        <li>Confirma asistencia a citas</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-label">CRITICAL DESIGN PRINCIPLE</div>
+    <p>El rol del usuario determina <strong>el filtrado automático de datos</strong> a nivel cliente y base de datos. Un Coach Manager nunca ve atletas de otros equipos, incluso si conoce sus IDs. El sistema previene fugas de información entre equipos por diseño.</p>
+  </div>
+</div>
+
+<!-- ═══ CAP 03 — HOY ATLETA ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 03</div>
+  <h2>Hoy del atleta</h2>
+  <p class="section-intro">La pantalla principal del atleta. Diseñada para llenarse en menos de 90 segundos desde la cama o antes del entrenamiento.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">WELLNESS · CHECK-IN INTEGRADO</div>
+      <h4>Un solo formulario por día</h4>
+      <p>El check-in unificado guarda 7 métricas con validación obligatoria de sueño:</p>
+      <ul>
+        <li><strong>Sueño</strong> de la noche anterior (5h a 10h con incrementos de 0.5h)</li>
+        <li><strong>Vasos de agua</strong> del día (1 a 8+)</li>
+        <li><strong>Nivel de energía</strong> (1 a 5)</li>
+        <li><strong>Nivel de enfoque en el entreno</strong> (1 a 5)</li>
+        <li><strong>Nutrición</strong> (Sí / Medio / No)</li>
+        <li><strong>Objetivo logrado</strong> (Sí / Parcial / No)</li>
+        <li><strong>Horas de surf</strong> en el agua</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="meta">PLAN DEL DÍA</div>
+      <h4>Bloques de entrenamiento marcables</h4>
+      <p>Cada bloque del plan creado por el coach aparece como una card con:</p>
+      <ul>
+        <li>Tipo de actividad (Sesión, Físico, Mental, Recovery, etc.)</li>
+        <li>Objetivo escrito por el coach</li>
+        <li>Tareas específicas con duración</li>
+        <li>Video embed de YouTube si aplica</li>
+        <li>Checkbox circular para marcar completado</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="meta">BANNER FICHA TÉCNICA</div>
+      <h4>Recordatorio inteligente</h4>
+      <p>Si la Ficha Técnica está incompleta, aparece banner ámbar/rojo arriba con porcentaje de completitud (ej. "Tu ficha está al 40% · Faltan: pasaporte, sponsors, palmarés"). Tap directo abre la sección a completar.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="meta">SESIÓN DEL DÍA</div>
+      <h4>Auto-detección de sesión presencial</h4>
+      <p>Si el coach programó una sesión presencial hoy, aparece banner azul con horario, lugar y misión del día. El atleta solo confirma asistencia.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAP 04 — SISTEMA DE PUNTOS ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 04</div>
+  <h2>Sistema de puntos diarios</h2>
+  <p class="section-intro">Cada día tiene un valor máximo de <strong>100 puntos</strong>. Los puntos se acumulan automáticamente desde el check-in y alimentan el ranking semanal y general. Bonificaciones por asistencia presencial o competencia.</p>
+
+  <h3>Métricas principales · 90 puntos</h3>
+  <div class="kpi-block">
+    <div class="kpi-row">
+      <div class="name">Plan del día</div>
+      <div class="desc">Completar bloques asignados por el coach</div>
+      <div class="pts">25 pts</div>
+    </div>
+    <div class="kpi-row">
+      <div class="name">Sueño</div>
+      <div class="desc">8h+ óptimo / 7h bien / 6h limitado / 5h riesgo</div>
+      <div class="pts">20 pts</div>
+    </div>
+    <div class="kpi-row">
+      <div class="name">Horas de surf</div>
+      <div class="desc">3h+ = pleno · 2h bueno · 1h básico</div>
+      <div class="pts">20 pts</div>
+    </div>
+    <div class="kpi-row">
+      <div class="name">Nutrición</div>
+      <div class="desc">Buena = 15 · Media = 8 · Baja = 3</div>
+      <div class="pts">15 pts</div>
+    </div>
+    <div class="kpi-row">
+      <div class="name">Hidratación</div>
+      <div class="desc">8+ vasos = pleno · 6-7 = bien · 4-5 = bajo</div>
+      <div class="pts">10 pts</div>
+    </div>
+  </div>
+
+  <h3>Métricas secundarias · 10 puntos</h3>
+  <div class="kpi-block">
+    <div class="kpi-row">
+      <div class="name">Energía · Enfoque · Objetivo</div>
+      <div class="desc">Estado del atleta y cumplimiento del objetivo del día</div>
+      <div class="pts">10 pts</div>
+    </div>
+  </div>
+
+  <h3>Bonificaciones</h3>
+  <div class="kpi-block">
+    <div class="kpi-row" style="background: rgba(255,209,102,.08);">
+      <div class="name" style="color: #B8860B;">Asistencia presencial</div>
+      <div class="desc">Por confirmar asistencia y participar en sesión con coach</div>
+      <div class="pts" style="color: var(--golden);">+10 pts</div>
+    </div>
+    <div class="kpi-row" style="background: rgba(168,85,247,.06);">
+      <div class="name" style="color: #7B4FBE;">Heat de competencia</div>
+      <div class="desc">Por loguear un heat completo en una competencia</div>
+      <div class="pts" style="color: #7B4FBE;">+10 pts</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-label">SNAPSHOT SEMANAL</div>
+    <p>Cada lunes el sistema toma un <strong>snapshot automático</strong> del ranking de la semana cerrada. Esto crea un archivo congelado e inmutable en <code>tss_weekly_rankings</code>. El "Ranking Pasado" siempre muestra esta foto histórica, no recalculada.</p>
+  </div>
+</div>
+
+<!-- ═══ CAP 05 — PANEL HEAD COACH ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 05</div>
+  <h2>Panel del Head Coach</h2>
+  <p class="section-intro">Vista de un golpe del equipo entero. Diseñada para 8:00 AM con el café — ver quién durmió bien, quién no se conectó, dónde intervenir.</p>
+
+  <h3>Resumen del día · 3 KPIs principales</h3>
+  <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="stat"><div class="v">11/22</div><div class="l">Check-in</div></div>
+    <div class="stat"><div class="v">5</div><div class="l">Plan 100%</div></div>
+    <div class="stat"><div class="v">4.2</div><div class="l">Energía promedio</div></div>
+  </div>
+
+  <h3>Cards por atleta · grid 5×box</h3>
+  <p>Cada atleta tiene una card visual con su nombre y 5 boxes coloreados según su estado:</p>
+  <div class="feature-grid" style="grid-template-columns: 1fr 1fr; gap: 4mm;">
+    <div class="feature-card">
+      <h4>1. Sueño</h4>
+      <p style="font-size: 10pt;">Verde ≥7.5h · Ámbar ≥6h · Rojo &lt;6h · Gris sin registro</p>
+    </div>
+    <div class="feature-card">
+      <h4>2. Agua</h4>
+      <p style="font-size: 10pt;">Verde ≥6 vasos · Ámbar ≥4 · Gris sin registro</p>
+    </div>
+    <div class="feature-card">
+      <h4>3. Energía</h4>
+      <p style="font-size: 10pt;">Verde ≥4 · Ámbar ≥2 · Rojo &lt;2</p>
+    </div>
+    <div class="feature-card">
+      <h4>4. Surf</h4>
+      <p style="font-size: 10pt;">Cyan ≥2h · Ámbar ≥1h · Cyan suave sin registro</p>
+    </div>
+    <div class="feature-card">
+      <h4>5. Índice (eval)</h4>
+      <p style="font-size: 10pt;">Promedio histórico de los 4 pilares (Físico · Técnico · Táctico · Mental). Sirve como termómetro de evolución.</p>
+    </div>
+  </div>
+
+  <h3>Alertas automáticas</h3>
+  <ul style="padding-left: 5mm; margin: 3mm 0;">
+    <li style="margin-bottom: 2mm;"><strong>Alerta de sueño:</strong> badge rojo "⚠ Xh sueño" si atleta durmió menos de 7h</li>
+    <li style="margin-bottom: 2mm;"><strong>Sin actividad 7+ días:</strong> banner ámbar arriba listando atletas inactivos</li>
+    <li style="margin-bottom: 2mm;"><strong>Plan 100%:</strong> trophy verde si completó toda la asignación</li>
+    <li style="margin-bottom: 2mm;"><strong>Lesión activa:</strong> chip rojo cuando entra al perfil del atleta</li>
+  </ul>
+</div>
+
+<!-- ═══ CAP 06 — RANKING ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 06</div>
+  <h2>Ranking semanal</h2>
+  <p class="section-intro">Tres tabs que muestran el mismo equipo con diferentes ventanas temporales. Diseño para motivar competencia sana entre atletas del mismo equipo o entre equipos.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">TAB 01 · ESTA SEMANA</div>
+      <h4>Live ranking · lunes a domingo</h4>
+      <p>Suma de puntos diarios acumulados desde el lunes pasado hasta hoy. Se actualiza con cada check-in. Si es lunes a las 7am, todos están en 0.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">TAB 02 · SEMANA PASADA</div>
+      <h4>Snapshot congelado</h4>
+      <p>Foto inmutable de la semana cerrada. Garantiza que el ranking de la semana pasada no cambie si alguien edita data atrasada.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">TAB 03 · GENERAL</div>
+      <h4>Acumulado de la temporada</h4>
+      <p>Suma de TODOS los puntos desde el inicio oficial de la temporada (configurable). Para medir consistencia a largo plazo, no solo picos.</p>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>Visualización por atleta</h3>
+      <ul style="padding-left: 5mm; font-size: 10pt;">
+        <li>Posición numerada con medalla (oro/plata/bronce para top 3)</li>
+        <li>Avatar circular</li>
+        <li>Nombre del atleta</li>
+        <li>Total de puntos en mono font</li>
+        <li>Promedio diario</li>
+        <li>Mini badges de check-ins completos vs días totales</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Filtro por equipo</h3>
+      <ul style="padding-left: 5mm; font-size: 10pt;">
+        <li>Si Head Coach entra en "Modo Equipo", el ranking filtra solo a ese equipo</li>
+        <li>Coach Manager siempre ve solo su(s) equipo(s)</li>
+        <li>Vista global del Head Coach muestra todos los atletas mezclados</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAP 07 — PLANEACIÓN ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 07</div>
+  <h2>Planeación de entrenamientos</h2>
+  <p class="section-intro">El coach crea planes diarios que se asignan a 3 niveles distintos: a todos (general), a un equipo específico (grupo) o a un atleta puntual (individual). Los 3 niveles se superponen en la vista del atleta.</p>
+
+  <h3>Los 3 niveles de scope</h3>
+  <div class="role-grid">
+    <div class="role-card head">
+      <h4>General</h4>
+      <p style="font-size: 9pt; color: var(--text-mid); margin-bottom: 2mm;">Para todos los atletas</p>
+      <p style="font-size: 10pt;">Ej: "Meditación 10 min al despertar" — todos los atletas la ven en su Hoy independientemente del equipo.</p>
+    </div>
+    <div class="role-card manager">
+      <h4>Grupo</h4>
+      <p style="font-size: 9pt; color: var(--text-mid); margin-bottom: 2mm;">Para un equipo específico</p>
+      <p style="font-size: 10pt;">Ej: "Drill backside SHORTBOARD" — solo los 14 atletas del grupo SHORTBOARD la ven.</p>
+    </div>
+    <div class="role-card athlete">
+      <h4>Individual</h4>
+      <p style="font-size: 9pt; color: var(--text-mid); margin-bottom: 2mm;">Para un solo atleta</p>
+      <p style="font-size: 10pt;">Ej: "Rehab espalda baja Bryan" — solo Bryan la ve en su Hoy.</p>
+    </div>
+  </div>
+
+  <h3>12 tipos de bloque disponibles</h3>
+  <div class="feature-grid" style="grid-template-columns: repeat(3, 1fr); gap: 3mm;">
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Sesión de Surf</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Ritual Diario</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Respiración</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Meditación</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Morning Mobility</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Físico</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Técnico</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Táctico</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Mental</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Recovery</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Entreno Competencia</h4></div>
+    <div class="feature-card" style="padding: 3mm; border-left-width: 3px;"><h4 style="font-size: 10pt;">Otro</h4></div>
+  </div>
+
+  <h3>Cada bloque puede tener</h3>
+  <ul style="padding-left: 5mm; font-size: 10pt;">
+    <li>Objetivo escrito</li>
+    <li>Notas internas del coach</li>
+    <li>Lista de tareas con duración por tarea</li>
+    <li>Video embed de YouTube (con ID auto-extraído)</li>
+    <li>Configuración especial (tiempo de sesión, repeticiones, etc.)</li>
+  </ul>
+</div>
+
+<!-- ═══ CAP 08 — COPIAR SEMANA ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 08</div>
+  <h2>Copiar semana</h2>
+  <p class="section-intro">Si el coach tiene una rutina semanal repetitiva, puede duplicar una semana completa a cualquier otra con un click. Incluye safeguards visuales para prevenir errores.</p>
+
+  <h3>Flow del modal</h3>
+  <ol class="steps">
+    <li>Tap "Copiar semana" abre modal con default <span class="kbd">esta semana → próxima semana</span></li>
+    <li>Selectores muestran hint en cyan con rango exacto: <em>"📅 lun 8 jun → dom 14 jun"</em></li>
+    <li>Atajos rápidos: <strong>Próxima · +2 semanas · +4 semanas</strong></li>
+    <li>Preview live: <em>"📊 Copiarán 15 planes · Se saltan 0 (ya existen)"</em></li>
+    <li>Botón final muestra el rango destino: <em>"📋 Copiar 15 planes → lun 15 jun → dom 21 jun"</em></li>
+    <li>Confirm popup si destino &lt; origen (copiando hacia atrás)</li>
+  </ol>
+
+  <div class="callout">
+    <div class="callout-label">SAFEGUARDS</div>
+    <p><strong>Anti-duplicación:</strong> si el día destino ya tiene un plan con mismo scope+target, se salta (no sobreescribe). <strong>Anti-error:</strong> si el destino es ANTES del origen, banner rojo + confirm explícito. <strong>Anti-confusión:</strong> defaults inteligentes calculados desde el día actual, no del día que estás viendo.</p>
+  </div>
+</div>
+
+<!-- ═══ CAP 09 — SESIONES PRESENCIALES ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 09</div>
+  <h2>Sesiones presenciales</h2>
+  <p class="section-intro">Cuando el coach está en el agua con los atletas, registra la sesión: quién vino, qué se hizo, cómo fue. La data feed back al perfil individual y al ranking.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">CREAR SESIÓN</div>
+      <h4>Programación</h4>
+      <p>El coach define: fecha, hora de inicio, duración, pilar entrenado (FIS/TEC/TAC/MEN), misión del día, y atletas convocados (selección múltiple con buscador).</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="meta">FINALIZAR SESIÓN</div>
+      <h4>Cierre con feedback individual</h4>
+      <p>Al finalizar, el coach captura:</p>
+      <ul>
+        <li>Asistencia real (vs convocados)</li>
+        <li>Por atleta: rating de enfoque (1-5)</li>
+        <li>Por atleta: nota textual del coach</li>
+        <li>Status global de la sesión (completada, parcial, cancelada por clima)</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="meta">IMPACTO</div>
+      <h4>Donde se refleja</h4>
+      <p>El feedback aparece en el perfil del atleta como "Sesiones Recientes" con su rating, nota y badge del pilar trabajado. También cuenta para los "días sin actividad" del panel y los puntos de bonificación.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAP 10 — EVAL RÁPIDA ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 10</div>
+  <h2>Evaluación rápida</h2>
+  <p class="section-intro">Versión express para evaluaciones de rutina post-sesión. Toma 60 segundos. Llena el radar de pilares del atleta. Útil para tracking continuo entre evaluaciones formales.</p>
+
+  <h3>Los 4 pilares oficiales</h3>
+  <div class="role-grid" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="role-card" style="border-color: var(--foam);">
+      <h4>Físico</h4>
+      <p style="font-size: 9pt; color: var(--text-mid);">Capacidad aeróbica, fuerza, movilidad</p>
+    </div>
+    <div class="role-card" style="border-color: var(--cyan);">
+      <h4>Técnica</h4>
+      <p style="font-size: 9pt; color: var(--text-mid);">Take-off, maniobras, conexión</p>
+    </div>
+    <div class="role-card" style="border-color: #A855F7;">
+      <h4>Táctica</h4>
+      <p style="font-size: 9pt; color: var(--text-mid);">Wave choice, priority, lineup</p>
+    </div>
+    <div class="role-card" style="border-color: var(--sunset);">
+      <h4>Mental</h4>
+      <p style="font-size: 9pt; color: var(--text-mid);">Focus, presión, resiliencia</p>
+    </div>
+  </div>
+
+  <h3>Adicional</h3>
+  <ul style="padding-left: 5mm; font-size: 10pt;">
+    <li><strong>Capacidad competitiva</strong> (1-10): potencial de generar scores premium</li>
+    <li><strong>Fortalezas:</strong> texto libre</li>
+    <li><strong>Limitaciones:</strong> texto libre</li>
+    <li><strong>Recomendaciones:</strong> drills sugeridos para próximos días</li>
+  </ul>
+</div>
+
+<!-- ═══ CAP 11 — EVAL COMPLETA ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 11</div>
+  <h2>Evaluación Completa Canon v8.1</h2>
+  <p class="section-intro">Sistema modular de evaluación profunda, alineado al Core Canon v8.1 del Surf Sequence Method®. El coach elige qué bloques evaluar en cada sesión (no es necesario hacer los 6 cada vez).</p>
+
+  <h3>Los 6 bloques modulares</h3>
+  <div class="feature-grid" style="grid-template-columns: 1fr 1fr; gap: 4mm;">
+    <div class="feature-card">
+      <div class="meta">BLOQUE 01</div>
+      <h4>Físico</h4>
+      <p>2 sub-secciones: <strong>(A) 13 Tests objetivos TSS</strong> con valores numéricos reales (segundos, reps, metros). <strong>(B) Histórico médico</strong>: lesiones activas, cuello de botella físico, áreas frágiles.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">BLOQUE 02</div>
+      <h4>Técnica</h4>
+      <p>Three Circles · P·R·C·H · Take-off · Maniobras principales y progresivas · Conexión con flow · Repertorio · Momentos críticos.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">BLOQUE 03</div>
+      <h4>Maniobras (FS/BS)</h4>
+      <p>30+ maniobras evaluadas 1-5. FRONTSIDE y BACKSIDE separados. Items no calificados cuentan como 0 ("no domina") en el promedio del bloque.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">BLOQUE 04</div>
+      <h4>Longboard</h4>
+      <p>Bloque específico para atletas de longboard. Cross-stepping, noseriding, cutbacks tradicionales, drop-knee bottom turns.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">BLOQUE 05</div>
+      <h4>Táctica</h4>
+      <p>Lectura del lineup · Priority management · Wave selection · Conditions adaptation · Game plan ejecución.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">BLOQUE 06</div>
+      <h4>Mental</h4>
+      <p>Focus durante heat · Pressure response · Emotional control · Resilience after wipeout · Commitment level · Visualization.</p>
+    </div>
+  </div>
+
+  <h3>Funciones especiales</h3>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">EDIT</div>
+      <h4>Editar evaluación existente</h4>
+      <p>Click "✏️ Editar" en cualquier eval guardada → form se pre-rellena con TODOS los valores → cambios se hacen <strong>UPDATE</strong> (no crea duplicado). Útil para evaluar en vivo durante la sesión, guardar parcial, completar después.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">HISTORIAL</div>
+      <h4>Lista cronológica + comparación</h4>
+      <p>El historial muestra todas las evals completas y rápidas. Cada una con su fecha, tipo, disciplina, cinta otorgada y resumen. Tap abre detalle con todos los ratings.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAP 12 — TEST FÍSICO ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 12</div>
+  <h2>Test físico TSS · Batería de 13 pruebas</h2>
+  <p class="section-intro">Sub-sección del Bloque Físico de la Eval Completa. Pruebas objetivas estandarizadas que se repiten cada 4-6 semanas para medir evolución cuantificable.</p>
+
+  <h3>Las 13 pruebas</h3>
+  <table class="spec-table">
+    <thead><tr><th>#</th><th>Prueba</th><th>Unidad</th><th>Mide</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Pop-up x 1 min</td><td>reps</td><td>Resistencia explosiva</td></tr>
+      <tr><td>2</td><td>Velocidad 20m con tabla</td><td>segundos</td><td>Paddle sprint</td></tr>
+      <tr><td>3</td><td>Velocidad 20m sin tabla</td><td>segundos</td><td>Nado libre máximo</td></tr>
+      <tr><td>4</td><td>Nado libre 100m</td><td>min:seg</td><td>Capacidad aeróbica</td></tr>
+      <tr><td>5</td><td>Sentadilla fémur paralelo HOLD</td><td>segundos</td><td>Resistencia isométrica piernas</td></tr>
+      <tr><td>6</td><td>Saltos laterales x 1 min</td><td>reps</td><td>Agilidad lateral + cardio</td></tr>
+      <tr><td>7</td><td>Abdominales x 1 min</td><td>reps</td><td>Core resistance</td></tr>
+      <tr><td>8</td><td>Apnea estática</td><td>segundos</td><td>Tolerancia CO2 reposo</td></tr>
+      <tr><td>9</td><td>Apnea dinámica bajo agua</td><td>m / seg</td><td>Capacidad para wipeouts largos</td></tr>
+      <tr><td>10</td><td>Dominadas máximas</td><td>reps</td><td>Fuerza espalda</td></tr>
+      <tr><td>11</td><td>Burpees x 1 min</td><td>reps</td><td>Cardio funcional</td></tr>
+      <tr><td>12</td><td>Balance unipodal ojos cerrados</td><td>segundos</td><td>Propiocepción</td></tr>
+      <tr><td>13</td><td>Flexibilidad — observación</td><td>texto libre</td><td>Forward fold, shoulders, caderas</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="callout-label">PROTOCOLO ESTANDARIZADO</div>
+    <p>Cada prueba tiene su hint con protocolo exacto en el formulario. Esto asegura que los resultados sean comparables entre atletas y entre evaluaciones del mismo atleta a lo largo del tiempo.</p>
+  </div>
+</div>
+
+<!-- ═══ CAP 13 — COMPETENCIAS ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 13</div>
+  <h2>Competencias</h2>
+  <p class="section-intro">El módulo más completo del app. Cubre desde la creación de la competencia hasta el debrief post-evento, pasando por logging de heats en vivo y auto-evaluación del atleta.</p>
+
+  <h3>Flujo completo de una competencia</h3>
+  <ol class="steps">
+    <li><strong>Crear competencia</strong> (atleta o coach): nombre, fecha, lugar, categoría, modalidad</li>
+    <li><strong>Modo competencia</strong> el día del evento: pantalla dedicada con heat tracker</li>
+    <li><strong>Log heat por heat</strong>: heat #, round, scores de cada ola, resultado</li>
+    <li><strong>Auto-eval post-heat</strong>: atleta valora sus 6 pilares de competencia</li>
+    <li><strong>Finalizar competencia</strong>: status final, ranking, notas del coach</li>
+    <li><strong>Aparece en perfil</strong>: card con resumen + chip de cinta si aplica</li>
+  </ol>
+
+  <h3>Auto-evaluación post-heat · 6 pilares</h3>
+  <div class="role-grid" style="grid-template-columns: repeat(3, 1fr); gap: 3mm;">
+    <div class="role-card" style="border-color: var(--foam); padding: 3mm;"><h4 style="font-size: 10pt;">Físico</h4></div>
+    <div class="role-card" style="border-color: var(--cyan); padding: 3mm;"><h4 style="font-size: 10pt;">Técnica</h4></div>
+    <div class="role-card" style="border-color: #A855F7; padding: 3mm;"><h4 style="font-size: 10pt;">Táctica</h4></div>
+    <div class="role-card" style="border-color: var(--brand-blue); padding: 3mm;"><h4 style="font-size: 10pt;">Elección de olas</h4></div>
+    <div class="role-card" style="border-color: var(--text-mid); padding: 3mm;"><h4 style="font-size: 10pt;">Equipo (tabla)</h4></div>
+    <div class="role-card" style="border-color: var(--sunset); padding: 3mm;"><h4 style="font-size: 10pt;">Mental</h4></div>
+  </div>
+
+  <h3>Evaluación post-competencia · 18 pilares profundos</h3>
+  <p>Para análisis post-evento del coach. Captura Mental Focus, Pressure Response, Emotional Control, Resilience, Commitment, Decision under Pressure, Take-off Quality, Speed Generation, Wave Flow, Wave Choice, Priority Usage, Lineup Positioning, Paddle Timing, Plan Execution, Conditions Adaptation, Opponents Adaptation, Heat Prep, Board Performance. Cada uno 1-5 + campos de texto: fortaleza, limitación, error crítico, patrón, diagnóstico, prioridad, acción concreta.</p>
+</div>
+
+<!-- ═══ CAP 14 — CINTAS ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 14</div>
+  <h2>Sistema de cintas</h2>
+  <p class="section-intro">Belt progression del Surf Sequence Method® · 6 cintas · 23 secuencias · una progresión matemática basada en Fibonacci. Las cintas se otorgan en evaluaciones formales tipo "promoción de cinta".</p>
+
+  <h3>Las 6 cintas oficiales</h3>
+  <div class="belt-row">
+    <div class="belt-chip" style="background: #F5F5F5; color: #0A1628;">BLANCA<div class="sub">SEQ 1–5</div></div>
+    <div class="belt-chip" style="background: #FFC300; color: #0A1628;">AMARILLA<div class="sub">SEQ 6–7</div></div>
+    <div class="belt-chip" style="background: #0EA5E9; color: white;">AZUL<div class="sub">SEQ 8–13</div></div>
+    <div class="belt-chip" style="background: #A855F7; color: white;">MORADA<div class="sub">SEQ 14–23</div></div>
+    <div class="belt-chip" style="background: #8B5E3C; color: white;">CAFÉ<div class="sub">MASTERY</div></div>
+    <div class="belt-chip" style="background: #111111; color: #FFD166;">NEGRA<div class="sub">COMPETENCY</div></div>
+  </div>
+
+  <h3>Significado de cada cinta</h3>
+  <table class="spec-table">
+    <thead><tr><th>Cinta</th><th>Sequences</th><th>Nivel</th></tr></thead>
+    <tbody>
+      <tr><td>Blanca</td><td>Sec 1–5</td><td>Foundation · 5 KEY WORDS framework</td></tr>
+      <tr><td>Amarilla</td><td>Sec 6–7</td><td>Novice progression · primera maniobra con intención</td></tr>
+      <tr><td>Azul</td><td>Sec 8–13</td><td>Intermediate · maniobras encadenadas</td></tr>
+      <tr><td>Morada</td><td>Sec 14–23</td><td>Advanced · repertorio completo · Named Expressions</td></tr>
+      <tr><td>Café</td><td>Mastery</td><td>6 conceptos de maestría · preparación para coach</td></tr>
+      <tr><td>Negra</td><td>Competency</td><td>3 dominios · autoridad de certificación</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Cómo se otorga</h3>
+  <p>El head coach crea una <strong>Evaluación Completa tipo "Promoción de cinta"</strong>, evalúa los bloques requeridos para la cinta target y, al final del formulario, selecciona qué cinta otorgar. Al guardar, la cinta se actualiza automáticamente en el perfil del atleta y aparece como chip visual con su glow correspondiente.</p>
+</div>
+
+<!-- ═══ CAP 15 — FICHA TÉCNICA ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 15</div>
+  <h2>Ficha Técnica oficial</h2>
+  <p class="section-intro">Documento profesional con el perfil completo del atleta. Formato estándar para presentar a federaciones, sponsors, eventos internacionales, médicos deportivos.</p>
+
+  <h3>7 secciones del documento</h3>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">SECCIÓN 01</div>
+      <h4>Datos personales</h4>
+      <p>Nombre completo, apodo deportivo, fecha de nacimiento, edad, lugar de nacimiento, nacionalidad, sexo, dirección, teléfono, email, pasaporte (nº + emisión + vencimiento), DUI, estado civil.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">SECCIÓN 02</div>
+      <h4>Datos físicos y técnicos</h4>
+      <p>Altura, peso, stance, disciplina, años practicando surf, años compitiendo, maniobra favorita, mano dominante, pie dominante, seguro médico.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">SECCIÓN 03</div>
+      <h4>Perfil deportivo TSS</h4>
+      <p>Índice global de desempeño, los 4 pilares evaluados, capacidad de scores, horas de surf totales, cumplimiento del plan, bienestar promedio, nivel TSS (cinta actual).</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">SECCIÓN 04</div>
+      <h4>Resultados recientes</h4>
+      <p>Tabla con últimas 8 competencias: fecha, evento, ubicación, resultado/score detallado.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">SECCIÓN 05</div>
+      <h4>Volumen competitivo anual</h4>
+      <p>Cantidad aproximada de eventos por año.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">SECCIÓN 06</div>
+      <h4>Equipo de trabajo y patrocinios</h4>
+      <p>Entrenador personal, metodología, club/academia, sponsors.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">SECCIÓN 07</div>
+      <h4>Palmarés histórico</h4>
+      <p>Texto libre con logros anteriores que no están en BD (años pre-app).</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-label">ALERTAS AUTOMÁTICAS</div>
+    <p>El PDF detecta y resalta automáticamente: <strong>pasaporte vencido</strong> con fecha de vencimiento, <strong>lesión activa</strong> con fecha de inicio. Estas alertas aparecen al final del documento en sección "Observaciones" para gestión proactiva del coach.</p>
+  </div>
+</div>
+
+<!-- ═══ CAP 16 — REPORTES PDF ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 16</div>
+  <h2>Reportes PDF</h2>
+  <p class="section-intro">El sistema genera 4 tipos de reportes profesionales con un click. Todos respetan brand TSS (Outfit + Work Sans + Ocean Navy + Signature Cyan).</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">REPORTE 01 · ANALYTICS COMPLETO</div>
+      <h4>Reporte PDF individual · 7 páginas</h4>
+      <p>El más detallado. Selector de fechas (7/30/90 días o "Toda la temporada"). Incluye: portada ejecutiva con radar de pilares e índice global, tendencias por día (gráficos), sesiones presenciales, evaluaciones detalladas, competencias con heats, comp_evals con 18 pilares, info personal del atleta.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">REPORTE 02 · FICHA TÉCNICA</div>
+      <h4>Perfil oficial · 2-3 páginas</h4>
+      <p>Diseñado para entregar a terceros (federación, sponsors). 7 secciones predefinidas. Solo head coach lo genera.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">REPORTE 03 · SEMANAL</div>
+      <h4>Resumen de 7 días</h4>
+      <p>Foto compacta de la semana del atleta: progreso del plan, asistencia a sesiones, evolución de los 4 pilares, horas de surf, observaciones del coach.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">REPORTE 04 · MENSUAL DE EQUIPO</div>
+      <h4>Reporte agregado del equipo</h4>
+      <p>Compara TODOS los atletas activos: cumplimiento de plan, horas totales, evaluaciones del mes, asistencia a sesiones. Útil para junta directiva y revisión mensual.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAP 17 — CITAS ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 17</div>
+  <h2>Citas y agenda</h2>
+  <p class="section-intro">Calendario centralizado para citas con nutricionista, médico deportivo, fisioterapeuta, evaluaciones formales, sesiones de psicología deportiva, etc.</p>
+
+  <h3>5 tabs de visualización</h3>
+  <div class="feature-grid" style="grid-template-columns: repeat(5, 1fr); gap: 3mm;">
+    <div class="feature-card" style="padding: 3mm;"><h4 style="font-size: 10pt;">Próximas</h4><p style="font-size: 9pt;">Pendientes futuras</p></div>
+    <div class="feature-card" style="padding: 3mm;"><h4 style="font-size: 10pt;">Hoy</h4><p style="font-size: 9pt;">Solo de hoy</p></div>
+    <div class="feature-card" style="padding: 3mm;"><h4 style="font-size: 10pt;">Semana</h4><p style="font-size: 9pt;">Próximos 7 días agrupados</p></div>
+    <div class="feature-card" style="padding: 3mm;"><h4 style="font-size: 10pt;">Por Atleta</h4><p style="font-size: 9pt;">Drill-down individual</p></div>
+    <div class="feature-card" style="padding: 3mm;"><h4 style="font-size: 10pt;">Cumplidas</h4><p style="font-size: 9pt;">Historial archivado</p></div>
+  </div>
+
+  <h3>Confirmación del atleta</h3>
+  <p>Cada cita aparece en el "Hoy" del atleta con dos botones: <span class="tag-pill foam">Voy</span> · <span class="tag-pill coral">No puedo</span>. La respuesta queda registrada y el coach la ve en su panel. Si el atleta no responde, queda pendiente.</p>
+
+  <h3>Status automático</h3>
+  <p>Las citas que ya pasaron se mueven automáticamente a un <strong>acordeón colapsable "Citas pasadas"</strong> en el perfil del atleta para no abrumar la vista.</p>
+</div>
+
+<!-- ═══ CAP 18 — MENSAJES ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 18</div>
+  <h2>Mensajes internos</h2>
+  <p class="section-intro">Sistema de mensajería interna entre coach y atletas, con soporte para mensajes directos individuales y broadcasts masivos a equipos.</p>
+
+  <h3>Tipos de mensaje</h3>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">DIRECTO</div>
+      <h4>Coach ↔ Atleta</h4>
+      <p>Conversación 1:1 con historial completo. Lectura confirmada con tick.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">BROADCAST</div>
+      <h4>Coach → Grupo</h4>
+      <p>Coach selecciona "Mandar a todos" → fan-out automático a cada atleta del equipo activo. Cada uno recibe el mensaje en su buzón individual.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">PRIORIDAD</div>
+      <h4>Mensajes urgentes</h4>
+      <p>El coach puede marcar mensajes como urgentes. Aparecen al tope con highlight rojo.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAP 19 — MULTI-EQUIPOS ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 19</div>
+  <h2>Multi-equipos · Modo Equipo</h2>
+  <p class="section-intro">El head coach puede manejar múltiples equipos paralelos (SHORTBOARD, LONGBOARD, JUNIORS, etc.). Para enfocarse en uno, "entra" al equipo y todo se contextualiza.</p>
+
+  <h3>Flow drill-down</h3>
+  <ol class="steps">
+    <li>Tab "Equipo" → ver Hub de Equipos con cards por grupo</li>
+    <li>Tap "Entrar →" en cualquier equipo</li>
+    <li>Banner cyan permanente arriba: <em>"🏆 MODO: SHORTBOARD · 14 atletas · ← Salir"</em></li>
+    <li>Todas las vistas filtran a ese equipo: panel, ranking, mensajes, citas, evaluaciones, plan</li>
+    <li>Crear plan o mensaje → auto pre-selecciona scope GRUPO con ese equipo</li>
+    <li>Tap "← Salir" → vuelve a vista global con todos los atletas</li>
+  </ol>
+
+  <div class="callout">
+    <div class="callout-label">PERSISTENCIA</div>
+    <p>El equipo activo queda guardado en localStorage. Si cerrás el app y volves, seguís en el mismo equipo. Útil para coaches que dedican mañanas a un equipo y tardes a otro.</p>
+  </div>
+</div>
+
+<!-- ═══ CAP 20 — MODO ATLETA ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 20</div>
+  <h2>Modo Atleta</h2>
+  <p class="section-intro">Cuando el coach quiere enfocarse en planear o ajustar planes de UN solo atleta, puede "entrar" a ese atleta. Todas las acciones quedan contextualizadas a él.</p>
+
+  <h3>Flow</h3>
+  <ol class="steps">
+    <li>Tap perfil de cualquier atleta</li>
+    <li>Botón morado arriba: <em>"→ Entrar al Atleta"</em></li>
+    <li>Banner morado permanente: <em>"👤 MODO: Bryan Pérez · ← Salir"</em></li>
+    <li>Plan → crear nuevo bloque → auto pre-seleccionado scope INDIVIDUAL con ese atleta</li>
+    <li>Tap "← Salir" en banner o "Salir del Atleta" en perfil</li>
+  </ol>
+
+  <div class="callout">
+    <div class="callout-label">SUPERPOSICIÓN DE MODOS</div>
+    <p>Si entras a un equipo Y a un atleta al mismo tiempo, los dos banners aparecen apilados (morado de atleta arriba, cyan de equipo abajo). El modo atleta gana prioridad: las acciones se aplican al atleta específico.</p>
+  </div>
+</div>
+
+<!-- ═══ CAP 21 — SEGURIDAD ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 21</div>
+  <h2>Seguridad y privacidad</h2>
+  <p class="section-intro">Sistema de protección de datos en dos capas: infraestructura (Supabase Pro + AWS) y aplicación (RLS + RPCs SECURITY DEFINER).</p>
+
+  <h3>Capa 1 · Infraestructura</h3>
+  <div class="feature-grid" style="grid-template-columns: 1fr 1fr; gap: 3mm;">
+    <div class="feature-card" style="padding: 4mm;"><h4 style="font-size: 10pt;">Encriptación at-rest</h4><p style="font-size: 9pt;">AES-256 en disco</p></div>
+    <div class="feature-card" style="padding: 4mm;"><h4 style="font-size: 10pt;">HTTPS TLS 1.3</h4><p style="font-size: 9pt;">Encriptación en tránsito</p></div>
+    <div class="feature-card" style="padding: 4mm;"><h4 style="font-size: 10pt;">Backups 30 días</h4><p style="font-size: 9pt;">Snapshots diarios + PITR 7 días</p></div>
+    <div class="feature-card" style="padding: 4mm;"><h4 style="font-size: 10pt;">SOC 2 Tipo II</h4><p style="font-size: 9pt;">Supabase certificado</p></div>
+  </div>
+
+  <h3>Capa 2 · Aplicación</h3>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">RLS</div>
+      <h4>Row Level Security habilitado en TODAS las tablas</h4>
+      <p>30 tablas con RLS activo. Las queries pasan por policies de PostgreSQL.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">COLUMNAS PROTEGIDAS</div>
+      <h4>Acceso revocado a info sensible</h4>
+      <p>El rol anon (usuarios sin autenticar) tiene SELECT bloqueado en: <code>pin</code>, <code>dui</code>, <code>passport_*</code>, <code>email</code>, <code>phone</code>, <code>address</code>, <code>medical_*</code>, <code>doctor_*</code>, <code>insurance_*</code>, <code>emergency_*</code>.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">RPC SECURITY DEFINER</div>
+      <h4>3 funciones controlan el acceso sensible</h4>
+      <p><code>verify_pin()</code> autentica sin exponer PINs · <code>check_pin_available()</code> valida unicidad sin filtrar PINs · <code>get_athlete_full_profile()</code> devuelve perfil completo solo si requester es coach o el dueño.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAP 22 — STACK TÉCNICO ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 22</div>
+  <h2>Stack técnico</h2>
+  <p class="section-intro">Arquitectura minimalista, sin dependencias innecesarias, optimizada para velocidad de iteración y mantenibilidad.</p>
+
+  <table class="spec-table">
+    <thead><tr><th>Capa</th><th>Tecnología</th><th>Versión</th></tr></thead>
+    <tbody>
+      <tr><td>Frontend</td><td>HTML / CSS / JavaScript vanilla</td><td>—</td></tr>
+      <tr><td>UI Framework</td><td>Sin framework · Single-file architecture</td><td>—</td></tr>
+      <tr><td>Tipografías</td><td>Outfit · Work Sans · DM Mono · Instrument Serif</td><td>Google Fonts</td></tr>
+      <tr><td>Iconos</td><td>Lucide Icons inline SVG</td><td>0.x</td></tr>
+      <tr><td>PDF Generation</td><td>jsPDF</td><td>2.5.1</td></tr>
+      <tr><td>Backend</td><td>Supabase</td><td>JS v2</td></tr>
+      <tr><td>Database</td><td>PostgreSQL</td><td>17.6</td></tr>
+      <tr><td>Hosting Web</td><td>GitHub Pages</td><td>—</td></tr>
+      <tr><td>Hosting BD</td><td>Supabase AWS us-west-2</td><td>Pro Plan</td></tr>
+      <tr><td>PWA Manifest</td><td>Web App Manifest + Service Worker</td><td>—</td></tr>
+      <tr><td>Auth</td><td>PIN-based custom (no Supabase Auth)</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Características arquitectónicas</h3>
+  <ul style="padding-left: 5mm; font-size: 10pt;">
+    <li><strong>Single file:</strong> 1 solo <code>index.html</code> de ~1 MB. Cero build steps.</li>
+    <li><strong>Cero dependencias frontend:</strong> sin npm, sin webpack, sin React. Solo CDN para Supabase y jsPDF.</li>
+    <li><strong>State management:</strong> objeto JavaScript <code>S</code> global con sesión, atletas, grupos, equipo activo, atleta activo.</li>
+    <li><strong>Routing:</strong> función <code>switchView()</code> con renderizado por vista.</li>
+    <li><strong>Persistencia local:</strong> localStorage para sesión, filtros, equipo activo.</li>
+    <li><strong>Deploy:</strong> script bash que hace git commit + push a GitHub Pages. Propagación en 1-2 min.</li>
+  </ul>
+</div>
+
+<!-- ═══ CAP 23 — CAPACIDAD ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 23</div>
+  <h2>Capacidad y escalabilidad</h2>
+  <p class="section-intro">Con el plan Supabase Pro activo, el sistema soporta crecimiento significativo sin cambios estructurales.</p>
+
+  <h3>Plan Supabase Pro activo</h3>
+  <div class="stat-grid">
+    <div class="stat"><div class="v">8GB</div><div class="l">Database</div></div>
+    <div class="stat"><div class="v">100GB</div><div class="l">Storage</div></div>
+    <div class="stat"><div class="v">250GB</div><div class="l">Egress / mes</div></div>
+    <div class="stat"><div class="v">30d</div><div class="l">Backups</div></div>
+  </div>
+
+  <h3>Capacidad práctica</h3>
+  <table class="spec-table">
+    <thead><tr><th>Etapa</th><th>Atletas</th><th>Equipos</th><th>Coaches</th><th>Performance</th></tr></thead>
+    <tbody>
+      <tr><td>Estado actual</td><td>22</td><td>4</td><td>1</td><td>Excelente</td></tr>
+      <tr><td>FESA completa</td><td>80–120</td><td>8–10</td><td>3–5</td><td>Excelente</td></tr>
+      <tr><td>Multi-país Centroamérica</td><td>300–500</td><td>20–30</td><td>10–15</td><td>Bueno · sin cambios</td></tr>
+      <tr><td>Latinoamericano</td><td>1000+</td><td>50+</td><td>30+</td><td>Requiere paginación lazy</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Crecimiento de BD esperado</h3>
+  <table class="spec-table">
+    <thead><tr><th>Atletas</th><th>Data / año</th><th>Saturación 8GB</th></tr></thead>
+    <tbody>
+      <tr><td>22 (hoy)</td><td>~5 MB</td><td>1600 años</td></tr>
+      <tr><td>100</td><td>~25 MB</td><td>~320 años</td></tr>
+      <tr><td>500</td><td>~150 MB</td><td>~50 años</td></tr>
+      <tr><td>1000</td><td>~300 MB</td><td>~25 años</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ CAP 24 — ROADMAP ═══ -->
+<div class="section">
+  <div class="cap">CAPÍTULO 24</div>
+  <h2>Roadmap · Próximas funcionalidades</h2>
+  <p class="section-intro">Funciones planificadas en orden de prioridad. Cada una está documentada con su flow y estimación de complejidad.</p>
+
+  <h3>Próximas 4 entregas</h3>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="meta">ENTREGA 02 · MULTI-EQUIPOS PROFUNDO</div>
+      <h4>Filtrado completo en todas las vistas</h4>
+      <p>Hoy el modo equipo filtra Panel y Ranking. Falta extender a: Citas (Próximas, Por Atleta, Cumplidas), Mensajes (destinatarios), Eval (dropdowns), Plan (vista del día), Sesión (pre-poblar athletes).</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">FASE 03 · AUTH REAL CON JWT</div>
+      <h4>Migración a Supabase Auth con custom JWT</h4>
+      <p>Cambiar PIN custom a flow JWT firmado por RPC. RLS basado en <code>auth.jwt() -> 'role'</code>. Mejora drásticamente la seguridad. UX idéntica (sigue siendo PIN de 4 dígitos).</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">UX · PAGINACIÓN BOOTAPP</div>
+      <h4>Lazy load de atletas</h4>
+      <p>Cuando hay 500+ atletas, cargar primeros 100 en 100ms, resto en background. Bootstrap instantáneo independiente del tamaño del equipo.</p>
+    </div>
+    <div class="feature-card">
+      <div class="meta">FEATURE · EXPORT BACKUP</div>
+      <h4>Botón "Exportar respaldo completo"</h4>
+      <p>Generar un .zip con todos los datos del equipo en JSON + PDF para archivo offline propio del head coach.</p>
+    </div>
+  </div>
+
+  <h3>Backlog · sin fecha</h3>
+  <ul style="padding-left: 5mm; font-size: 10pt;">
+    <li>Notificaciones push (Web Push API) para citas, mensajes, recordatorios de sueño</li>
+    <li>Tabla <code>tss_group_coaches</code> para múltiples coaches por grupo</li>
+    <li>Jerarquía de equipos (federación → país → club → grupo)</li>
+    <li>Sponsors como tabla con logos vinculados</li>
+    <li>Plantillas de planes reutilizables (parcialmente implementado)</li>
+    <li>Sistema de archivos del coach (subir documentos por atleta)</li>
+    <li>Integración con WSL Tour Schedule API</li>
+    <li>App nativa iOS / Android via React Native (si crece a Latinoamericano)</li>
+  </ul>
+</div>
+
+<!-- ═══ CIERRE ═══ -->
+<div class="footer-page">
+  <div class="cap">CONFIDENTIAL</div>
+  <h1 style="color: white; font-size: 38pt; margin: 12mm 0;">The Surf Sequence<br/>Method®</h1>
+  <span class="tag">Evolve through play.</span>
+  <p style="margin-top: 12mm; line-height: 1.7;">
+    Manual ejecutivo del app TSS El Salvador · V1.0<br/>
+    Producido para presentación a federaciones, sponsors y stakeholders<br/>
+    del Equipo Nacional de Surf de El Salvador, temporada 2026.
+  </p>
+  <p style="margin-top: 18mm; font-size: 9pt; color: rgba(194,235,248,.5);">
+    OWNER · MARCELO CASTELLANOS · ENKRATEIA SA DE CV<br/>
+    JUNE 2026 · PROPIEDAD INTELECTUAL THE SURF SEQUENCE METHOD®<br/>
+    ALL RIGHTS RESERVED · DO NOT REDISTRIBUTE WITHOUT WRITTEN AUTHORIZATION
+  </p>
+</div>
+
+</body>
+</html>
