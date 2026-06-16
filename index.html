@@ -5821,6 +5821,20 @@ async function vPanel(){
       <button class="btn btn-cyan" style="flex:1;min-width:140px;" onclick="genMonthlyPDF('team')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Reporte Mes Equipo</button>
       <button class="btn" style="flex:1;min-width:140px;background:var(--purple);" onclick="openMonthlyAthleteSelect()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Reporte Mes Atleta</button>
     </div>
+
+    <!-- VIDEO ANALYZER -->
+    <div style="margin-top:14px;background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(0,210,255,.06));border:1px solid rgba(168,85,247,.35);border-radius:14px;padding:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:42px;height:42px;border-radius:12px;background:rgba(168,85,247,.15);display:flex;align-items:center;justify-content:center;color:var(--purple);flex-shrink:0;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:800;color:var(--white);">Video Analyzer</div>
+          <div style="font-size:10px;color:var(--text-soft);margin-top:2px;">Anota videos · compara con modelo · genera clips</div>
+        </div>
+        <a href="/tss-elsalvador/video-analyzer/" target="_blank" rel="noopener" class="btn btn-xs" style="flex-shrink:0;font-size:11px;padding:8px 14px;background:var(--purple);color:white;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Abrir →</a>
+      </div>
+    </div>
     `);
     loadCoachGroupRanking();
   } catch(e){ render('<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error cargando panel</p>'); console.error(e); }
