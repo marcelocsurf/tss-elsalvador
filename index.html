@@ -6954,13 +6954,16 @@ function renderCoachRanking(body, list, title){
       <span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(245,158,11,.1);color:var(--amber);font-weight:700;">Prom: ${teamAvg} pts</span>
     </div>`;
 
+  // Colores oficiales de medalla para el top 3
+  const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
   visible.forEach((r,i)=>{
-    const medal=i<3?medals[i]:'';
+    const isTop3 = i < 3;
+    const posColor = isTop3 ? medalColors[i] : 'var(--grey)';
     const barColor=r.points>=400?'var(--green)':r.points>=200?'var(--amber)':r.points>0?'var(--cyan)':'var(--grey)';
     const maxPts = list[0]?.points || 100;
     const pct = maxPts ? Math.min(100, (r.points/maxPts)*100) : 0;
-    html+=`<div onclick="openAthProfile('${r.athlete_id}','${esc(r.name)}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:8px;cursor:pointer;background:${i===0?'rgba(245,158,11,.06)':'rgba(255,255,255,.02)'};">
-      <span style="font-size:${i<3?'15':'12'}px;width:22px;text-align:center;font-weight:900;color:${i===0?'var(--amber)':i<3?'var(--green)':'var(--grey)'};">${medal||'#'+(i+1)}</span>
+    html+=`<div onclick="openAthProfile('${r.athlete_id}','${esc(r.name)}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;border-radius:8px;cursor:pointer;background:${i===0?'rgba(255,215,0,.08)':i===1?'rgba(192,192,192,.05)':i===2?'rgba(205,127,50,.05)':'rgba(255,255,255,.02)'};">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:24px;border-radius:8px;font-size:${isTop3?'14':'11'}px;font-weight:900;color:${isTop3?'#0A1628':posColor};background:${isTop3?posColor:'transparent'};font-family:'DM Mono',monospace;letter-spacing:-.5px;flex-shrink:0;">#${i+1}</span>
       <div style="flex:1;min-width:0;">
         <div style="font-size:12px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.name)}</div>
         <div style="height:4px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:3px;">
