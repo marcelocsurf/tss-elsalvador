@@ -8717,27 +8717,147 @@ function vTeamTab(t){
     </div>`).join('')}`;
   } else if(t==='coaches'){
     const list = (S.coaches||[]);
-    el.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--text-soft);letter-spacing:.6px;text-transform:uppercase;font-weight:700;">${list.length} coach${list.length===1?'':'es'}</div>
       <button class="btn btn-cyan btn-sm" onclick="openAddUserModal('coach')">+ Agregar Coach</button>
     </div>
     ${list.length?list.map(c=>{
       const roleLabel = c.role==='coach'?'Head Coach':'Coach Asistente';
       const roleColor = c.role==='coach'?'var(--amber)':'var(--purple)';
-      const myGroups = (S.groups||[]).filter(g=>g.coach_id===c.id).map(g=>g.name);
+      const myGroups = (S.groups||[]).filter(g=>g.coach_id===c.id);
+      const myGroupIds = new Set(myGroups.map(g=>g.id));
+      const myAthletesCount = (S.athletes||[]).filter(a=>{
+        return Object.entries(S._membersByGroup||{}).some(([gid, athIds])=>myGroupIds.has(gid) && athIds.includes(a.id));
+      }).length;
       const isSelf = c.id===S.user.id;
-      return `<div class="ath-row">
-        ${c.avatar_url?`<img src="${c.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;">`:`<div class="ath-avatar" style="background:rgba(245,158,11,.1);color:${roleColor};">${c.name.charAt(0)}</div>`}
-        <div class="ath-info">
-          <div class="ath-name">${c.name}${isSelf?' <span style="font-size:10px;color:var(--cyan);">(vos)</span>':''}</div>
-          <div class="ath-meta"><span style="color:${roleColor};">${roleLabel}</span>${myGroups.length?' · '+myGroups.join(', '):' · sin grupo'}</div>
+      const isHead = c.role==='coach';
+      return `<div class="ath-row" style="flex-direction:column;align-items:stretch;padding:14px;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${c.avatar_url?`<img src="${c.avatar_url}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid ${roleColor};">`:`<div class="ath-avatar" style="background:rgba(245,158,11,.1);color:${roleColor};border:2px solid ${roleColor};">${c.name.charAt(0)}</div>`}
+          <div style="flex:1;min-width:0;">
+            <div class="ath-name">${c.name}${isSelf?' <span style="font-size:10px;color:var(--cyan);">(vos)</span>':''}</div>
+            <div class="ath-meta"><span style="color:${roleColor};font-weight:700;">${roleLabel}</span></div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-xs btn-outline" onclick="openEditUserModal('${c.id}')" title="Editar datos"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            ${isSelf?'':`<button class="btn btn-xs" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="confirmDeactivate('${c.id}','${escAttr(c.name)}',true)" title="Desactivar"><svg class="ic ic-coral" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`}
+          </div>
         </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-xs btn-outline" onclick="openEditUserModal('${c.id}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          ${isSelf?'':`<button class="btn btn-xs" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);" onclick="confirmDeactivate('${c.id}','${escAttr(c.name)}',true)"><svg class="ic ic-coral" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`}
-        </div>
+        ${isHead?`
+        <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:10px 12px;">
+          <div style="font-size:10px;color:var(--amber);font-weight:700;letter-spacing:1px;text-transform:uppercase;">Acceso total</div>
+          <div style="font-size:11px;color:var(--text-soft);margin-top:2px;">Ve todos los equipos y atletas del sistema</div>
+        </div>`:`
+        <div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:10px 12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="font-size:10px;color:var(--purple);font-weight:700;letter-spacing:1px;text-transform:uppercase;">Acceso · ${myGroups.length} equipo${myGroups.length===1?'':'s'} · ${myAthletesCount} atleta${myAthletesCount===1?'':'s'}</div>
+            <button class="btn btn-xs btn-cyan" style="font-size:10px;padding:5px 10px;" onclick="openCoachAccessModal('${c.id}','${escAttr(c.name)}')">Editar acceso</button>
+          </div>
+          ${myGroups.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;">${myGroups.map(g=>`<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(0,210,255,.1);color:var(--cyan);border:1px solid rgba(0,210,255,.25);">${esc(g.name)}</span>`).join('')}</div>`:`<div style="font-size:11px;color:var(--coral);font-style:italic;">⚠️ Sin equipos asignados · no ve ningún atleta</div>`}
+        </div>`}
       </div>`;
     }).join(''):'<div class="empty"><div class="empty-icon"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></div><p class="empty-txt">Sin coaches creados. Tocá "+ Agregar Coach" para invitar uno.</p></div>'}`;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ACCESO DE COACHES · Modal para asignar equipos a un coach asistente
+   El head coach puede marcar/desmarcar cada equipo. Marcar asigna ese
+   coach como coach_id del grupo (1 coach por grupo). Si el equipo ya
+   tenía otro coach asignado, se reasigna al que estás editando.
+   ════════════════════════════════════════════════════════════════════ */
+async function openCoachAccessModal(coachId, coachName){
+  const m = document.createElement('div');
+  m.className = 'modal-overlay'; m.id = 'coachAccessModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">Editar Acceso</div><div class="modal-sub">${esc(coachName)}</div></div>
+      <button class="modal-close" onclick="closeModal('coachAccessModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--text-soft);line-height:1.5;">
+      Marcá los equipos a los que este coach tendrá acceso. Verá solo los atletas que estén en esos equipos. Si un equipo ya tiene otro coach, se transferirá a este coach.
+    </div>
+    <label class="inp-label" style="margin-bottom:6px;">Equipos disponibles</label>
+    <div id="coachAccessGroups" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;"></div>
+    <div id="coachAccessSummary" style="margin-top:14px;font-size:11px;color:var(--cyan);font-weight:700;text-align:center;"></div>
+    <button class="save-btn" style="margin-top:12px;" onclick="saveCoachAccess('${coachId}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar acceso</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) closeModal('coachAccessModal'); };
+  window._coachAccessSelection = new Set(
+    (S.groups||[]).filter(g=>g.coach_id===coachId).map(g=>g.id)
+  );
+  renderCoachAccessList(coachId);
+}
+
+function renderCoachAccessList(coachId){
+  const listEl = document.getElementById('coachAccessGroups');
+  const sumEl = document.getElementById('coachAccessSummary');
+  if(!listEl) return;
+  const sel = window._coachAccessSelection || new Set();
+  const groups = (S.groups||[]);
+  let totalAthletes = 0;
+  const seenAthletes = new Set();
+  sel.forEach(gid=>{
+    (S._membersByGroup[gid]||[]).forEach(aid=>seenAthletes.add(aid));
+  });
+  totalAthletes = seenAthletes.size;
+  listEl.innerHTML = groups.map(g=>{
+    const memberCount = (S._membersByGroup[g.id]||[]).length;
+    const isSelected = sel.has(g.id);
+    const otherCoach = g.coach_id && g.coach_id !== coachId ? (S.coaches||[]).find(c=>c.id===g.coach_id) : null;
+    const warning = otherCoach ? `<div style="font-size:10px;color:var(--sunset);margin-top:3px;">⚠ Hoy: ${esc(otherCoach.name)} · se transferirá</div>` : '';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:${isSelected?'rgba(0,210,255,.1)':'rgba(255,255,255,.02)'};border:1px solid ${isSelected?'var(--cyan)':'var(--border2)'};cursor:pointer;">
+      <input type="checkbox" ${isSelected?'checked':''} onchange="toggleCoachAccessGroup('${g.id}','${coachId}')" style="accent-color:var(--cyan);width:20px;height:20px;cursor:pointer;flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--white);">${esc(g.name)}</div>
+        <div style="font-size:10px;color:var(--text-soft);margin-top:2px;">${memberCount} atleta${memberCount===1?'':'s'}</div>
+        ${warning}
+      </div>
+    </label>`;
+  }).join('') || '<div style="text-align:center;padding:20px;color:var(--text-soft);font-size:12px;">No hay equipos creados. Creá uno primero en el tab Equipos.</div>';
+  if(sumEl){
+    sumEl.innerHTML = sel.size
+      ? `Acceso resultante: <span style="color:var(--white);">${sel.size} equipo${sel.size===1?'':'s'} · ${totalAthletes} atleta${totalAthletes===1?'':'s'}</span>`
+      : `<span style="color:var(--coral);">Sin equipos seleccionados · este coach no verá atletas</span>`;
+  }
+}
+
+function toggleCoachAccessGroup(groupId, coachId){
+  const sel = window._coachAccessSelection || new Set();
+  if(sel.has(groupId)) sel.delete(groupId); else sel.add(groupId);
+  window._coachAccessSelection = sel;
+  renderCoachAccessList(coachId);
+}
+
+async function saveCoachAccess(coachId){
+  const sel = window._coachAccessSelection || new Set();
+  const previousGroups = (S.groups||[]).filter(g=>g.coach_id===coachId).map(g=>g.id);
+  // Grupos a quitar (eran de este coach pero ya no están marcados)
+  const toUnassign = previousGroups.filter(gid=>!sel.has(gid));
+  // Grupos a asignar (están marcados pero coach_id no es este)
+  const toAssign = [...sel].filter(gid=>{
+    const g = S.groups.find(x=>x.id===gid);
+    return g && g.coach_id !== coachId;
+  });
+  showLoad(true);
+  try {
+    if(toUnassign.length){
+      const { error: e1 } = await db.from('tss_groups').update({coach_id:null}).in('id', toUnassign);
+      if(e1) throw e1;
+    }
+    if(toAssign.length){
+      const { error: e2 } = await db.from('tss_groups').update({coach_id:coachId}).in('id', toAssign);
+      if(e2) throw e2;
+    }
+    // Refrescar S.groups en memoria
+    const { data:gFresh } = await db.from('tss_groups').select('*').order('name');
+    S.groups = gFresh||[];
+    toast('✅ Acceso actualizado','success');
+    closeModal('coachAccessModal');
+    if(typeof vTeamTab==='function') vTeamTab('coaches');
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
 }
 
 // F1: Modal unificado de creación de usuario (atleta / coach asistente / head coach)
