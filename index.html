@@ -2611,16 +2611,20 @@ async function saveCheckin(date){
 async function getPlanForAthlete(athleteId, date){
   try {
     const allPlans = [];
+    // Filtro: excluye planes donde el atleta está en excluded_athletes
+    const notExcluded = (p) => !Array.isArray(p.excluded_athletes) || !p.excluded_athletes.includes(athleteId);
     const{data:ind}=await db.from('tss_daily_plans').select('*').eq('date',date).eq('scope','individual').eq('target_id',athleteId).order('created_at');
     if(ind&&ind.length) allPlans.push(...ind);
     const{data:memberships}=await db.from('tss_group_members').select('group_id').eq('athlete_id',athleteId);
     if(memberships&&memberships.length){
       const gids=memberships.map(m=>m.group_id);
       const{data:grp}=await db.from('tss_daily_plans').select('*').eq('date',date).eq('scope','group').in('target_id',gids).order('created_at');
-      if(grp&&grp.length) allPlans.push(...grp);
+      const grpF = (grp||[]).filter(notExcluded);
+      if(grpF.length) allPlans.push(...grpF);
     }
     const{data:gen}=await db.from('tss_daily_plans').select('*').eq('date',date).eq('scope','general').order('created_at');
-    if(gen&&gen.length) allPlans.push(...gen);
+    const genF = (gen||[]).filter(notExcluded);
+    if(genF.length) allPlans.push(...genF);
     return allPlans;
   } catch(e){ console.error(e); return []; }
 }
@@ -3190,6 +3194,12 @@ async function loadPlanDay(date){
         if(plan.scope==='general'){ scopeLabel=`<span class="chip" style="font-size:9px;background:rgba(0,210,255,.12);color:var(--cyan);border:1px solid rgba(0,210,255,.25);"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>Todo el equipo</span>`; }
         if(plan.scope==='group'){ const g=S.groups.find(g=>g.id===plan.target_id); scopeLabel=`<span class="chip chip-amber" style="font-size:9px;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>${g?g.name:'Grupo'}</span>`; }
         if(plan.scope==='individual'){ const a=S.athletes.find(a=>a.id===plan.target_id); scopeLabel=`<span class="chip chip-purple" style="font-size:9px;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>${a?a.name:'Atleta'}</span>`; }
+        // Badge cuando el plan tiene atletas excluidos (general o group)
+        if((plan.scope==='general'||plan.scope==='group') && Array.isArray(plan.excluded_athletes) && plan.excluded_athletes.length){
+          const exNames = plan.excluded_athletes.map(id=>{ const a=S.athletes.find(x=>x.id===id); return a?a.name:''; }).filter(Boolean);
+          const preview = exNames.slice(0,3).join(', ') + (exNames.length>3?` +${exNames.length-3} mas`:'');
+          scopeLabel += `<span class="chip" style="font-size:9px;background:rgba(255,107,107,.1);color:var(--coral);border:1px solid rgba(255,107,107,.3);margin-left:4px;" title="Excluidos: ${esc(preview)}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>${plan.excluded_athletes.length} excluido${plan.excluded_athletes.length===1?'':'s'}</span>`;
+        }
         html+=`<div class="card card-${bt.color} anim-up plan-block" data-scope="${plan.scope}" data-target="${plan.target_id||''}" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
             <div style="display:flex;align-items:center;gap:8px;">
@@ -3281,6 +3291,92 @@ function switchScope(scope, btn){
   document.getElementById('blockScopeVal').value = scope;
   document.getElementById('scopeGroupRow').style.display = scope==='group'?'block':'none';
   document.getElementById('scopeAthRow').style.display = scope==='individual'?'block':'none';
+  const exRow = document.getElementById('scopeExcludeRow');
+  if(exRow){
+    exRow.style.display = (scope==='general'||scope==='group')?'block':'none';
+    // Resetear panel al cambiar scope para que se vuelva a renderizar con el target correcto
+    const panel = document.getElementById('excludePanel');
+    if(panel) panel.style.display = 'none';
+    const btn2 = document.getElementById('toggleExcludeBtn');
+    if(btn2) btn2.textContent = 'Mostrar lista';
+  }
+}
+
+/* Funciones para el panel de exclusiones */
+function _excludeTargetAthletes(){
+  // Devuelve los atletas relevantes según scope actual
+  const scope = document.getElementById('blockScopeVal')?.value || 'general';
+  if(scope === 'general') return S.athletes;
+  if(scope === 'group'){
+    const gid = document.getElementById('blockGroupSel')?.value;
+    if(!gid) return S.athletes;
+    const memberIds = new Set(S._membersByGroup[gid] || []);
+    return S.athletes.filter(a => memberIds.has(a.id));
+  }
+  return [];
+}
+function renderExcludeList(){
+  const targets = _excludeTargetAthletes();
+  const excluded = new Set(window._blockExcluded || []);
+  const total = targets.length;
+  const receiving = total - targets.filter(a => excluded.has(a.id)).length;
+  const countEl = document.getElementById('excludeCount');
+  if(countEl) countEl.innerHTML = `<span style="color:var(--foam);">${receiving}</span> reciben · <span style="color:var(--coral);">${total-receiving}</span> excluidos`;
+  const listEl = document.getElementById('excludeList');
+  if(!listEl) return;
+  listEl.innerHTML = targets.map(a => {
+    const isEx = excluded.has(a.id);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:${isEx?'rgba(255,107,107,.08)':'rgba(255,255,255,.02)'};cursor:pointer;border:1px solid ${isEx?'rgba(255,107,107,.2)':'transparent'};">
+      <input type="checkbox" ${isEx?'':'checked'} onchange="toggleExcludeAth('${a.id}',this.checked)" style="accent-color:var(--foam);width:18px;height:18px;cursor:pointer;">
+      <span style="font-size:12px;color:${isEx?'var(--coral)':'var(--white)'};${isEx?'text-decoration:line-through;opacity:.7;':''}">${esc(a.name)}</span>
+    </label>`;
+  }).join('');
+}
+function toggleExcludeAth(athId, checked){
+  // checked=true significa "recibe el plan" → quitar de excluidos
+  // checked=false significa "está excluido"
+  if(!window._blockExcluded) window._blockExcluded = [];
+  if(checked){
+    window._blockExcluded = window._blockExcluded.filter(id => id !== athId);
+  } else {
+    if(!window._blockExcluded.includes(athId)) window._blockExcluded.push(athId);
+  }
+  renderExcludeList();
+  updateSaveBtnCount();
+}
+function markAllExclude(receiveAll){
+  // receiveAll=true → todos reciben (vacíar exclusiones)
+  // receiveAll=false → todos excluidos
+  const targets = _excludeTargetAthletes();
+  window._blockExcluded = receiveAll ? [] : targets.map(a => a.id);
+  renderExcludeList();
+  updateSaveBtnCount();
+}
+function toggleExcludePanel(){
+  const panel = document.getElementById('excludePanel');
+  const btn = document.getElementById('toggleExcludeBtn');
+  if(!panel) return;
+  if(panel.style.display === 'none'){
+    panel.style.display = 'block';
+    if(btn) btn.textContent = 'Ocultar';
+    renderExcludeList();
+  } else {
+    panel.style.display = 'none';
+    if(btn) btn.textContent = 'Mostrar lista';
+  }
+}
+function updateSaveBtnCount(){
+  const btn = document.querySelector('#blockModal .save-btn');
+  if(!btn) return;
+  const scope = document.getElementById('blockScopeVal')?.value || 'general';
+  if(scope === 'individual'){
+    btn.innerHTML = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Actividad`;
+    return;
+  }
+  const targets = _excludeTargetAthletes();
+  const excluded = new Set(window._blockExcluded || []);
+  const receiving = targets.length - targets.filter(a => excluded.has(a.id)).length;
+  btn.innerHTML = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar · ${receiving} atletas`;
 }
 
 function openAddBlockModalWithFilter(date){
@@ -3328,6 +3424,24 @@ function openAddBlockModal(date, existData=null){
     <div id="scopeAthRow" style="display:${curScope==='individual'?'block':'none'};">
       <label class="inp-label">Atleta</label>
       <select class="sel" id="blockAthSel">${athOpts}</select>
+    </div>
+
+    <!-- Excluir atletas (solo aplica a general/group) -->
+    <div id="scopeExcludeRow" style="display:${curScope==='general'||curScope==='group'?'block':'none'};margin-top:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <label class="inp-label" style="margin:0;">¿Algunos atletas NO lo reciben?</label>
+        <button type="button" id="toggleExcludeBtn" class="btn btn-xs btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="toggleExcludePanel()">Mostrar lista</button>
+      </div>
+      <div id="excludePanel" style="display:none;background:rgba(255,255,255,.02);border:1px solid var(--border2);border-radius:10px;padding:10px;max-height:240px;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;">
+          <div id="excludeCount" style="font-size:11px;color:var(--cyan);font-weight:700;">Cargando...</div>
+          <div style="display:flex;gap:4px;">
+            <button type="button" class="btn btn-xs btn-ghost" style="font-size:10px;padding:3px 8px;" onclick="markAllExclude(true)">Marcar todos</button>
+            <button type="button" class="btn btn-xs btn-ghost" style="font-size:10px;padding:3px 8px;" onclick="markAllExclude(false)">Desmarcar todos</button>
+          </div>
+        </div>
+        <div id="excludeList" style="display:flex;flex-direction:column;gap:4px;"></div>
+      </div>
     </div>
 
     <label class="inp-label">Tipo de Actividad</label>
@@ -3384,6 +3498,8 @@ function openAddBlockModal(date, existData=null){
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) closeModal('blockModal'); };
   // Apply preselected scope/target after DOM ready
+  // Inicializar exclusiones desde existData o vacío
+  window._blockExcluded = (existData && Array.isArray(existData.excluded_athletes)) ? [...existData.excluded_athletes] : [];
   if(existData && existData.scope && existData.scope!=='general'){
     switchScope(existData.scope, null);
     if(existData.scope==='individual' && existData.target_id){
@@ -3394,7 +3510,19 @@ function openAddBlockModal(date, existData=null){
       const grpSel=document.getElementById('blockGroupSel');
       if(grpSel) grpSel.value=existData.target_id;
     }
-  }  renderPlanTaskList();
+  }
+  // Refrescar contador del botón guardar si hay exclusiones existentes
+  setTimeout(() => {
+    if(window._blockExcluded && window._blockExcluded.length){ updateSaveBtnCount(); }
+    // Cuando el coach cambia el grupo, re-renderizar la lista de excluidos
+    const grpSel = document.getElementById('blockGroupSel');
+    if(grpSel) grpSel.addEventListener('change', () => {
+      const panel = document.getElementById('excludePanel');
+      if(panel && panel.style.display === 'block') renderExcludeList();
+      updateSaveBtnCount();
+    });
+  }, 50);
+  renderPlanTaskList();
 }
 
 function selectBlockType(id, btn){
@@ -3540,6 +3668,10 @@ async function saveBlock(date, existId){
     };
     notesVal=JSON.stringify(ctData);
   }
+  // Excluded_athletes solo aplica a scope=general/group
+  const excluded = (scope==='general'||scope==='group') && Array.isArray(window._blockExcluded) && window._blockExcluded.length
+    ? [...new Set(window._blockExcluded)]
+    : null;
   const payload = {
     date, scope, target_id,
     work_type,
@@ -3550,6 +3682,7 @@ async function saveBlock(date, existId){
     created_by: S.user.id,
     sesion_time: isSesionBlock ? (gv('blockSesionTime')||null) : null,
     sesion_reps: isSesionBlock ? (gv('blockSesionReps')||null) : null,
+    excluded_athletes: excluded,
   };
   showLoad(true);
   try {
