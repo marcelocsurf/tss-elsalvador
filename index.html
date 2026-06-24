@@ -4586,22 +4586,65 @@ async function openAssignProgramModal(programId){
   modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='assignProgModal';
   // Próximo lunes como default
   const t = new Date(); const dow = t.getDay()||7; const nextMon = new Date(t); nextMon.setDate(t.getDate() + (8 - dow));
-  modal.innerHTML = `<div class="modal-sheet" style="max-width:520px;">
+  const groups = S.groups||[];
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:560px;max-height:92vh;overflow-y:auto;">
     <div class="modal-head">
       <div><div class="modal-title">Asignar programa</div><div class="modal-sub">${esc(p.name)} · ${p.weeks_total} semanas</div></div>
       <button class="modal-close" onclick="closeModal('assignProgModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <label class="inp-label">Atleta</label>
-    <select class="sel" id="assignAthSel" onchange="updateAssignPreview('${p.id}')">
-      <option value="">— Elegí un atleta —</option>
-      ${(S.athletes||[]).filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}
-    </select>
+
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button type="button" class="scope-tab active" id="apMode-single" onclick="setAssignMode('single','${p.id}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Un atleta</button>
+      <button type="button" class="scope-tab" id="apMode-multi" onclick="setAssignMode('multi','${p.id}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Varios</button>
+      ${groups.length?`<button type="button" class="scope-tab" id="apMode-group" onclick="setAssignMode('group','${p.id}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Equipo</button>`:''}
+    </div>
+    <input type="hidden" id="apAssignMode" value="single">
+
+    <!-- Modo single -->
+    <div id="apSingleRow">
+      <label class="inp-label">Atleta</label>
+      <select class="sel" id="assignAthSel" onchange="updateAssignPreview('${p.id}')">
+        <option value="">— Elegí un atleta —</option>
+        ${(S.athletes||[]).filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}
+      </select>
+    </div>
+
+    <!-- Modo multi -->
+    <div id="apMultiRow" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <label class="inp-label" style="margin:0;">Seleccioná atletas</label>
+        <div style="display:flex;gap:4px;">
+          <button type="button" class="btn btn-xs btn-ghost" style="font-size:10px;padding:3px 8px;" onclick="apMarkAll(true,'${p.id}')">Marcar todos</button>
+          <button type="button" class="btn btn-xs btn-ghost" style="font-size:10px;padding:3px 8px;" onclick="apMarkAll(false,'${p.id}')">Limpiar</button>
+        </div>
+      </div>
+      <div id="apMultiList" style="background:rgba(255,255,255,.02);border:1px solid var(--border2);border-radius:10px;padding:10px;max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+        ${(S.athletes||[]).filter(a=>a.active!==false).map(a=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--white);" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='transparent'">
+          <input type="checkbox" class="ap-multi-cb" value="${a.id}" onchange="updateAssignPreview('${p.id}')" style="width:16px;height:16px;cursor:pointer;accent-color:var(--cyan);">
+          <span>${esc(a.name)}</span>
+        </label>`).join('')}
+      </div>
+      <div id="apMultiCount" style="font-size:10px;color:var(--cyan);font-weight:700;margin-top:4px;text-align:right;">0 seleccionados</div>
+    </div>
+
+    <!-- Modo group -->
+    <div id="apGroupRow" style="display:none;">
+      <label class="inp-label">Equipo</label>
+      <select class="sel" id="apGroupSel" onchange="updateAssignPreview('${p.id}')">
+        <option value="">— Elegí un equipo —</option>
+        ${groups.map(g=>{
+          const count = (S._membersByGroup?.[g.id]||[]).length;
+          return `<option value="${g.id}">${esc(g.name)} · ${count} atleta${count===1?'':'s'}</option>`;
+        }).join('')}
+      </select>
+    </div>
+
     <label class="inp-label" style="margin-top:12px;">Fecha de inicio</label>
     <input type="date" class="inp" id="assignStartDate" value="${localDateStr(nextMon)}" onchange="updateAssignPreview('${p.id}')">
     <div id="assignPreview" style="margin-top:14px;padding:12px;background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.2);border-radius:10px;font-size:12px;color:var(--white);min-height:60px;">
-      Elegí un atleta y fecha para ver el preview.
+      Elegí atleta(s) y fecha para ver el preview.
     </div>
-    <button class="save-btn" style="margin-top:14px;" onclick="confirmAssignProgram('${p.id}')">
+    <button class="save-btn" id="apAssignBtn" style="margin-top:14px;" onclick="confirmAssignProgram('${p.id}')">
       <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="9 18 15 12 9 6"/></svg>
       Asignar y generar planes
     </button>
@@ -4610,13 +4653,45 @@ async function openAssignProgramModal(programId){
   modal.onclick = e => { if(e.target===modal) closeModal('assignProgModal'); };
 }
 
+function setAssignMode(mode, programId){
+  document.getElementById('apAssignMode').value = mode;
+  ['single','multi','group'].forEach(m=>{
+    const btn = document.getElementById('apMode-'+m); if(btn) btn.classList.toggle('active', m===mode);
+    const row = document.getElementById('ap'+m.charAt(0).toUpperCase()+m.slice(1)+'Row'); if(row) row.style.display = m===mode ? 'block' : 'none';
+  });
+  updateAssignPreview(programId);
+}
+function apMarkAll(on, programId){
+  document.querySelectorAll('.ap-multi-cb').forEach(cb => cb.checked = on);
+  updateAssignPreview(programId);
+}
+function getAssignSelectedAthletes(){
+  const mode = gv('apAssignMode') || 'single';
+  if(mode === 'single'){
+    const id = gv('assignAthSel'); return id ? [id] : [];
+  }
+  if(mode === 'multi'){
+    return Array.from(document.querySelectorAll('.ap-multi-cb:checked')).map(cb=>cb.value);
+  }
+  if(mode === 'group'){
+    const gid = gv('apGroupSel'); if(!gid) return [];
+    return (S._membersByGroup?.[gid]||[]).slice();
+  }
+  return [];
+}
+
 async function updateAssignPreview(programId){
-  const athleteId = gv('assignAthSel');
-  const startDateStr = gv('assignStartDate');
   const previewEl = document.getElementById('assignPreview');
   if(!previewEl) return;
-  if(!athleteId || !startDateStr){
-    previewEl.innerHTML = 'Elegí un atleta y fecha para ver el preview.';
+  const startDateStr = gv('assignStartDate');
+  const athleteIds = getAssignSelectedAthletes();
+  const cntEl = document.getElementById('apMultiCount');
+  if(cntEl){
+    const mc = document.querySelectorAll('.ap-multi-cb:checked').length;
+    cntEl.textContent = `${mc} seleccionado${mc===1?'':'s'}`;
+  }
+  if(!athleteIds.length || !startDateStr){
+    previewEl.innerHTML = 'Elegí atleta(s) y fecha para ver el preview.';
     return;
   }
   const p = _programs.find(x=>x.id===programId) || _editingProgram;
@@ -4624,73 +4699,120 @@ async function updateAssignPreview(programId){
   const startDate = new Date(startDateStr+'T00:00:00');
   const endDate = new Date(startDate); endDate.setDate(startDate.getDate() + p.weeks_total*7 - 1);
   const numBlocks = (p.matrix.micros||[]).reduce((s,m)=>s+(m.days||[]).reduce((s2,d)=>s2+(d.blocks||[]).length,0),0);
-  const ath = S.athletes.find(a=>a.id===athleteId);
+  const numComps = (p.matrix.micros||[]).filter(m=>m.competition?.name).length;
+  const numPS = (p.matrix.micros||[]).reduce((s,m)=>s+(m.presencials||[]).length,0);
+  const numAp = (p.matrix.micros||[]).reduce((s,m)=>s+(m.appointments||[]).length,0);
+  const totalBlocks = numBlocks * athleteIds.length;
+  const totalComps = numComps * athleteIds.length;
+  const totalPS = numPS * athleteIds.length;
+  const totalAp = numAp * athleteIds.length;
 
-  // Cargar competencias personales del atleta en el rango
-  let athComps = [];
-  try {
-    const{ data } = await db.from('tss_competitions').select('*').eq('athlete_id', athleteId)
-      .gte('date', startDateStr).lte('date', localDateStr(endDate)).order('date');
-    athComps = data || [];
-  } catch(e){}
-
-  // Cargar competencias del equipo (de tss_team_competitions) — opcional
-  let teamComps = [];
-  try {
-    const memberGroups = (Object.entries(S._membersByGroup||{}).filter(([gid, athIds])=>(athIds||[]).includes(athleteId)).map(([gid])=>gid));
-    if(memberGroups.length){
-      const{ data } = await db.from('tss_team_competitions').select('*').in('group_id', memberGroups)
-        .gte('date_to', startDateStr).lte('date_from', localDateStr(endDate)).order('date_from');
-      teamComps = data || [];
-    }
-  } catch(e){}
-
-  previewEl.innerHTML = `
-    <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:6px;">📊 Resumen de la asignación</div>
-    <div style="font-size:11px;line-height:1.6;">
-      <strong style="color:var(--white);">${esc(ath?.name||'Atleta')}</strong><br>
-      📅 <strong>${fmtDate(startDateStr)}</strong> → <strong>${fmtDate(localDateStr(endDate))}</strong> (${p.weeks_total} semanas)<br>
-      📋 Se generarán <strong style="color:var(--foam);">${numBlocks} planes diarios individuales</strong> para ${esc(ath?.name||'el atleta')}.
-    </div>
-    ${athComps.length ? `<div style="margin-top:8px;font-size:11px;"><strong style="color:var(--amber);">🏆 Competencias personales en el rango:</strong><div style="margin-top:4px;">${athComps.map(c=>`<div>• ${esc(c.name)} · ${fmtDate(c.date)}</div>`).join('')}</div></div>` : ''}
-    ${teamComps.length ? `<div style="margin-top:8px;font-size:11px;"><strong style="color:var(--purple);">📅 Competencias del equipo:</strong><div style="margin-top:4px;">${teamComps.map(c=>`<div>• ${esc(c.name)} · ${fmtDate(c.date_from)}</div>`).join('')}</div></div>` : ''}
-  `;
+  if(athleteIds.length === 1){
+    const athleteId = athleteIds[0];
+    const ath = S.athletes.find(a=>a.id===athleteId);
+    let athComps = [];
+    try {
+      const{ data } = await db.from('tss_competitions').select('*').eq('athlete_id', athleteId)
+        .gte('date', startDateStr).lte('date', localDateStr(endDate)).order('date');
+      athComps = data || [];
+    } catch(e){}
+    let teamComps = [];
+    try {
+      const memberGroups = (Object.entries(S._membersByGroup||{}).filter(([gid, athIds])=>(athIds||[]).includes(athleteId)).map(([gid])=>gid));
+      if(memberGroups.length){
+        const{ data } = await db.from('tss_team_competitions').select('*').in('group_id', memberGroups)
+          .gte('date_to', startDateStr).lte('date_from', localDateStr(endDate)).order('date_from');
+        teamComps = data || [];
+      }
+    } catch(e){}
+    previewEl.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:6px;">📊 Resumen de la asignación</div>
+      <div style="font-size:11px;line-height:1.6;">
+        <strong style="color:var(--white);">${esc(ath?.name||'Atleta')}</strong><br>
+        📅 <strong>${fmtDate(startDateStr)}</strong> → <strong>${fmtDate(localDateStr(endDate))}</strong> (${p.weeks_total} semanas)<br>
+        📋 Se generarán <strong style="color:var(--foam);">${numBlocks} planes diarios</strong>${numComps?` · <strong style="color:var(--amber);">${numComps} competencia${numComps===1?'':'s'}</strong>`:''}${(numPS+numAp)?` · <strong style="color:var(--purple);">${numPS+numAp} propuesta${(numPS+numAp)===1?'':'s'}</strong>`:''} para ${esc(ath?.name||'el atleta')}.
+      </div>
+      ${athComps.length ? `<div style="margin-top:8px;font-size:11px;"><strong style="color:var(--amber);">🏆 Competencias personales en el rango:</strong><div style="margin-top:4px;">${athComps.map(c=>`<div>• ${esc(c.name)} · ${fmtDate(c.date)}</div>`).join('')}</div></div>` : ''}
+      ${teamComps.length ? `<div style="margin-top:8px;font-size:11px;"><strong style="color:var(--purple);">📅 Competencias del equipo:</strong><div style="margin-top:4px;">${teamComps.map(c=>`<div>• ${esc(c.name)} · ${fmtDate(c.date_from)}</div>`).join('')}</div></div>` : ''}
+    `;
+  } else {
+    const names = athleteIds.map(id=>(S.athletes.find(a=>a.id===id)||{}).name||'').filter(Boolean);
+    previewEl.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:6px;">📊 Resumen · ${athleteIds.length} atleta${athleteIds.length===1?'':'s'}</div>
+      <div style="font-size:11px;line-height:1.6;">
+        <strong style="color:var(--white);">${esc(names.slice(0,5).join(', '))}${names.length>5?` +${names.length-5} más`:''}</strong><br>
+        📅 <strong>${fmtDate(startDateStr)}</strong> → <strong>${fmtDate(localDateStr(endDate))}</strong> (${p.weeks_total} semanas)<br>
+        📋 Se generarán <strong style="color:var(--foam);">${totalBlocks} planes</strong>${totalComps?` · <strong style="color:var(--amber);">${totalComps} competencias</strong>`:''}${(totalPS+totalAp)?` · <strong style="color:var(--purple);">${totalPS+totalAp} propuestas</strong>`:''}<br>
+        <span style="color:var(--text-soft);font-size:10px;">(${numBlocks} planes × ${athleteIds.length} atleta${athleteIds.length===1?'':'s'})</span>
+      </div>
+      ${(totalPS+totalAp)>0?`<div style="margin-top:8px;font-size:11px;color:var(--amber);font-style:italic;">⚠ Las ${totalPS+totalAp} propuestas se crearán a la misma hora para cada atleta. Después podés escalonarlas en tab Citas → confirmar día/hora una por una.</div>`:''}
+    `;
+  }
 }
 
 async function confirmAssignProgram(programId){
-  const athleteId = gv('assignAthSel');
   const startDate = gv('assignStartDate');
-  if(!athleteId){ toast('Elegí un atleta','error'); return; }
+  const athleteIds = getAssignSelectedAthletes();
+  if(!athleteIds.length){ toast('Elegí al menos un atleta','error'); return; }
   if(!startDate){ toast('Elegí fecha de inicio','error'); return; }
+
+  const p = _programs.find(x=>x.id===programId) || _editingProgram;
+  const btn = document.getElementById('apAssignBtn');
+  if(btn){ btn.disabled = true; }
   showLoad(true);
+
+  const totals = { planes:0, comps:0, ps:0, ap:0, ok:0, errors:[] };
   try {
-    // 1. Crear assignment (end_date lo calcula el trigger en BD)
-    const p = _programs.find(x=>x.id===programId) || _editingProgram;
-    const{ data: a, error: e1 } = await db.from('tss_program_assignments').insert({
-      program_id: programId,
-      athlete_id: athleteId,
-      start_date: startDate,
-      status: 'active',
-      version_at_assign: p?.version || 1,
-      created_by: S.user?.id || null
-    }).select().single();
-    if(e1) throw e1;
-    // 2. Materializar planes
-    const result = await materializeProgramAssignment(a.id);
-    if(result.error) throw result.error;
+    for(let i=0; i<athleteIds.length; i++){
+      const athleteId = athleteIds[i];
+      const ath = S.athletes.find(a=>a.id===athleteId);
+      if(btn) btn.innerHTML = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;animation:spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Procesando ${i+1}/${athleteIds.length}: ${esc(ath?.name||'')}`;
+      try {
+        const{ data: a, error: e1 } = await db.from('tss_program_assignments').insert({
+          program_id: programId,
+          athlete_id: athleteId,
+          start_date: startDate,
+          status: 'active',
+          version_at_assign: p?.version || 1,
+          created_by: S.user?.id || null
+        }).select().single();
+        if(e1){
+          if((e1.message||'').includes('duplicate')) totals.errors.push(`${ath?.name||'Atleta'}: ya tenía un programa con esa fecha`);
+          else totals.errors.push(`${ath?.name||'Atleta'}: ${e1.message}`);
+          continue;
+        }
+        const result = await materializeProgramAssignment(a.id);
+        if(result.error){ totals.errors.push(`${ath?.name||'Atleta'}: ${result.error.message||result.error}`); continue; }
+        totals.ok++;
+        totals.planes += (result.inserted||0);
+        totals.comps += (result.competitions||0);
+        totals.ps += (result.presenciales||0);
+        totals.ap += (result.appointments||0);
+      } catch(e){
+        totals.errors.push(`${ath?.name||'Atleta'}: ${e.message}`);
+      }
+    }
+    // Reportar
     const parts = [];
-    if(result.inserted) parts.push(`${result.inserted} planes`);
-    if(result.competitions) parts.push(`${result.competitions} competencia${result.competitions===1?'':'s'}`);
-    const proposalCount = (result.presenciales||0) + (result.appointments||0);
-    if(proposalCount) parts.push(`${proposalCount} propuesta${proposalCount===1?'':'s'} por confirmar`);
-    toast(`✅ Asignado · ${parts.join(' · ')}${proposalCount?' (revisá tab Citas para confirmar día/hora)':''}`, 'success');
+    parts.push(`${totals.ok}/${athleteIds.length} atleta${athleteIds.length===1?'':'s'} asignado${totals.ok===1?'':'s'}`);
+    if(totals.planes) parts.push(`${totals.planes} planes`);
+    if(totals.comps) parts.push(`${totals.comps} comp.`);
+    const props = totals.ps + totals.ap;
+    if(props) parts.push(`${props} propuestas`);
+    if(totals.errors.length){
+      console.warn('Errores parciales:', totals.errors);
+      toast(`⚠ ${parts.join(' · ')} · ${totals.errors.length} con problema (ver consola)`, 'warning');
+    } else {
+      toast(`✅ ${parts.join(' · ')}${props?' (revisá tab Citas → Día del equipo)':''}`, 'success');
+    }
     closeModal('assignProgModal');
   } catch(e){
-    const msg = e.message || JSON.stringify(e);
-    if(msg.includes('duplicate key')) toast('Ese atleta ya tiene un programa asignado con esa fecha','error');
-    else toast('Error: '+msg, 'error');
+    toast('Error: '+(e.message||JSON.stringify(e)), 'error');
     console.error(e);
-  } finally { showLoad(false); }
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="9 18 15 12 9 6"/></svg>Asignar y generar planes`; }
+    showLoad(false);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════
