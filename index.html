@@ -3062,7 +3062,8 @@ const PROGRAM_CATALOGS = {
   evaluation_area: ['Technical','Tactical','Physical','Mental','Medical','Physio','Nutrition','Dental','Recovery','Equipment'],
   pillar: ['Physical','Technical','Tactical','Mental','Equipment','Surf Sessions'],
   competition_level: ['Local','Nacional','Centroamericano','Panamericano','WSL QS','WSL CT','ISA','Internacional'],  // sistema
-  athlete_category: ['Sub-12','Sub-14','Sub-16','Sub-18','Junior','Open','Master','Longboard Open','Longboard Master']  // sistema
+  athlete_category: ['Sub-12','Sub-14','Sub-16','Sub-18','Junior','Open','Master','Longboard Open','Longboard Master'],  // sistema
+  appointment_type: ['Medical','Physio','Nutrition','Dental','Psychology','Evaluation','Recovery','Equipment','Other']  // sistema
 };
 const EVALUATION_AREAS_META = {
   'Technical':  { professional:'Coach',                 frequency:'Weekly / Monthly',   purpose:'Progress & consistency' },
@@ -3216,7 +3217,70 @@ async function materializeProgramAssignment(assignmentId){
     }
   }
 
-  return { ok:true, inserted, competitions: competitionsInserted };
+  // 5. Insertar sesiones presenciales del programa en tss_presencial_sessions
+  const psRows = [];
+  for(const micro of micros){
+    for(const p of (micro.presencials || [])){
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + (micro.week - 1) * 7 + ((p.dow||1) - 1));
+      psRows.push({
+        title: p.title || 'Sesión presencial',
+        date: localDateStr(d),
+        time_start: p.time_start || null,
+        duration_min: p.duration_min || 90,
+        location: p.location || null,
+        pilar: p.pilar || null,
+        sub_pilar: p.sub_pilar || null,
+        mission: p.mission || null,
+        notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')}]${p.notes?' '+p.notes:''}`,
+        athlete_ids: a.athlete_id,
+        created_by: a.created_by || S.user?.id || null,
+        status: 'programada'
+      });
+    }
+  }
+  let presencialsInserted = 0;
+  if(psRows.length){
+    for(let i=0; i<psRows.length; i+=100){
+      const chunk = psRows.slice(i, i+100);
+      const{ error: ePs } = await db.from('tss_presencial_sessions').insert(chunk);
+      if(ePs){ console.error('Error insertando presenciales:', ePs); break; }
+      presencialsInserted += chunk.length;
+    }
+  }
+
+  // 6. Insertar citas/evaluaciones del programa en tss_appointments
+  const apRows = [];
+  for(const micro of micros){
+    for(const p of (micro.appointments || [])){
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + (micro.week - 1) * 7 + ((p.dow||1) - 1));
+      apRows.push({
+        athlete_id: a.athlete_id,
+        type: p.type || 'Other',
+        date: localDateStr(d),
+        time: p.time || null,
+        duration_min: p.duration_min || 45,
+        location: p.location || null,
+        provider_name: p.provider_name || null,
+        notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')}]${p.notes?' '+p.notes:''}`,
+        status: 'programada',
+        created_by: a.created_by || S.user?.id || null,
+        batch_id: assignmentId
+      });
+    }
+  }
+  let appointmentsInserted = 0;
+  if(apRows.length){
+    for(let i=0; i<apRows.length; i+=100){
+      const chunk = apRows.slice(i, i+100);
+      const{ error: eAp } = await db.from('tss_appointments').insert(chunk);
+      if(eAp){ console.error('Error insertando citas:', eAp); break; }
+      appointmentsInserted += chunk.length;
+    }
+  }
+
+  return { ok:true, inserted, competitions: competitionsInserted, presenciales: presencialsInserted, appointments: appointmentsInserted };
 }
 
 async function resyncProgramAssignment(assignmentId){
@@ -3601,6 +3665,38 @@ function renderMicrosDesktop(micros){
     }).join('');
     return `<div class="prog-row"><div class="prog-cell prog-cell-label">Competition</div>${cells}</div>`;
   };
+  const renderRowPresencials = (micros) => {
+    const cells = micros.map((m,i)=>{
+      const ps = m.presencials || [];
+      return `<div class="prog-cell" style="flex-direction:column;align-items:stretch;justify-content:center;gap:3px;padding:5px;cursor:pointer;" onclick="openPresencialPlannerModal(${i})">
+        ${ps.length === 0
+          ? `<span style="font-size:10px;color:var(--text-soft);text-align:center;">+ agregar</span>`
+          : ps.map(p => `<div style="background:rgba(0,210,255,.1);border:1px solid rgba(0,210,255,.3);border-radius:5px;padding:3px 6px;font-size:10px;color:var(--cyan);font-weight:700;line-height:1.2;">
+              ${DOW_NAMES[p.dow]||'?'} ${p.time_start||''} · ${esc((p.title||'Presencial').slice(0,18))}
+            </div>`).join('')
+        }
+      </div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label" style="border-left:3px solid var(--cyan);">Sesión Presencial</div>${cells}</div>`;
+  };
+  const renderRowAppointments = (micros) => {
+    const typeColor = t => /Medical|Physio|Dental/i.test(t||'') ? 'var(--coral)' : /Nutrition|Recovery/i.test(t||'') ? 'var(--foam)' : /Mental|Psychology/i.test(t||'') ? 'var(--purple)' : 'var(--amber)';
+    const cells = micros.map((m,i)=>{
+      const aps = m.appointments || [];
+      return `<div class="prog-cell" style="flex-direction:column;align-items:stretch;justify-content:center;gap:3px;padding:5px;cursor:pointer;" onclick="openAppointmentPlannerModal(${i})">
+        ${aps.length === 0
+          ? `<span style="font-size:10px;color:var(--text-soft);text-align:center;">+ agregar</span>`
+          : aps.map(p => {
+              const c = typeColor(p.type);
+              return `<div style="background:rgba(255,255,255,.04);border:1px solid ${c};border-left:3px solid ${c};border-radius:5px;padding:3px 6px;font-size:10px;color:var(--white);font-weight:700;line-height:1.2;">
+                ${DOW_NAMES[p.dow]||'?'} ${p.time||''} · <span style="color:${c};">${esc(p.type||'Cita')}</span>
+              </div>`;
+            }).join('')
+        }
+      </div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label" style="border-left:3px solid var(--amber);">Citas</div>${cells}</div>`;
+  };
   const renderRowDays = () => {
     const cells = micros.map((m,i)=>{
       const totalBlocks = (m.days||[]).reduce((s,d)=>s+(d.blocks||[]).length,0);
@@ -3643,7 +3739,8 @@ function renderMicrosDesktop(micros){
         ${renderRowText('Objetivo del micro', 'goal')}
         ${renderRowCompetition(micros)}
         ${renderRowEval()}
-        ${renderRowText('Sesión Presencial', 'presencial_label')}
+        ${renderRowPresencials(micros)}
+        ${renderRowAppointments(micros)}
         ${renderRowPillar('Físico', 'physical', 'var(--amber)')}
         ${renderRowPillar('Técnico', 'technical', 'var(--cyan)')}
         ${renderRowPillar('Táctico', 'tactical', 'var(--amber)')}
@@ -3965,6 +4062,222 @@ function saveInlineCompetition(microIdx){
   renderProgramEditor();
   scheduleProgramSave();
   toast(`🏆 ${name} asignada a M${String(_editingProgram.matrix.micros[microIdx].week).padStart(2,'0')}`,'success');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PRESENCIAL PLANNER · click en celda "Sesión Presencial" de un micro
+   ════════════════════════════════════════════════════════════════════ */
+function openPresencialPlannerModal(microIdx){
+  if(!_editingProgram) return;
+  let modal = document.getElementById('psPlanModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='psPlanModal';
+  const m = _editingProgram.matrix.micros[microIdx];
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:620px;max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">🏄 Sesiones presenciales</div><div class="modal-sub">M${String(m.week).padStart(2,'0')} · Semana ${m.week}</div></div>
+      <button class="modal-close" onclick="closeModal('psPlanModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="psPlanBody"></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('psPlanModal'); };
+  renderPresencialPlanner(microIdx);
+}
+function renderPresencialPlanner(microIdx){
+  const body = document.getElementById('psPlanBody'); if(!body) return;
+  const m = _editingProgram.matrix.micros[microIdx];
+  const ps = m.presencials || [];
+  body.innerHTML = `
+    <p style="font-size:11px;color:var(--text-soft);margin-bottom:12px;">Las sesiones programadas aquí se crean automáticamente en el tab Sesión Presencial del atleta cuando le asignes este programa.</p>
+
+    ${ps.length === 0 ? `
+      <div style="text-align:center;padding:20px;color:var(--text-soft);font-style:italic;font-size:12px;">Sin sesiones programadas todavía.</div>
+    ` : `
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+        ${ps.map((p,idx)=>`<div style="background:rgba(0,210,255,.04);border:1px solid rgba(0,210,255,.2);border-left:3px solid var(--cyan);border-radius:10px;padding:10px 12px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+            <div style="font-size:13px;font-weight:800;color:var(--white);">${esc(p.title||'Presencial')}</div>
+            <button onclick="removePresencial(${microIdx},${idx})" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--coral);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;">× Quitar</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Día *</label>
+              <select onchange="updatePresencial(${microIdx},${idx},'dow',parseInt(this.value))" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+                ${[1,2,3,4,5,6,7].map(d=>`<option value="${d}" ${p.dow===d?'selected':''}>${DOW_NAMES[d]}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Hora</label>
+              <input type="time" value="${p.time_start||''}" onchange="updatePresencial(${microIdx},${idx},'time_start',this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Dur (min)</label>
+              <input type="number" min="15" max="480" value="${p.duration_min||90}" onchange="updatePresencial(${microIdx},${idx},'duration_min',parseInt(this.value))" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            </div>
+            <div>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Lugar</label>
+              <input type="text" value="${escAttr(p.location||'')}" oninput="updatePresencial(${microIdx},${idx},'location',this.value)" placeholder="ej. Punta Roca" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Pilar</label>
+              <select onchange="updatePresencial(${microIdx},${idx},'pilar',this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+                <option value="">—</option>
+                ${PROGRAM_CATALOGS.pillar.map(pl=>`<option value="${pl}" ${p.pilar===pl?'selected':''}>${pl}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Título cambiar</label>
+              <input type="text" value="${escAttr(p.title||'')}" oninput="updatePresencial(${microIdx},${idx},'title',this.value)" placeholder="ej. PS Jueves" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            </div>
+          </div>
+          <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Misión / focus</label>
+          <textarea oninput="updatePresencial(${microIdx},${idx},'mission',this.value)" placeholder="ej. Wave selection en sets" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;min-height:36px;resize:vertical;font-family:inherit;">${esc(p.mission||'')}</textarea>
+          <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Notas (drills, condiciones, etc)</label>
+          <textarea oninput="updatePresencial(${microIdx},${idx},'notes',this.value)" placeholder="opcional" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;min-height:30px;resize:vertical;font-family:inherit;">${esc(p.notes||'')}</textarea>
+        </div>`).join('')}
+      </div>
+    `}
+
+    <button class="btn btn-cyan btn-sm" style="width:100%;" onclick="addPresencial(${microIdx})">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Agregar sesión presencial
+    </button>
+  `;
+}
+function addPresencial(microIdx){
+  const m = _editingProgram.matrix.micros[microIdx];
+  m.presencials = m.presencials || [];
+  m.presencials.push({
+    title: 'Presencial', dow: 4, time_start: '17:00', duration_min: 90,
+    location: '', pilar: '', mission: '', notes: ''
+  });
+  renderPresencialPlanner(microIdx);
+  refreshMatrixCellsForMicro(microIdx);
+  scheduleProgramSave();
+}
+function removePresencial(microIdx, idx){
+  _editingProgram.matrix.micros[microIdx].presencials.splice(idx, 1);
+  renderPresencialPlanner(microIdx);
+  refreshMatrixCellsForMicro(microIdx);
+  scheduleProgramSave();
+}
+function updatePresencial(microIdx, idx, field, value){
+  _editingProgram.matrix.micros[microIdx].presencials[idx][field] = value;
+  refreshMatrixCellsForMicro(microIdx);
+  scheduleProgramSave();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   APPOINTMENT PLANNER · click en celda "Citas" de un micro
+   ════════════════════════════════════════════════════════════════════ */
+function openAppointmentPlannerModal(microIdx){
+  if(!_editingProgram) return;
+  let modal = document.getElementById('apPlanModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='apPlanModal';
+  const m = _editingProgram.matrix.micros[microIdx];
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:620px;max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">📅 Citas / evaluaciones</div><div class="modal-sub">M${String(m.week).padStart(2,'0')} · Semana ${m.week}</div></div>
+      <button class="modal-close" onclick="closeModal('apPlanModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="apPlanBody"></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('apPlanModal'); };
+  renderAppointmentPlanner(microIdx);
+}
+function renderAppointmentPlanner(microIdx){
+  const body = document.getElementById('apPlanBody'); if(!body) return;
+  const m = _editingProgram.matrix.micros[microIdx];
+  const aps = m.appointments || [];
+  body.innerHTML = `
+    <p style="font-size:11px;color:var(--text-soft);margin-bottom:12px;">Las citas programadas aquí se crean automáticamente en el tab Citas del atleta cuando le asignes este programa. Incluye médicas, físio, nutri, evaluaciones, etc.</p>
+
+    ${aps.length === 0 ? `
+      <div style="text-align:center;padding:20px;color:var(--text-soft);font-style:italic;font-size:12px;">Sin citas programadas todavía.</div>
+    ` : `
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+        ${aps.map((p,idx)=>{
+          const c = /Medical|Physio|Dental/i.test(p.type||'') ? 'var(--coral)' : /Nutrition|Recovery/i.test(p.type||'') ? 'var(--foam)' : /Mental|Psychology/i.test(p.type||'') ? 'var(--purple)' : 'var(--amber)';
+          return `<div style="background:rgba(255,255,255,.03);border:1px solid var(--border2);border-left:3px solid ${c};border-radius:10px;padding:10px 12px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+              <div style="font-size:13px;font-weight:800;color:${c};">${esc(p.type||'Cita')}</div>
+              <button onclick="removeAppointment(${microIdx},${idx})" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--coral);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;">× Quitar</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
+              <div>
+                <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Tipo *</label>
+                <select onchange="updateAppointment(${microIdx},${idx},'type',this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+                  ${PROGRAM_CATALOGS.appointment_type.map(t=>`<option value="${t}" ${p.type===t?'selected':''}>${t}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Día *</label>
+                <select onchange="updateAppointment(${microIdx},${idx},'dow',parseInt(this.value))" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+                  ${[1,2,3,4,5,6,7].map(d=>`<option value="${d}" ${p.dow===d?'selected':''}>${DOW_NAMES[d]}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Hora</label>
+                <input type="time" value="${p.time||''}" onchange="updateAppointment(${microIdx},${idx},'time',this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;margin-bottom:6px;">
+              <div>
+                <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Dur (min)</label>
+                <input type="number" min="10" max="240" value="${p.duration_min||45}" onchange="updateAppointment(${microIdx},${idx},'duration_min',parseInt(this.value))" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+              </div>
+              <div>
+                <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Profesional</label>
+                <input type="text" value="${escAttr(p.provider_name||'')}" oninput="updateAppointment(${microIdx},${idx},'provider_name',this.value)" placeholder="ej. Dr. García" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+              </div>
+            </div>
+            <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Lugar</label>
+            <input type="text" value="${escAttr(p.location||'')}" oninput="updateAppointment(${microIdx},${idx},'location',this.value)" placeholder="ej. Hospital Diagnóstico, sala 4" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Notas</label>
+            <textarea oninput="updateAppointment(${microIdx},${idx},'notes',this.value)" placeholder="opcional" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;min-height:30px;resize:vertical;font-family:inherit;">${esc(p.notes||'')}</textarea>
+          </div>`;
+        }).join('')}
+      </div>
+    `}
+
+    <button class="btn btn-cyan btn-sm" style="width:100%;" onclick="addAppointment(${microIdx})">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Agregar cita / evaluación
+    </button>
+  `;
+}
+function addAppointment(microIdx){
+  const m = _editingProgram.matrix.micros[microIdx];
+  m.appointments = m.appointments || [];
+  m.appointments.push({
+    type: 'Medical', dow: 2, time: '10:00', duration_min: 45,
+    location: '', provider_name: '', notes: ''
+  });
+  renderAppointmentPlanner(microIdx);
+  refreshMatrixCellsForMicro(microIdx);
+  scheduleProgramSave();
+}
+function removeAppointment(microIdx, idx){
+  _editingProgram.matrix.micros[microIdx].appointments.splice(idx, 1);
+  renderAppointmentPlanner(microIdx);
+  refreshMatrixCellsForMicro(microIdx);
+  scheduleProgramSave();
+}
+function updateAppointment(microIdx, idx, field, value){
+  _editingProgram.matrix.micros[microIdx].appointments[idx][field] = value;
+  refreshMatrixCellsForMicro(microIdx);
+  scheduleProgramSave();
+}
+
+/* Refresca solo las celdas Presencial+Citas del micro tocado sin re-renderizar toda la matriz */
+function refreshMatrixCellsForMicro(microIdx){
+  // Por simplicidad, re-renderizamos toda la matriz desktop. Es ~5ms.
+  if(window.innerWidth >= 900) renderProgramEditor();
 }
 
 function scheduleProgramSave(){
@@ -4358,8 +4671,12 @@ async function confirmAssignProgram(programId){
     // 2. Materializar planes
     const result = await materializeProgramAssignment(a.id);
     if(result.error) throw result.error;
-    const compMsg = result.competitions ? ` · ${result.competitions} competencia${result.competitions===1?'':'s'} en su perfil` : '';
-    toast(`✅ Asignado · ${result.inserted} planes${compMsg}`, 'success');
+    const parts = [];
+    if(result.inserted) parts.push(`${result.inserted} planes`);
+    if(result.competitions) parts.push(`${result.competitions} competencia${result.competitions===1?'':'s'}`);
+    if(result.presenciales) parts.push(`${result.presenciales} presencial${result.presenciales===1?'':'es'}`);
+    if(result.appointments) parts.push(`${result.appointments} cita${result.appointments===1?'':'s'}`);
+    toast(`✅ Asignado · ${parts.join(' · ')}`, 'success');
     closeModal('assignProgModal');
   } catch(e){
     const msg = e.message || JSON.stringify(e);
