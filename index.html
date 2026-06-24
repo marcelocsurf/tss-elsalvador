@@ -550,10 +550,13 @@ function renderTeamHub(){
           <div style="font-size:14px;font-weight:800;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(g.name)}</div>
           <div style="font-size:11px;color:var(--grey);margin-top:2px;">${count} atleta${count===1?'':'s'} · ${coachLabel}</div>
         </div>
-        ${isActive
-          ? `<span style="font-size:10px;color:var(--cyan);font-weight:700;letter-spacing:1px;flex-shrink:0;">DENTRO</span>`
-          : `<button class="btn btn-xs btn-cyan" style="flex-shrink:0;font-size:11px;padding:7px 12px;" onclick="enterTeam('${g.id}')">Entrar →</button>`
-        }
+        <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end;">
+          ${isActive
+            ? `<span style="font-size:10px;color:var(--cyan);font-weight:700;letter-spacing:1px;">DENTRO</span>`
+            : `<button class="btn btn-xs btn-cyan" style="font-size:11px;padding:7px 12px;" onclick="enterTeam('${g.id}')">Entrar →</button>`
+          }
+          ${isCoach?`<button class="btn btn-xs btn-ghost" style="font-size:10px;padding:4px 8px;" onclick="openTeamCompetitionsModal('${g.id}','${escAttr(g.name)}')" title="Calendario de competencias del equipo"><svg class="ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Comp.</button>`:''}
+        </div>
       </div>`;
     });
   }
@@ -3042,6 +3045,1102 @@ const BLOCK_TYPES = [
 
 function getBlockType(id){ return BLOCK_TYPES.find(b=>b.id===id) || BLOCK_TYPES[BLOCK_TYPES.length-1]; }
 
+/* ════════════════════════════════════════════════════════════════════
+   PROGRAMAS DE ENTRENO · Catálogos predefinidos para dropdowns
+   Valores literales tomados del Excel "Bitacora TSS ESA-2.xlsx".
+   Los marcados (sistema) NO están en Excel pero son útiles del app.
+   ════════════════════════════════════════════════════════════════════ */
+const PROGRAM_CATALOGS = {
+  macro_phase: ['General Preparation','Specific Preparation','Pre-Competition','Competition','Transition','Recovery'],
+  mesocycle: ['Base Development','Technical Control','Load Accumulation','Special Preparation','Pre-Competitive Control','Competition Peak','Load Management','Rebuild'],
+  microcycle_type: ['Load','Shock','Control','Taper','Competition','Recovery','Evaluation'],
+  intensity: ['Low','Medium','High','Peak'],  // sistema
+  evaluation_area: ['Technical','Tactical','Physical','Mental','Medical','Physio','Nutrition','Dental','Recovery','Equipment'],
+  pillar: ['Physical','Technical','Tactical','Mental','Equipment','Surf Sessions'],
+  competition_level: ['Local','Nacional','Centroamericano','Panamericano','WSL QS','WSL CT','ISA','Internacional'],  // sistema
+  athlete_category: ['Sub-12','Sub-14','Sub-16','Sub-18','Junior','Open','Master','Longboard Open','Longboard Master']  // sistema
+};
+const EVALUATION_AREAS_META = {
+  'Technical':  { professional:'Coach',                 frequency:'Weekly / Monthly',   purpose:'Progress & consistency' },
+  'Tactical':   { professional:'Coach',                 frequency:'Post competition',   purpose:'Decision quality' },
+  'Physical':   { professional:'S&C Coach',             frequency:'Weekly',             purpose:'Load management' },
+  'Mental':     { professional:'Sports Psychologist',   frequency:'Monthly / Pre-comp', purpose:'Emotional control' },
+  'Medical':    { professional:'Sports Doctor',         frequency:'Annual / Biannual',  purpose:'Health clearance' },
+  'Physio':     { professional:'Physiotherapist',       frequency:'Weekly',             purpose:'Injury prevention' },
+  'Nutrition':  { professional:'Sports Nutritionist',   frequency:'6–8 weeks',          purpose:'Fueling optimization' },
+  'Dental':     { professional:'Dentist',               frequency:'6 months',           purpose:'Systemic health' },
+  'Recovery':   { professional:'Recovery Specialist',   frequency:'Weekly',             purpose:'Longevity' },
+  'Equipment':  { professional:'Coach + Athlete',       frequency:'Ongoing',            purpose:'Performance efficiency' }
+};
+const PILLAR_TO_BLOCK_TYPE = {
+  // Mapeo del pilar del programa al work_type del bloque diario al materializar
+  'Physical':'fisico', 'Technical':'tecnico', 'Tactical':'tactico',
+  'Mental':'mental', 'Equipment':'otro', 'Surf Sessions':'sesion'
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   PROGRAMAS DE ENTRENO · Lógica de materialización
+   - newEmptyProgram(): crea un esqueleto con N semanas vacías
+   - materializeProgramAssignment(): inserta filas en tss_daily_plans
+     a partir del matrix del programa y la fecha de inicio del assignment
+   - resyncProgramAssignment(): borra planes futuros del assignment SIN
+     dirty=true y los regenera con la versión actual del programa
+   - pauseAssignment(): UPDATE status=paused + DELETE planes futuros
+   - cancelAssignment(): UPDATE status=cancelled + DELETE planes futuros
+   - completeProgram(): UPDATE status=completed (cuando llega end_date)
+   ════════════════════════════════════════════════════════════════════ */
+function newEmptyMicro(weekIdx){
+  const days = [];
+  for(let dow=1; dow<=7; dow++) days.push({ dow, blocks: [] });
+  return {
+    week: weekIdx,
+    type: 'Load',
+    intensity: 'Medium',
+    goal: '',
+    competition_ref: null,
+    evaluations: [],
+    presencial_sessions: [],
+    pillars: { physical:'', technical:'', tactical:'', mental:'', equipment:'', surf_sessions:'' },
+    days
+  };
+}
+function newEmptyProgram(name='Nuevo programa', weeksTotal=12){
+  const micros = [];
+  for(let w=1; w<=weeksTotal; w++) micros.push(newEmptyMicro(w));
+  return {
+    name,
+    description: '',
+    weeks_total: weeksTotal,
+    discipline: 'shortboard',
+    level: 'all',
+    matrix: {
+      macro: { phases: [] },
+      mesocycles: [],
+      key_competitions: [],
+      micros
+    }
+  };
+}
+
+async function materializeProgramAssignment(assignmentId){
+  // 1. Obtener assignment + programa
+  const{ data: a, error: e1 } = await db.from('tss_program_assignments').select('*, program:tss_programs(*)').eq('id', assignmentId).single();
+  if(e1 || !a) { console.error('No se encontró el assignment', e1); return { error: e1 }; }
+  const matrix = (a.program?.matrix) || {};
+  const micros = matrix.micros || [];
+  if(!micros.length) return { error: { message: 'El programa no tiene microciclos definidos' } };
+
+  // 2. Construir filas a insertar
+  const startDate = new Date(a.start_date + 'T00:00:00');
+  const rows = [];
+  for(const micro of micros){
+    for(const day of (micro.days||[])){
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + (micro.week - 1) * 7 + (day.dow - 1));
+      (day.blocks||[]).forEach((b, idx) => {
+        if(!b.work_type) return;  // skip bloques vacíos
+        rows.push({
+          date: localDateStr(date),
+          scope: 'individual',
+          target_id: a.athlete_id,
+          work_type: b.work_type,
+          objective: b.objective || null,
+          notes: b.notes || null,
+          exercises: JSON.stringify(b.exercises || []),
+          video_url: b.video_url || null,
+          sesion_time: b.sesion_time || null,
+          sesion_reps: b.sesion_reps || null,
+          created_by: a.created_by || S.user?.id || null,
+          program_assignment_id: assignmentId,
+          program_ref: `w${micro.week}d${day.dow}_b${idx}`,
+          dirty: false
+        });
+      });
+    }
+  }
+  if(!rows.length) return { ok:true, inserted: 0, message: 'El programa no tiene bloques en sus micros' };
+
+  // 3. Insertar en chunks de 100 (límite seguro de Supabase)
+  let inserted = 0;
+  for(let i=0; i<rows.length; i+=100){
+    const chunk = rows.slice(i, i+100);
+    const{ error: e2 } = await db.from('tss_daily_plans').insert(chunk);
+    if(e2){ console.error('Chunk insert error', e2); return { error: e2, inserted }; }
+    inserted += chunk.length;
+  }
+  return { ok:true, inserted };
+}
+
+async function resyncProgramAssignment(assignmentId){
+  // Borrar planes futuros del assignment que NO estén dirty (no editados manualmente)
+  const today = todayStr();
+  const{ error: eDel } = await db.from('tss_daily_plans').delete()
+    .eq('program_assignment_id', assignmentId)
+    .gte('date', today)
+    .eq('dirty', false);
+  if(eDel) return { error: eDel };
+  // Re-materializar (la lógica insert agregará solo los que faltan;
+  // los dirty=true quedan intactos porque no se borraron arriba)
+  // Como `materialize` no chequea duplicados, hacemos un fix: filtramos por fecha futura
+  const{ data: a } = await db.from('tss_program_assignments').select('*, program:tss_programs(*)').eq('id', assignmentId).single();
+  if(!a) return { error: { message:'Assignment no encontrado' } };
+  const startDate = new Date(a.start_date + 'T00:00:00');
+  const matrix = (a.program?.matrix) || {};
+  const micros = matrix.micros || [];
+  const rows = [];
+  for(const micro of micros){
+    for(const day of (micro.days||[])){
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + (micro.week - 1) * 7 + (day.dow - 1));
+      const ds = localDateStr(date);
+      if(ds < today) continue;  // skip pasado
+      (day.blocks||[]).forEach((b, idx) => {
+        if(!b.work_type) return;
+        rows.push({
+          date: ds, scope:'individual', target_id: a.athlete_id,
+          work_type: b.work_type, objective: b.objective||null, notes: b.notes||null,
+          exercises: JSON.stringify(b.exercises||[]), video_url: b.video_url||null,
+          sesion_time: b.sesion_time||null, sesion_reps: b.sesion_reps||null,
+          created_by: a.created_by || S.user?.id || null,
+          program_assignment_id: assignmentId,
+          program_ref: `w${micro.week}d${day.dow}_b${idx}`, dirty: false
+        });
+      });
+    }
+  }
+  let inserted = 0;
+  for(let i=0; i<rows.length; i+=100){
+    const chunk = rows.slice(i, i+100);
+    const{ error: eIns } = await db.from('tss_daily_plans').insert(chunk);
+    if(eIns) return { error: eIns, inserted };
+    inserted += chunk.length;
+  }
+  // Update version_at_assign al valor actual del programa
+  await db.from('tss_program_assignments').update({ version_at_assign: a.program.version }).eq('id', assignmentId);
+  return { ok:true, inserted };
+}
+
+async function pauseAssignment(assignmentId){
+  const today = todayStr();
+  await db.from('tss_daily_plans').delete()
+    .eq('program_assignment_id', assignmentId).gte('date', today).eq('dirty', false);
+  return db.from('tss_program_assignments').update({ status:'paused', paused_at: today }).eq('id', assignmentId);
+}
+
+async function resumeAssignment(assignmentId){
+  await db.from('tss_program_assignments').update({ status:'active', paused_at: null }).eq('id', assignmentId);
+  return resyncProgramAssignment(assignmentId);
+}
+
+async function cancelAssignment(assignmentId){
+  const today = todayStr();
+  await db.from('tss_daily_plans').delete()
+    .eq('program_assignment_id', assignmentId).gte('date', today).eq('dirty', false);
+  return db.from('tss_program_assignments').update({ status:'cancelled' }).eq('id', assignmentId);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   HUB DE PROGRAMAS · openProgramsHub()
+   Pantalla principal del módulo de programas.
+   - Vista desktop (≥900px): editor tipo Excel con matriz amplia
+   - Vista mobile (<900px): cards + modal de asignación
+   ════════════════════════════════════════════════════════════════════ */
+let _programs = [];
+let _editingProgram = null;        // programa que se está editando · {id, name, ..., matrix}
+let _editingProgramSaveTimer = null;
+
+async function openProgramsHub(){
+  let m = document.getElementById('programsHub'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='programsHub';
+  m.innerHTML = `<div class="modal-sheet" style="max-width:1400px;width:96vw;max-height:96vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="modal-head">
+      <div><div class="modal-title">🗓 Programas de Entreno</div><div class="modal-sub">Macro · Mesos · Micros · Asignación a atletas</div></div>
+      <button class="modal-close" onclick="closeModal('programsHub')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="programsHubBody" style="flex:1;overflow-y:auto;padding:6px 0;"><p style="text-align:center;padding:30px;color:var(--grey);">Cargando...</p></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m && !_editingProgram) closeModal('programsHub'); };
+  await renderProgramsList();
+}
+
+async function renderProgramsList(){
+  _editingProgram = null;
+  const body = document.getElementById('programsHubBody'); if(!body) return;
+  try {
+    const{ data: progs, error } = await db.from('tss_programs').select('*').order('updated_at', { ascending: false });
+    if(error) throw error;
+    _programs = progs || [];
+    // Cargar assignments activos para mostrar conteo por programa
+    const{ data: assigns } = await db.from('tss_program_assignments').select('program_id, athlete_id, status');
+    const assignsByProg = {};
+    (assigns||[]).filter(a=>a.status==='active').forEach(a=>{
+      (assignsByProg[a.program_id] = assignsByProg[a.program_id] || []).push(a.athlete_id);
+    });
+
+    const isDesktop = window.innerWidth >= 900;
+    body.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-soft);font-weight:700;">${_programs.length} programa${_programs.length===1?'':'s'} · ${isDesktop?'vista desktop':'vista mobile'}</div>
+        <button class="btn btn-cyan btn-sm" onclick="createNewProgram()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nuevo programa</button>
+      </div>
+      ${_programs.length === 0
+        ? `<div class="empty" style="padding:40px 20px;"><div class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-soft)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><p class="empty-txt">No hay programas todavía</p><p style="font-size:11px;color:var(--text-soft);margin-top:4px;">Tap "Nuevo programa" para crear el primero</p></div>`
+        : `<div style="display:grid;grid-template-columns:${isDesktop?'repeat(auto-fill,minmax(320px,1fr))':'1fr'};gap:10px;">
+            ${_programs.map(p => {
+              const numAssigns = (assignsByProg[p.id]||[]).length;
+              const numMicros = (p.matrix?.micros||[]).length;
+              const numBlocks = (p.matrix?.micros||[]).reduce((s,m)=>s+(m.days||[]).reduce((s2,d)=>s2+(d.blocks||[]).length,0),0);
+              return `<div style="background:rgba(168,85,247,.06);border:1px solid var(--border2);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;" onclick="openProgramEditor('${p.id}')">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:14px;font-weight:800;color:var(--white);line-height:1.2;">${esc(p.name)}</div>
+                    <div style="font-size:10px;color:var(--text-soft);margin-top:2px;">${p.weeks_total} sem · ${p.discipline||'all'} · v${p.version}</div>
+                  </div>
+                </div>
+                ${p.description?`<div style="font-size:11px;color:var(--text-soft);line-height:1.4;max-height:34px;overflow:hidden;">${esc(p.description)}</div>`:''}
+                <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:9px;">
+                  <span style="padding:2px 7px;border-radius:10px;background:rgba(0,210,255,.1);color:var(--cyan);font-weight:700;">${numMicros} micro${numMicros===1?'':'s'}</span>
+                  <span style="padding:2px 7px;border-radius:10px;background:rgba(6,214,160,.1);color:var(--foam);font-weight:700;">${numBlocks} bloque${numBlocks===1?'':'s'}</span>
+                  <span style="padding:2px 7px;border-radius:10px;background:rgba(245,158,11,.1);color:var(--amber);font-weight:700;">${numAssigns} atleta${numAssigns===1?'':'s'}</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:4px;">
+                  <button class="btn btn-xs" style="flex:1;background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);" onclick="event.stopPropagation();openProgramEditor('${p.id}')">✏️ Editar</button>
+                  <button class="btn btn-xs btn-cyan" style="flex:1;" onclick="event.stopPropagation();openAssignProgramModal('${p.id}')">→ Asignar</button>
+                  <button class="btn btn-xs" style="background:rgba(239,68,68,.1);color:var(--coral);border:1px solid rgba(239,68,68,.2);" onclick="event.stopPropagation();deleteProgram('${p.id}','${escAttr(p.name)}')"><svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`}
+    `;
+  } catch(e){ body.innerHTML = `<p style="padding:20px;color:var(--coral);">Error: ${esc(e.message)}</p>`; console.error(e); }
+}
+
+async function createNewProgram(){
+  const name = prompt('Nombre del programa (ej: Pre-Comp Centroamericanos 2026):');
+  if(!name || !name.trim()) return;
+  const weeksRaw = prompt('¿Cuántas semanas dura el programa?', '12');
+  const weeks = Math.max(1, Math.min(52, parseInt(weeksRaw)||12));
+  showLoad(true);
+  try {
+    const prog = newEmptyProgram(name.trim(), weeks);
+    const{ data, error } = await db.from('tss_programs').insert({
+      name: prog.name, description: prog.description, weeks_total: prog.weeks_total,
+      discipline: prog.discipline, level: prog.level, matrix: prog.matrix,
+      created_by: S.user?.id || null
+    }).select().single();
+    if(error) throw error;
+    toast('Programa creado','success');
+    openProgramEditor(data.id);
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function deleteProgram(programId, name){
+  if(!confirm(`¿Borrar el programa "${name}"?\n\nEsto NO borra los planes diarios que ya fueron asignados a atletas. Las asignaciones activas quedan, pero pierden la referencia al programa.`)) return;
+  showLoad(true);
+  try {
+    const{ error } = await db.from('tss_programs').delete().eq('id', programId);
+    if(error) throw error;
+    toast('Programa borrado','success');
+    renderProgramsList();
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EDITOR DE PROGRAMA · openProgramEditor(programId)
+   Vista responsive:
+   - Desktop ≥900px: matriz tipo Excel con micros como columnas
+   - Mobile <900px: lista vertical de micros, tap para editar
+   ════════════════════════════════════════════════════════════════════ */
+async function openProgramEditor(programId){
+  const body = document.getElementById('programsHubBody'); if(!body) return;
+  showLoad(true);
+  try {
+    const{ data: prog, error } = await db.from('tss_programs').select('*').eq('id', programId).single();
+    if(error) throw error;
+    _editingProgram = prog;
+    if(!_editingProgram.matrix || !_editingProgram.matrix.micros) {
+      _editingProgram.matrix = newEmptyProgram(prog.name, prog.weeks_total).matrix;
+    }
+    renderProgramEditor();
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+function renderProgramEditor(){
+  const body = document.getElementById('programsHubBody'); if(!body || !_editingProgram) return;
+  const isDesktop = window.innerWidth >= 900;
+  const p = _editingProgram;
+  const micros = p.matrix.micros || [];
+
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="renderProgramsList()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="15 18 9 12 15 6"/></svg>Volver a la lista</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-cyan btn-sm" onclick="openAssignProgramModal('${p.id}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="9 18 15 12 9 6"/></svg>Asignar a atleta</button>
+      </div>
+    </div>
+
+    <!-- Metadata del programa -->
+    <div style="background:rgba(0,210,255,.04);border:1px solid var(--border2);border-radius:12px;padding:12px;margin-bottom:14px;">
+      <div style="display:grid;grid-template-columns:${isDesktop?'2fr 1fr 1fr 1fr':'1fr'};gap:10px;">
+        <div>
+          <label class="inp-label">Nombre</label>
+          <input type="text" class="inp" id="progName" value="${escAttr(p.name)}" oninput="updateProgramField('name',this.value)">
+        </div>
+        <div>
+          <label class="inp-label">Semanas</label>
+          <input type="number" class="inp" id="progWeeks" value="${p.weeks_total}" min="1" max="52" onchange="updateProgramWeeks(this.value)">
+        </div>
+        <div>
+          <label class="inp-label">Disciplina</label>
+          <select class="sel" onchange="updateProgramField('discipline',this.value)">
+            <option value="shortboard" ${p.discipline==='shortboard'?'selected':''}>Shortboard</option>
+            <option value="longboard" ${p.discipline==='longboard'?'selected':''}>Longboard</option>
+            <option value="both" ${p.discipline==='both'?'selected':''}>Ambas</option>
+            <option value="all" ${p.discipline==='all'?'selected':''}>Todas</option>
+          </select>
+        </div>
+        <div>
+          <label class="inp-label">Nivel</label>
+          <select class="sel" onchange="updateProgramField('level',this.value)">
+            <option value="all" ${p.level==='all'?'selected':''}>Todos</option>
+            <option value="white" ${p.level==='white'?'selected':''}>Blanca</option>
+            <option value="yellow" ${p.level==='yellow'?'selected':''}>Amarilla</option>
+            <option value="blue" ${p.level==='blue'?'selected':''}>Azul</option>
+            <option value="purple" ${p.level==='purple'?'selected':''}>Morada</option>
+            <option value="brown" ${p.level==='brown'?'selected':''}>Café</option>
+            <option value="black" ${p.level==='black'?'selected':''}>Negra</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px;">
+        <label class="inp-label">Descripción (opcional)</label>
+        <textarea class="ta" style="min-height:50px;" oninput="updateProgramField('description',this.value)">${esc(p.description||'')}</textarea>
+      </div>
+      <div id="progSaveStatus" style="font-size:10px;color:var(--text-soft);margin-top:6px;text-align:right;">Sin cambios</div>
+    </div>
+
+    <!-- Matriz de micros -->
+    ${isDesktop ? renderMicrosDesktop(micros) : renderMicrosMobile(micros)}
+  `;
+  if(isDesktop){
+    // Reset scroll horizontal a la izquierda en cada render
+    const scroller = document.getElementById('microsMatrix');
+    if(scroller) scroller.scrollLeft = 0;
+  }
+}
+
+function renderMicrosDesktop(micros){
+  const numWeeks = micros.length;
+  const ROW_LABEL_W = 160;
+  const COL_W = 200;
+  // Generamos columnas: cada micro
+  const colTemplate = `${ROW_LABEL_W}px ${micros.map(()=>COL_W+'px').join(' ')}`;
+  const headerCols = micros.map((m,i)=>`<div class="prog-cell prog-cell-header" onclick="openMicroDetail(${i})" style="cursor:pointer;">M${String(m.week).padStart(2,'0')}<div style="font-size:8px;color:var(--text-soft);font-weight:500;margin-top:2px;">Sem ${m.week}</div></div>`).join('');
+  const startDates = micros.map(m=>{
+    // Las fechas no se materializan acá (depende del start_date del assignment)
+    return `<div class="prog-cell">—</div>`;
+  }).join('');
+
+  const renderRowSelect = (label, key, options) => {
+    const cells = micros.map((m,i)=>{
+      const v = m[key] || '';
+      return `<div class="prog-cell"><select class="prog-select" onchange="updateMicroField(${i},'${key}',this.value)">${options.map(o=>`<option value="${o}" ${v===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label">${label}</div>${cells}</div>`;
+  };
+  const renderRowText = (label, key, isPillar=false) => {
+    const cells = micros.map((m,i)=>{
+      const v = isPillar ? (m.pillars?.[key]||'') : (m[key]||'');
+      return `<div class="prog-cell"><textarea class="prog-textarea" oninput="${isPillar?`updatePillar(${i},'${key}',this.value)`:`updateMicroField(${i},'${key}',this.value)`}" placeholder="—">${esc(v)}</textarea></div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label">${label}</div>${cells}</div>`;
+  };
+  const renderRowEval = () => {
+    const cells = micros.map((m,i)=>{
+      const evals = m.evaluations || [];
+      const chip = evals.length ? evals.map(e=>`<span style="padding:1px 5px;border-radius:6px;background:rgba(0,210,255,.15);color:var(--cyan);font-size:9px;font-weight:600;margin:1px;">${e}</span>`).join('') : `<span style="color:var(--text-soft);font-size:10px;">—</span>`;
+      return `<div class="prog-cell" style="cursor:pointer;display:flex;flex-wrap:wrap;gap:2px;align-items:center;justify-content:center;" onclick="openMicroDetail(${i})">${chip}</div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label">Evaluaciones</div>${cells}</div>`;
+  };
+  const renderRowDays = () => {
+    const cells = micros.map((m,i)=>{
+      const totalBlocks = (m.days||[]).reduce((s,d)=>s+(d.blocks||[]).length,0);
+      return `<div class="prog-cell" style="text-align:center;padding:8px;"><button class="btn btn-xs btn-cyan" style="font-size:10px;width:100%;" onclick="openMicroDetail(${i})">📅 ${totalBlocks} bloques · Editar 7 días</button></div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label">Detalle semanal</div>${cells}</div>`;
+  };
+
+  return `
+    <style>
+      .prog-matrix { overflow-x:auto; overflow-y:visible; border:1px solid var(--border2); border-radius:10px; background:rgba(255,255,255,.02); }
+      .prog-grid { display:grid; grid-template-columns: ${colTemplate}; min-width:max-content; }
+      .prog-row { display:contents; }
+      .prog-cell { padding:8px; border-right:1px solid var(--border2); border-bottom:1px solid var(--border2); font-size:11px; min-height:42px; display:flex; align-items:center; }
+      .prog-cell-label { background:rgba(0,210,255,.08); color:var(--cyan); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.5px; position:sticky; left:0; z-index:2; }
+      .prog-cell-header { background:rgba(168,85,247,.15); color:var(--purple); font-weight:800; font-size:13px; text-align:center; justify-content:center; flex-direction:column; min-height:50px; }
+      .prog-select { width:100%; background:transparent; border:none; color:var(--white); font-size:11px; cursor:pointer; padding:2px 4px; }
+      .prog-select:focus { outline:1px solid var(--cyan); border-radius:4px; }
+      .prog-textarea { width:100%; min-height:36px; background:transparent; border:none; color:var(--white); font-size:11px; resize:none; font-family:inherit; padding:4px; line-height:1.3; }
+      .prog-textarea:focus { outline:1px solid var(--cyan); border-radius:4px; }
+    </style>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:1px;">📊 Matriz del programa · ${numWeeks} microciclos</div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-xs btn-ghost" onclick="addMicro()">+ Agregar micro</button>
+        ${numWeeks>1 ? `<button class="btn btn-xs btn-ghost" style="color:var(--coral);" onclick="removeLastMicro()">– Quitar último</button>` : ''}
+      </div>
+    </div>
+    <div class="prog-matrix" id="microsMatrix">
+      <div class="prog-grid">
+        <div class="prog-row"><div class="prog-cell prog-cell-label" style="background:rgba(168,85,247,.15);color:var(--purple);">SEMANA</div>${headerCols}</div>
+        ${renderRowSelect('Macro Phase', 'macro_phase_label', ['', ...PROGRAM_CATALOGS.macro_phase])}
+        ${renderRowSelect('Mesocycle', 'mesocycle_label', ['', ...PROGRAM_CATALOGS.mesocycle])}
+        ${renderRowSelect('Microcycle Type', 'type', PROGRAM_CATALOGS.microcycle_type)}
+        ${renderRowSelect('Intensity', 'intensity', PROGRAM_CATALOGS.intensity)}
+        ${renderRowText('Objetivo del micro', 'goal')}
+        ${renderRowText('Competition', 'competition_ref')}
+        ${renderRowEval()}
+        ${renderRowText('Sesión Presencial', 'presencial_label')}
+        ${renderRowText('Físico', 'physical', true)}
+        ${renderRowText('Técnico', 'technical', true)}
+        ${renderRowText('Táctico', 'tactical', true)}
+        ${renderRowText('Mental', 'mental', true)}
+        ${renderRowText('Equipment', 'equipment', true)}
+        ${renderRowText('Surf Sessions', 'surf_sessions', true)}
+        ${renderRowDays()}
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text-soft);font-style:italic;">💡 Tip: tap "Editar 7 días" en cualquier micro para definir los bloques diarios. Los cambios se guardan solos.</div>
+  `;
+}
+
+function renderMicrosMobile(micros){
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:1px;">📊 ${micros.length} microciclos</div>
+      <button class="btn btn-xs btn-ghost" onclick="addMicro()">+ Agregar micro</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${micros.map((m,i)=>{
+        const totalBlocks = (m.days||[]).reduce((s,d)=>s+(d.blocks||[]).length,0);
+        return `<div style="background:rgba(168,85,247,.05);border:1px solid var(--border2);border-radius:10px;padding:10px;cursor:pointer;" onclick="openMicroDetail(${i})">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <div style="font-size:13px;font-weight:800;color:var(--purple);">M${String(m.week).padStart(2,'0')} · Sem ${m.week}</div>
+            <span style="padding:2px 7px;border-radius:8px;background:rgba(0,210,255,.12);color:var(--cyan);font-size:9px;font-weight:700;">${m.type||'Load'}</span>
+          </div>
+          ${m.goal?`<div style="font-size:11px;color:var(--white);margin-bottom:4px;">${esc(m.goal)}</div>`:''}
+          <div style="font-size:10px;color:var(--text-soft);">${totalBlocks} bloque${totalBlocks===1?'':'s'} · ${(m.evaluations||[]).join(', ')||'sin evaluaciones'}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function updateProgramField(key, value){
+  if(!_editingProgram) return;
+  _editingProgram[key] = value;
+  scheduleProgramSave();
+}
+function updateProgramWeeks(value){
+  if(!_editingProgram) return;
+  const newWeeks = Math.max(1, Math.min(52, parseInt(value)||12));
+  const cur = _editingProgram.matrix.micros.length;
+  if(newWeeks > cur){
+    for(let w=cur+1; w<=newWeeks; w++) _editingProgram.matrix.micros.push(newEmptyMicro(w));
+  } else if(newWeeks < cur){
+    _editingProgram.matrix.micros = _editingProgram.matrix.micros.slice(0, newWeeks);
+  }
+  _editingProgram.weeks_total = newWeeks;
+  renderProgramEditor();
+  scheduleProgramSave();
+}
+function updateMicroField(idx, key, value){
+  if(!_editingProgram) return;
+  _editingProgram.matrix.micros[idx][key] = value;
+  scheduleProgramSave();
+}
+function updatePillar(idx, key, value){
+  if(!_editingProgram) return;
+  if(!_editingProgram.matrix.micros[idx].pillars) _editingProgram.matrix.micros[idx].pillars = {};
+  _editingProgram.matrix.micros[idx].pillars[key] = value;
+  scheduleProgramSave();
+}
+function addMicro(){
+  if(!_editingProgram) return;
+  const nextIdx = _editingProgram.matrix.micros.length + 1;
+  _editingProgram.matrix.micros.push(newEmptyMicro(nextIdx));
+  _editingProgram.weeks_total = _editingProgram.matrix.micros.length;
+  renderProgramEditor();
+  scheduleProgramSave();
+}
+function removeLastMicro(){
+  if(!_editingProgram || _editingProgram.matrix.micros.length <= 1) return;
+  _editingProgram.matrix.micros.pop();
+  _editingProgram.weeks_total = _editingProgram.matrix.micros.length;
+  renderProgramEditor();
+  scheduleProgramSave();
+}
+
+function scheduleProgramSave(){
+  const st = document.getElementById('progSaveStatus');
+  if(st){ st.textContent = '💾 Guardando…'; st.style.color = 'var(--cyan)'; }
+  if(_editingProgramSaveTimer) clearTimeout(_editingProgramSaveTimer);
+  _editingProgramSaveTimer = setTimeout(saveEditingProgram, 600);
+}
+async function saveEditingProgram(){
+  if(!_editingProgram) return;
+  const st = document.getElementById('progSaveStatus');
+  try {
+    const{ error } = await db.from('tss_programs').update({
+      name: _editingProgram.name,
+      description: _editingProgram.description,
+      weeks_total: _editingProgram.weeks_total,
+      discipline: _editingProgram.discipline,
+      level: _editingProgram.level,
+      matrix: _editingProgram.matrix
+    }).eq('id', _editingProgram.id);
+    if(error) throw error;
+    if(st){ st.textContent = '✅ Guardado · ' + new Date().toLocaleTimeString('es-SV',{hour:'2-digit',minute:'2-digit'}); st.style.color = 'var(--foam)'; }
+  } catch(e){
+    if(st){ st.textContent = '⚠️ Error al guardar: '+e.message; st.style.color = 'var(--coral)'; }
+    console.error(e);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   DETALLE DE UN MICRO · 7 días × bloques
+   ════════════════════════════════════════════════════════════════════ */
+function openMicroDetail(microIdx){
+  if(!_editingProgram) return;
+  const m = _editingProgram.matrix.micros[microIdx]; if(!m) return;
+  let modal = document.getElementById('microDetailModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='microDetailModal';
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:1100px;width:96vw;max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">M${String(m.week).padStart(2,'0')} · Semana ${m.week}</div><div class="modal-sub">${m.type||'Load'} · ${m.intensity||'Medium'}${m.goal?' · '+esc(m.goal):''}</div></div>
+      <button class="modal-close" onclick="closeMicroDetail()"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="background:rgba(0,210,255,.04);border-radius:10px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--text-soft);">
+      <strong style="color:var(--cyan);">Evaluaciones del micro:</strong>
+      <div id="microEvalsRow" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${renderMicroEvalsChips(microIdx)}</div>
+    </div>
+    <div id="microDaysGrid" style="display:grid;grid-template-columns:${window.innerWidth>=900?'repeat(7,1fr)':'1fr'};gap:8px;">
+      ${renderMicroDays(microIdx)}
+    </div>
+    <div style="margin-top:14px;display:flex;justify-content:flex-end;">
+      <button class="btn btn-cyan btn-sm" onclick="closeMicroDetail()">Listo</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeMicroDetail(); };
+}
+function closeMicroDetail(){
+  const m = document.getElementById('microDetailModal'); if(m) m.remove();
+  renderProgramEditor();  // refresh matriz por si cambiaron blocks
+}
+function renderMicroEvalsChips(microIdx){
+  const m = _editingProgram.matrix.micros[microIdx];
+  const selected = new Set(m.evaluations || []);
+  return PROGRAM_CATALOGS.evaluation_area.map(ev=>{
+    const on = selected.has(ev);
+    const meta = EVALUATION_AREAS_META[ev] || {};
+    return `<button type="button" onclick="toggleMicroEval(${microIdx},'${ev}')" style="padding:4px 10px;border-radius:14px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.15)':'transparent'};color:${on?'var(--cyan)':'var(--text-soft)'};font-size:10px;font-weight:600;cursor:pointer;" title="${meta.professional||''} · ${meta.frequency||''} · ${meta.purpose||''}">${ev}</button>`;
+  }).join('');
+}
+function toggleMicroEval(microIdx, ev){
+  const m = _editingProgram.matrix.micros[microIdx];
+  m.evaluations = m.evaluations || [];
+  const idx = m.evaluations.indexOf(ev);
+  if(idx >= 0) m.evaluations.splice(idx,1); else m.evaluations.push(ev);
+  document.getElementById('microEvalsRow').innerHTML = renderMicroEvalsChips(microIdx);
+  scheduleProgramSave();
+}
+const DOW_NAMES = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+function renderMicroDays(microIdx){
+  const m = _editingProgram.matrix.micros[microIdx];
+  return m.days.map((d,dayIdx)=>{
+    const blocks = d.blocks || [];
+    return `<div style="background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:10px;padding:8px;min-height:200px;">
+      <div style="font-size:11px;font-weight:800;color:var(--cyan);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;text-align:center;padding:4px;background:rgba(0,210,255,.08);border-radius:6px;">${DOW_NAMES[d.dow]}</div>
+      ${blocks.map((b,bIdx)=>{
+        const bt = getBlockType(b.work_type);
+        return `<div style="background:var(--bg2);border:1px solid var(--border2);border-left:3px solid ${bt.color==='cyan'?'var(--cyan)':bt.color==='amber'?'var(--amber)':bt.color==='green'?'var(--foam)':bt.color==='purple'?'var(--purple)':'var(--grey)'};border-radius:6px;padding:6px;margin-bottom:5px;font-size:11px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;margin-bottom:3px;">
+            <strong style="color:var(--white);font-size:10px;">${esc(bt.label)}</strong>
+            <button onclick="removeBlockFromMicro(${microIdx},${dayIdx},${bIdx})" style="background:none;border:none;color:var(--coral);font-size:14px;cursor:pointer;padding:0 4px;line-height:1;">×</button>
+          </div>
+          <input type="text" value="${escAttr(b.objective||'')}" placeholder="Objetivo" oninput="updateBlockField(${microIdx},${dayIdx},${bIdx},'objective',this.value)" style="width:100%;background:transparent;border:none;color:var(--white);font-size:10px;padding:2px 0;">
+          <textarea placeholder="Notas / instrucciones" oninput="updateBlockField(${microIdx},${dayIdx},${bIdx},'notes',this.value)" style="width:100%;background:transparent;border:none;color:var(--text-soft);font-size:10px;min-height:32px;resize:none;padding:2px 0;font-family:inherit;">${esc(b.notes||'')}</textarea>
+        </div>`;
+      }).join('')}
+      <button class="btn btn-xs btn-ghost" style="width:100%;font-size:10px;margin-top:4px;" onclick="addBlockToDay(${microIdx},${dayIdx})">+ Bloque</button>
+    </div>`;
+  }).join('');
+}
+function addBlockToDay(microIdx, dayIdx){
+  const types = BLOCK_TYPES.map(bt=>bt.id);
+  const choice = prompt(`Tipo de bloque:\n\n${BLOCK_TYPES.map((bt,i)=>`${i+1}. ${bt.label}`).join('\n')}\n\nEscribe el número:`);
+  const num = parseInt(choice); if(!num || num<1 || num>types.length) return;
+  const wt = types[num-1];
+  _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks.push({
+    work_type: wt, objective:'', notes:'', exercises:[], video_url:null, duration_min:null
+  });
+  document.getElementById('microDaysGrid').innerHTML = renderMicroDays(microIdx);
+  scheduleProgramSave();
+}
+function removeBlockFromMicro(microIdx, dayIdx, bIdx){
+  _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks.splice(bIdx, 1);
+  document.getElementById('microDaysGrid').innerHTML = renderMicroDays(microIdx);
+  scheduleProgramSave();
+}
+function updateBlockField(microIdx, dayIdx, bIdx, key, value){
+  _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks[bIdx][key] = value;
+  scheduleProgramSave();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ASIGNAR PROGRAMA A ATLETA · openAssignProgramModal(programId)
+   ════════════════════════════════════════════════════════════════════ */
+async function openAssignProgramModal(programId){
+  const prog = _programs.find(p=>p.id===programId) || (_editingProgram?.id===programId?_editingProgram:null);
+  if(!prog){
+    const{ data } = await db.from('tss_programs').select('*').eq('id', programId).single();
+    if(!data) return toast('Programa no encontrado','error');
+    Object.assign((prog||{}), data);
+  }
+  const p = prog || (await db.from('tss_programs').select('*').eq('id', programId).single()).data;
+
+  let modal = document.getElementById('assignProgModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='assignProgModal';
+  // Próximo lunes como default
+  const t = new Date(); const dow = t.getDay()||7; const nextMon = new Date(t); nextMon.setDate(t.getDate() + (8 - dow));
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:520px;">
+    <div class="modal-head">
+      <div><div class="modal-title">Asignar programa</div><div class="modal-sub">${esc(p.name)} · ${p.weeks_total} semanas</div></div>
+      <button class="modal-close" onclick="closeModal('assignProgModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <label class="inp-label">Atleta</label>
+    <select class="sel" id="assignAthSel" onchange="updateAssignPreview('${p.id}')">
+      <option value="">— Elegí un atleta —</option>
+      ${(S.athletes||[]).filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}
+    </select>
+    <label class="inp-label" style="margin-top:12px;">Fecha de inicio</label>
+    <input type="date" class="inp" id="assignStartDate" value="${localDateStr(nextMon)}" onchange="updateAssignPreview('${p.id}')">
+    <div id="assignPreview" style="margin-top:14px;padding:12px;background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.2);border-radius:10px;font-size:12px;color:var(--white);min-height:60px;">
+      Elegí un atleta y fecha para ver el preview.
+    </div>
+    <button class="save-btn" style="margin-top:14px;" onclick="confirmAssignProgram('${p.id}')">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="9 18 15 12 9 6"/></svg>
+      Asignar y generar planes
+    </button>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('assignProgModal'); };
+}
+
+async function updateAssignPreview(programId){
+  const athleteId = gv('assignAthSel');
+  const startDateStr = gv('assignStartDate');
+  const previewEl = document.getElementById('assignPreview');
+  if(!previewEl) return;
+  if(!athleteId || !startDateStr){
+    previewEl.innerHTML = 'Elegí un atleta y fecha para ver el preview.';
+    return;
+  }
+  const p = _programs.find(x=>x.id===programId) || _editingProgram;
+  if(!p) return;
+  const startDate = new Date(startDateStr+'T00:00:00');
+  const endDate = new Date(startDate); endDate.setDate(startDate.getDate() + p.weeks_total*7 - 1);
+  const numBlocks = (p.matrix.micros||[]).reduce((s,m)=>s+(m.days||[]).reduce((s2,d)=>s2+(d.blocks||[]).length,0),0);
+  const ath = S.athletes.find(a=>a.id===athleteId);
+
+  // Cargar competencias personales del atleta en el rango
+  let athComps = [];
+  try {
+    const{ data } = await db.from('tss_competitions').select('*').eq('athlete_id', athleteId)
+      .gte('date', startDateStr).lte('date', localDateStr(endDate)).order('date');
+    athComps = data || [];
+  } catch(e){}
+
+  // Cargar competencias del equipo (de tss_team_competitions) — opcional
+  let teamComps = [];
+  try {
+    const memberGroups = (Object.entries(S._membersByGroup||{}).filter(([gid, athIds])=>(athIds||[]).includes(athleteId)).map(([gid])=>gid));
+    if(memberGroups.length){
+      const{ data } = await db.from('tss_team_competitions').select('*').in('group_id', memberGroups)
+        .gte('date_to', startDateStr).lte('date_from', localDateStr(endDate)).order('date_from');
+      teamComps = data || [];
+    }
+  } catch(e){}
+
+  previewEl.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:6px;">📊 Resumen de la asignación</div>
+    <div style="font-size:11px;line-height:1.6;">
+      <strong style="color:var(--white);">${esc(ath?.name||'Atleta')}</strong><br>
+      📅 <strong>${fmtDate(startDateStr)}</strong> → <strong>${fmtDate(localDateStr(endDate))}</strong> (${p.weeks_total} semanas)<br>
+      📋 Se generarán <strong style="color:var(--foam);">${numBlocks} planes diarios individuales</strong> para ${esc(ath?.name||'el atleta')}.
+    </div>
+    ${athComps.length ? `<div style="margin-top:8px;font-size:11px;"><strong style="color:var(--amber);">🏆 Competencias personales en el rango:</strong><div style="margin-top:4px;">${athComps.map(c=>`<div>• ${esc(c.name)} · ${fmtDate(c.date)}</div>`).join('')}</div></div>` : ''}
+    ${teamComps.length ? `<div style="margin-top:8px;font-size:11px;"><strong style="color:var(--purple);">📅 Competencias del equipo:</strong><div style="margin-top:4px;">${teamComps.map(c=>`<div>• ${esc(c.name)} · ${fmtDate(c.date_from)}</div>`).join('')}</div></div>` : ''}
+  `;
+}
+
+async function confirmAssignProgram(programId){
+  const athleteId = gv('assignAthSel');
+  const startDate = gv('assignStartDate');
+  if(!athleteId){ toast('Elegí un atleta','error'); return; }
+  if(!startDate){ toast('Elegí fecha de inicio','error'); return; }
+  showLoad(true);
+  try {
+    // 1. Crear assignment (end_date lo calcula el trigger en BD)
+    const p = _programs.find(x=>x.id===programId) || _editingProgram;
+    const{ data: a, error: e1 } = await db.from('tss_program_assignments').insert({
+      program_id: programId,
+      athlete_id: athleteId,
+      start_date: startDate,
+      status: 'active',
+      version_at_assign: p?.version || 1,
+      created_by: S.user?.id || null
+    }).select().single();
+    if(e1) throw e1;
+    // 2. Materializar planes
+    const result = await materializeProgramAssignment(a.id);
+    if(result.error) throw result.error;
+    toast(`✅ Asignado · ${result.inserted} planes diarios generados`, 'success');
+    closeModal('assignProgModal');
+  } catch(e){
+    const msg = e.message || JSON.stringify(e);
+    if(msg.includes('duplicate key')) toast('Ese atleta ya tiene un programa asignado con esa fecha','error');
+    else toast('Error: '+msg, 'error');
+    console.error(e);
+  } finally { showLoad(false); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ASSIGNMENT MANAGER · Re-sync · Pausar · Reactivar · Cancelar
+   ════════════════════════════════════════════════════════════════════ */
+async function openAssignmentManager(assignmentId){
+  let m = document.getElementById('assignManagerModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='assignManagerModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-width:540px;">
+    <div class="modal-head">
+      <div><div class="modal-title">Asignación de programa</div></div>
+      <button class="modal-close" onclick="closeModal('assignManagerModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="assignManagerBody" style="padding:4px 0;"><p style="text-align:center;padding:20px;color:var(--grey);">Cargando…</p></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('assignManagerModal'); };
+  await renderAssignmentManager(assignmentId);
+}
+async function renderAssignmentManager(assignmentId){
+  const body = document.getElementById('assignManagerBody'); if(!body) return;
+  try {
+    const{ data: a, error: e1 } = await db.from('tss_program_assignments').select('*, program:tss_programs(name,version,weeks_total)').eq('id', assignmentId).single();
+    if(e1) throw e1;
+    const{ data: planStats } = await db.from('tss_daily_plans').select('id,dirty').eq('program_assignment_id', assignmentId);
+    const total = (planStats||[]).length;
+    const dirty = (planStats||[]).filter(p=>p.dirty===true).length;
+    const ath = S.athletes.find(x=>x.id===a.athlete_id);
+    const versionMismatch = a.version_at_assign !== a.program?.version;
+    const statusColor = a.status==='active' ? 'var(--foam)' : a.status==='paused' ? 'var(--amber)' : a.status==='completed' ? 'var(--cyan)' : 'var(--coral)';
+    const statusLabel = { active:'Activo', paused:'Pausado', completed:'Completado', cancelled:'Cancelado' }[a.status] || a.status;
+
+    body.innerHTML = `
+      <div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:800;color:var(--white);">${esc(a.program?.name||'Programa')}</div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:3px;">Atleta: <strong style="color:var(--white);">${esc(ath?.name||'—')}</strong></div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:3px;">${fmtDate(a.start_date)} → ${fmtDate(a.end_date)} · ${a.program?.weeks_total} semanas</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+          <span style="padding:2px 8px;border-radius:8px;background:${statusColor};color:#000;font-size:9px;font-weight:800;">${statusLabel.toUpperCase()}</span>
+          <span style="padding:2px 8px;border-radius:8px;background:rgba(0,210,255,.12);color:var(--cyan);font-size:9px;font-weight:700;">${total} planes</span>
+          ${dirty>0?`<span style="padding:2px 8px;border-radius:8px;background:rgba(245,158,11,.15);color:var(--amber);font-size:9px;font-weight:700;">${dirty} editados manualmente</span>`:''}
+          ${versionMismatch?`<span style="padding:2px 8px;border-radius:8px;background:rgba(168,85,247,.15);color:var(--purple);font-size:9px;font-weight:700;">Versión nueva del programa</span>`:''}
+        </div>
+      </div>
+
+      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-soft);font-weight:700;margin-bottom:8px;">Acciones</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${versionMismatch ? `
+          <button class="btn btn-cyan btn-sm" onclick="doResyncAssignment('${assignmentId}')" style="justify-content:flex-start;text-align:left;">
+            <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span><strong>Re-sincronizar con la versión nueva</strong><br><small style="font-weight:400;opacity:.8;">Borra planes futuros no editados y los regenera. Dirty planes se conservan.</small></span>
+          </button>
+        ` : `
+          <button class="btn btn-ghost btn-sm" onclick="doResyncAssignment('${assignmentId}')" style="justify-content:flex-start;text-align:left;">
+            <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span>Re-sincronizar planes futuros</span>
+          </button>
+        `}
+
+        ${a.status==='active' ? `
+          <button class="btn btn-ghost btn-sm" onclick="doPauseAssignment('${assignmentId}')" style="justify-content:flex-start;text-align:left;color:var(--amber);border-color:var(--amber);">
+            <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            <span>Pausar programa<br><small style="font-weight:400;opacity:.8;">Borra planes futuros (no editados). Reactivá luego para regenerarlos.</small></span>
+          </button>
+        ` : a.status==='paused' ? `
+          <button class="btn btn-cyan btn-sm" onclick="doResumeAssignment('${assignmentId}')" style="justify-content:flex-start;text-align:left;">
+            <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Reactivar programa<br><small style="font-weight:400;opacity:.8;">Regenera planes desde hoy.</small></span>
+          </button>
+        ` : ''}
+
+        ${a.status !== 'cancelled' ? `
+          <button class="btn btn-sm" onclick="doCancelAssignment('${assignmentId}')" style="justify-content:flex-start;text-align:left;background:rgba(239,68,68,.1);color:var(--coral);border:1px solid rgba(239,68,68,.3);">
+            <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span>Cancelar asignación<br><small style="font-weight:400;opacity:.8;">Borra planes futuros y marca como cancelada. Los pasados quedan.</small></span>
+          </button>
+        ` : ''}
+      </div>
+    `;
+  } catch(e){
+    body.innerHTML = `<p style="color:var(--coral);padding:20px;">Error: ${esc(e.message)}</p>`;
+    console.error(e);
+  }
+}
+async function doResyncAssignment(assignmentId){
+  if(!confirm('¿Re-sincronizar?\n\nSe borrarán los planes FUTUROS (desde hoy) que no hayas editado manualmente, y se regenerarán con la versión actual del programa.\n\nPlanes editados (con ✏️) se conservan intactos.')) return;
+  showLoad(true);
+  try {
+    const r = await resyncProgramAssignment(assignmentId);
+    if(r.error) throw r.error;
+    toast(`✅ Re-sync · ${r.inserted||0} planes regenerados`, 'success');
+    closeModal('assignManagerModal');
+    if(typeof loadPlanDay === 'function' && S.selDate) loadPlanDay(S.selDate);
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+async function doPauseAssignment(assignmentId){
+  if(!confirm('¿Pausar este programa?\n\nLos planes futuros no editados se borrarán. Cuando reactives, se regenerarán.')) return;
+  showLoad(true);
+  try {
+    const{ error } = await pauseAssignment(assignmentId);
+    if(error) throw error;
+    toast('Programa pausado','success');
+    closeModal('assignManagerModal');
+    if(typeof loadPlanDay === 'function' && S.selDate) loadPlanDay(S.selDate);
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+async function doResumeAssignment(assignmentId){
+  showLoad(true);
+  try {
+    const r = await resumeAssignment(assignmentId);
+    if(r.error) throw r.error;
+    toast(`✅ Reactivado · ${r.inserted||0} planes regenerados`,'success');
+    closeModal('assignManagerModal');
+    if(typeof loadPlanDay === 'function' && S.selDate) loadPlanDay(S.selDate);
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+async function doCancelAssignment(assignmentId){
+  if(!confirm('¿Cancelar esta asignación?\n\nLos planes futuros no editados se borrarán y la asignación queda como "cancelada". No se puede deshacer.')) return;
+  showLoad(true);
+  try {
+    const{ error } = await cancelAssignment(assignmentId);
+    if(error) throw error;
+    toast('Asignación cancelada','success');
+    closeModal('assignManagerModal');
+    if(typeof loadPlanDay === 'function' && S.selDate) loadPlanDay(S.selDate);
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CALENDARIO DE COMPETENCIAS POR EQUIPO · tss_team_competitions
+   Head coach define las fechas anuales del equipo (ej. Junior 2026)
+   ════════════════════════════════════════════════════════════════════ */
+async function openTeamCompetitionsModal(groupId, groupName){
+  let m = document.getElementById('teamCompsModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='teamCompsModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-width:760px;max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">📅 Calendario de competencias</div><div class="modal-sub">${esc(groupName)}</div></div>
+      <button class="modal-close" onclick="closeModal('teamCompsModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="teamCompsBody" style="padding:6px 0;"><p style="text-align:center;color:var(--grey);padding:20px;">Cargando…</p></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick = e => { if(e.target===m) closeModal('teamCompsModal'); };
+  await renderTeamCompetitionsList(groupId);
+}
+
+async function renderTeamCompetitionsList(groupId){
+  const body = document.getElementById('teamCompsBody'); if(!body) return;
+  try {
+    const{ data: comps, error } = await db.from('tss_team_competitions')
+      .select('*').eq('group_id', groupId).order('date_from', { ascending: true });
+    if(error) throw error;
+    const today = todayStr();
+    const upcoming = (comps||[]).filter(c => c.date_to >= today);
+    const past = (comps||[]).filter(c => c.date_to < today);
+
+    body.innerHTML = `
+      <button class="btn btn-cyan btn-sm" style="width:100%;margin-bottom:14px;" onclick="openTeamCompetitionForm('${groupId}', null)">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nueva competencia
+      </button>
+
+      ${upcoming.length === 0 && past.length === 0 ? `
+        <div class="empty" style="padding:30px 12px;">
+          <div class="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-soft)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <p class="empty-txt">No hay competencias programadas</p>
+          <p style="font-size:11px;color:var(--text-soft);margin-top:4px;">Agregá las fechas anuales para que se vean en los programas</p>
+        </div>
+      ` : ''}
+
+      ${upcoming.length > 0 ? `
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);font-weight:700;margin-bottom:8px;">📌 Próximas (${upcoming.length})</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+          ${upcoming.map(c => renderTeamCompetitionCard(c, groupId)).join('')}
+        </div>
+      ` : ''}
+
+      ${past.length > 0 ? `
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-soft);font-weight:700;padding:6px 0;">📁 Pasadas (${past.length})</summary>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;opacity:.65;">
+            ${past.map(c => renderTeamCompetitionCard(c, groupId)).join('')}
+          </div>
+        </details>
+      ` : ''}
+    `;
+  } catch(e){
+    body.innerHTML = `<p style="color:var(--coral);padding:20px;">Error: ${esc(e.message)}</p>`;
+    console.error(e);
+  }
+}
+
+function renderTeamCompetitionCard(c, groupId){
+  const levelColor = c.level && /WSL|Internac/i.test(c.level) ? 'var(--cyan)'
+    : c.level && /Centro|Pan/i.test(c.level) ? 'var(--amber)'
+    : c.level && /Nacional/i.test(c.level) ? 'var(--purple)'
+    : 'var(--grey)';
+  const dateLabel = c.date_from === c.date_to
+    ? fmtDate(c.date_from)
+    : `${fmtDate(c.date_from)} → ${fmtDate(c.date_to)}`;
+  return `<div style="background:rgba(255,255,255,.03);border:1px solid var(--border2);border-left:3px solid ${levelColor};border-radius:10px;padding:10px 12px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:800;color:var(--white);line-height:1.2;">${esc(c.name)}</div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:3px;">📅 ${dateLabel}${c.location?` · 📍 ${esc(c.location)}`:''}</div>
+        <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">
+          ${c.level?`<span style="padding:2px 7px;border-radius:8px;background:${levelColor};color:#000;font-size:9px;font-weight:700;">${esc(c.level)}</span>`:''}
+          ${c.athlete_category?`<span style="padding:2px 7px;border-radius:8px;background:rgba(168,85,247,.15);color:var(--purple);font-size:9px;font-weight:700;">${esc(c.athlete_category)}</span>`:''}
+        </div>
+        ${c.notes?`<div style="font-size:11px;color:var(--text-soft);margin-top:4px;font-style:italic;">${esc(c.notes)}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+        <button class="btn btn-xs btn-ghost" style="padding:4px 8px;font-size:10px;" onclick="openTeamCompetitionForm('${groupId}','${c.id}')"><svg class="ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+        <button class="btn btn-xs" style="background:rgba(239,68,68,.1);color:var(--coral);border:1px solid rgba(239,68,68,.2);padding:4px 8px;font-size:10px;" onclick="deleteTeamCompetition('${c.id}','${escAttr(c.name)}','${groupId}')"><svg class="ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function openTeamCompetitionForm(groupId, compId){
+  let editing = null;
+  if(compId){
+    const{ data } = await db.from('tss_team_competitions').select('*').eq('id', compId).single();
+    editing = data;
+  }
+  let modal = document.getElementById('teamCompFormModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='teamCompFormModal';
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:480px;">
+    <div class="modal-head">
+      <div><div class="modal-title">${editing?'Editar':'Nueva'} competencia</div></div>
+      <button class="modal-close" onclick="closeModal('teamCompFormModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <label class="inp-label">Nombre *</label>
+    <input type="text" class="inp" id="tcName" placeholder="ej. Centroamericanos Junior 2026" value="${escAttr(editing?.name||'')}">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+      <div>
+        <label class="inp-label">Fecha desde *</label>
+        <input type="date" class="inp" id="tcDateFrom" value="${editing?.date_from||''}">
+      </div>
+      <div>
+        <label class="inp-label">Fecha hasta *</label>
+        <input type="date" class="inp" id="tcDateTo" value="${editing?.date_to||''}">
+      </div>
+    </div>
+
+    <label class="inp-label" style="margin-top:10px;">Nivel</label>
+    <select class="sel" id="tcLevel">
+      <option value="">— Sin especificar —</option>
+      ${PROGRAM_CATALOGS.competition_level.map(l => `<option value="${l}" ${editing?.level===l?'selected':''}>${l}</option>`).join('')}
+    </select>
+
+    <label class="inp-label" style="margin-top:10px;">Categoría</label>
+    <select class="sel" id="tcCategory">
+      <option value="">— Toda la cat. del equipo —</option>
+      ${PROGRAM_CATALOGS.athlete_category.map(c => `<option value="${c}" ${editing?.athlete_category===c?'selected':''}>${c}</option>`).join('')}
+    </select>
+
+    <label class="inp-label" style="margin-top:10px;">Lugar (opcional)</label>
+    <input type="text" class="inp" id="tcLocation" placeholder="ej. Punta Roca, El Salvador" value="${escAttr(editing?.location||'')}">
+
+    <label class="inp-label" style="margin-top:10px;">Notas (opcional)</label>
+    <textarea class="ta" id="tcNotes" placeholder="ej. Heats 25 min, formato dos olas mejores">${esc(editing?.notes||'')}</textarea>
+
+    <button class="save-btn" style="margin-top:14px;" onclick="saveTeamCompetition('${groupId}','${editing?.id||''}')">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      ${editing?'Actualizar':'Guardar'}
+    </button>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('teamCompFormModal'); };
+}
+
+async function saveTeamCompetition(groupId, compId){
+  const name = gv('tcName')?.trim();
+  const dateFrom = gv('tcDateFrom');
+  const dateTo = gv('tcDateTo') || dateFrom;
+  if(!name){ toast('Nombre requerido','error'); return; }
+  if(!dateFrom){ toast('Fecha de inicio requerida','error'); return; }
+  if(dateTo < dateFrom){ toast('La fecha de fin no puede ser anterior al inicio','error'); return; }
+  const payload = {
+    group_id: groupId, name, date_from: dateFrom, date_to: dateTo,
+    level: gv('tcLevel') || null,
+    athlete_category: gv('tcCategory') || null,
+    location: gv('tcLocation')?.trim() || null,
+    notes: gv('tcNotes')?.trim() || null,
+    created_by: S.user?.id || null
+  };
+  showLoad(true);
+  try {
+    if(compId){
+      const{ error } = await db.from('tss_team_competitions').update(payload).eq('id', compId);
+      if(error) throw error;
+      toast('Competencia actualizada','success');
+    } else {
+      const{ error } = await db.from('tss_team_competitions').insert(payload);
+      if(error) throw error;
+      toast('Competencia agregada','success');
+    }
+    closeModal('teamCompFormModal');
+    renderTeamCompetitionsList(groupId);
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function deleteTeamCompetition(compId, name, groupId){
+  if(!confirm(`¿Borrar "${name}"?`)) return;
+  showLoad(true);
+  try {
+    const{ error } = await db.from('tss_team_competitions').delete().eq('id', compId);
+    if(error) throw error;
+    toast('Competencia borrada','success');
+    renderTeamCompetitionsList(groupId);
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
 async function openSaveTemplate(date){
   const name = prompt('Nombre del template (ej: Lunes Técnico):');
   if(!name||!name.trim()) return;
@@ -3211,6 +4310,12 @@ async function loadPlanDay(date){
           const preview = exNames.slice(0,3).join(', ') + (exNames.length>3?` +${exNames.length-3} mas`:'');
           scopeLabel += `<span class="chip" style="font-size:9px;background:rgba(255,107,107,.1);color:var(--coral);border:1px solid rgba(255,107,107,.3);margin-left:4px;" title="Excluidos: ${esc(preview)}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>${plan.excluded_athletes.length} excluido${plan.excluded_athletes.length===1?'':'s'}</span>`;
         }
+        // Badge cuando el plan viene de un programa de entreno
+        if(plan.program_assignment_id){
+          const wk = plan.program_ref ? (plan.program_ref.match(/^w(\d+)/)||[])[1] : null;
+          const isDirty = plan.dirty === true;
+          scopeLabel += `<span class="chip" style="font-size:9px;background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.3);margin-left:4px;cursor:pointer;" title="${isDirty?'Plan editado manualmente (no se sobreescribe en re-sync)':'Plan generado por un programa'}" onclick="event.stopPropagation();openAssignmentManager('${plan.program_assignment_id}')"><svg class="ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Programa${wk?' · sem '+wk:''}${isDirty?' ✏️':''}</span>`;
+        }
         html+=`<div class="card card-${bt.color} anim-up plan-block" data-scope="${plan.scope}" data-target="${plan.target_id||''}" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
             <div style="display:flex;align-items:center;gap:8px;">
@@ -3264,6 +4369,7 @@ async function loadPlanDay(date){
 
     if(isCoach){
       html+=`<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border2);display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-sm" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,210,255,.08));color:var(--purple);border:1px solid var(--purple);font-weight:700;" onclick="openProgramsHub()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>Programas</button>
         <button class="btn btn-ghost btn-sm" onclick="openCopyWeek('${date}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Copiar semana</button>
         ${blocks.length?`<button class="btn btn-ghost btn-sm" onclick="openSaveTemplate('${date}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar como Template</button>`:''}
         <button class="btn btn-ghost btn-sm" onclick="openApplyTemplate('${date}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Aplicar Template</button>
@@ -3698,6 +4804,9 @@ async function saveBlock(date, existId){
   showLoad(true);
   try {
     if(existId){
+      // Si el plan viene de un programa, marcar dirty=true para que resync no lo sobrescriba
+      const{ data: existing } = await db.from('tss_daily_plans').select('program_assignment_id').eq('id', existId).maybeSingle();
+      if(existing && existing.program_assignment_id) payload.dirty = true;
       const{error}=await db.from('tss_daily_plans').update(payload).eq('id',existId);
       if(error) throw error;
     } else {
