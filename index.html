@@ -3168,7 +3168,51 @@ async function materializeProgramAssignment(assignmentId){
     if(e2){ console.error('Chunk insert error', e2); return { error: e2, inserted }; }
     inserted += chunk.length;
   }
-  return { ok:true, inserted };
+
+  // 4. Insertar competencias estructuradas del programa en tss_competitions del atleta
+  //    Cada micro con m.competition.name → fila en tss_competitions
+  const compRows = [];
+  for(const micro of micros){
+    const c = micro.competition;
+    if(!c || !c.name) continue;
+    // Computar fecha: usar c.date_from si existe; si no, lunes del micro
+    let compDate = c.date_from;
+    if(!compDate){
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + (micro.week - 1) * 7);
+      compDate = localDateStr(d);
+    }
+    compRows.push({
+      athlete_id: a.athlete_id,
+      name: c.name,
+      date: compDate,
+      category: c.category || null,
+      location: c.location || null,
+      place: c.location || null,
+      notes: `Del programa "${a.program?.name||''}" · M${String(micro.week).padStart(2,'0')}${c.notes?' · '+c.notes:''}`,
+      status: 'programada',
+      coach_id: a.created_by || S.user?.id || null,
+      created_by: a.created_by || S.user?.id || null
+    });
+  }
+  let competitionsInserted = 0;
+  if(compRows.length){
+    // Dedupe: no insertar si ya existe una con mismo athlete + name + date
+    const dates = [...new Set(compRows.map(r=>r.date))];
+    const names = [...new Set(compRows.map(r=>r.name))];
+    const{ data: existing } = await db.from('tss_competitions')
+      .select('name,date').eq('athlete_id', a.athlete_id)
+      .in('date', dates).in('name', names);
+    const exists = new Set((existing||[]).map(e=>`${e.name}__${e.date}`));
+    const toInsert = compRows.filter(r=>!exists.has(`${r.name}__${r.date}`));
+    if(toInsert.length){
+      const{ error: e3 } = await db.from('tss_competitions').insert(toInsert);
+      if(e3) console.error('Error insertando competencias:', e3);
+      else competitionsInserted = toInsert.length;
+    }
+  }
+
+  return { ok:true, inserted, competitions: competitionsInserted };
 }
 
 async function resyncProgramAssignment(assignmentId){
@@ -3498,6 +3542,33 @@ function renderMicrosDesktop(micros){
     }).join('');
     return `<div class="prog-row"><div class="prog-cell prog-cell-label">Evaluaciones</div>${cells}</div>`;
   };
+  const renderRowCompetition = (micros) => {
+    const levelColor = lvl => /WSL|Internac/i.test(lvl||'') ? 'var(--cyan)' : /Centro|Pan/i.test(lvl||'') ? 'var(--amber)' : /Nacional/i.test(lvl||'') ? 'var(--purple)' : 'var(--grey)';
+    const cells = micros.map((m,i)=>{
+      const c = m.competition;            // objeto estructurado nuevo
+      const legacy = m.competition_ref;   // texto legacy (compat)
+      if(c && c.name){
+        const lc = levelColor(c.level);
+        const datesLabel = c.date_from
+          ? (c.date_from === c.date_to || !c.date_to ? c.date_from.slice(5).replace('-','/') : `${c.date_from.slice(5).replace('-','/')}–${c.date_to.slice(5).replace('-','/')}`)
+          : '';
+        return `<div class="prog-cell" style="position:relative;padding:6px;cursor:pointer;" onclick="openCompetitionPicker(${i})">
+          <div style="width:100%;background:rgba(255,255,255,.04);border:1px solid ${lc};border-left:3px solid ${lc};border-radius:6px;padding:5px 7px;display:flex;flex-direction:column;gap:2px;">
+            <div style="font-size:11px;font-weight:800;color:var(--white);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏆 ${esc(c.name)}</div>
+            ${datesLabel?`<div style="font-size:9px;color:var(--text-soft);">${datesLabel}</div>`:''}
+            <div style="display:flex;gap:3px;flex-wrap:wrap;">
+              ${c.level?`<span style="padding:1px 5px;border-radius:5px;background:${lc};color:#000;font-size:8px;font-weight:800;">${esc(c.level)}</span>`:''}
+              ${c.category?`<span style="padding:1px 5px;border-radius:5px;background:rgba(168,85,247,.18);color:var(--purple);font-size:8px;font-weight:700;">${esc(c.category)}</span>`:''}
+            </div>
+          </div>
+          <button title="Auto Pre-Comp/Taper" onclick="event.stopPropagation();autoMarkPreCompTaper(${i})" style="position:absolute;top:3px;right:3px;background:rgba(245,158,11,.2);border:1px solid var(--amber);color:var(--amber);border-radius:6px;padding:1px 5px;font-size:9px;font-weight:700;cursor:pointer;line-height:1.2;">🎯</button>
+        </div>`;
+      }
+      // Fallback: texto legacy o vacío. Toda la celda es clickable
+      return `<div class="prog-cell" style="cursor:pointer;justify-content:center;color:${legacy?'var(--white)':'var(--text-soft)'};font-size:11px;${legacy?'font-weight:700;':''}" onclick="openCompetitionPicker(${i})">${legacy?'🏆 '+esc(legacy):'+ agregar'}</div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label">Competition</div>${cells}</div>`;
+  };
   const renderRowDays = () => {
     const cells = micros.map((m,i)=>{
       const totalBlocks = (m.days||[]).reduce((s,d)=>s+(d.blocks||[]).length,0);
@@ -3538,7 +3609,7 @@ function renderMicrosDesktop(micros){
         ${renderRowSelect('Microcycle Type', 'type', PROGRAM_CATALOGS.microcycle_type)}
         ${renderRowSelect('Intensity', 'intensity', PROGRAM_CATALOGS.intensity)}
         ${renderRowText('Objetivo del micro', 'goal')}
-        ${renderRowText('Competition', 'competition_ref')}
+        ${renderRowCompetition(micros)}
         ${renderRowEval()}
         ${renderRowText('Sesión Presencial', 'presencial_label')}
         ${renderRowText('Físico', 'physical', true)}
@@ -3637,6 +3708,191 @@ function autoMarkPreCompTaper(microIdx){
   renderProgramEditor();
   scheduleProgramSave();
   toast(`Auto-marcado: M${String(micros[microIdx].week).padStart(2,'0')} = Competition · semanas previas = Pre-Comp/Taper`, 'success');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   COMPETITION PICKER · clickea celda Competition del editor
+   ════════════════════════════════════════════════════════════════════ */
+async function openCompetitionPicker(microIdx){
+  if(!_editingProgram) return;
+  const m = _editingProgram.matrix.micros[microIdx];
+  let modal = document.getElementById('compPickerModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='compPickerModal';
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:560px;max-height:92vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">🏆 Competencia del micro</div><div class="modal-sub">M${String(m.week).padStart(2,'0')} · Semana ${m.week}</div></div>
+      <button class="modal-close" onclick="closeModal('compPickerModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="compPickerBody"><p style="text-align:center;padding:20px;color:var(--grey);">Cargando…</p></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('compPickerModal'); };
+  await renderCompetitionPickerBody(microIdx);
+}
+async function renderCompetitionPickerBody(microIdx){
+  const body = document.getElementById('compPickerBody'); if(!body) return;
+  const m = _editingProgram.matrix.micros[microIdx];
+  const current = m.competition;
+  // Calendario de equipos (todos los grupos)
+  let teamComps = [];
+  try {
+    const{ data } = await db.from('tss_team_competitions').select('*').order('date_from', {ascending:true});
+    teamComps = data || [];
+  } catch(e){ console.error(e); }
+  // Si hay preview start date, calculamos rango de esta semana para resaltar
+  let weekStart = null, weekEnd = null;
+  if(_previewStartDate){
+    weekStart = new Date(_previewStartDate+'T00:00:00');
+    weekStart.setDate(weekStart.getDate() + (m.week-1)*7);
+    weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6);
+  }
+  const inThisWeek = c => weekStart && c.date_from && c.date_from <= localDateStr(weekEnd) && (c.date_to||c.date_from) >= localDateStr(weekStart);
+  const sortedComps = [...teamComps].sort((a,b)=>{
+    if(inThisWeek(a) && !inThisWeek(b)) return -1;
+    if(!inThisWeek(a) && inThisWeek(b)) return 1;
+    return (a.date_from||'').localeCompare(b.date_from||'');
+  });
+  body.innerHTML = `
+    ${current && current.name ? `
+      <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:6px;">Asignada actualmente</div>
+        <div style="font-size:14px;font-weight:800;color:var(--white);">🏆 ${esc(current.name)}</div>
+        ${current.date_from?`<div style="font-size:11px;color:var(--text-soft);margin-top:3px;">${current.date_from}${current.date_to&&current.date_to!==current.date_from?' → '+current.date_to:''}</div>`:''}
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">
+          ${current.level?`<span style="padding:2px 7px;border-radius:8px;background:rgba(0,210,255,.15);color:var(--cyan);font-size:10px;font-weight:700;">${esc(current.level)}</span>`:''}
+          ${current.category?`<span style="padding:2px 7px;border-radius:8px;background:rgba(168,85,247,.15);color:var(--purple);font-size:10px;font-weight:700;">${esc(current.category)}</span>`:''}
+          ${current.location?`<span style="font-size:10px;color:var(--text-soft);">📍 ${esc(current.location)}</span>`:''}
+        </div>
+        <button class="btn btn-xs" style="margin-top:8px;background:rgba(239,68,68,.1);color:var(--coral);border:1px solid rgba(239,68,68,.25);" onclick="clearMicroCompetition(${microIdx})">× Quitar</button>
+      </div>
+    ` : ''}
+
+    <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);font-weight:700;margin-bottom:8px;">Crear nueva</div>
+    <button class="btn btn-cyan btn-sm" style="width:100%;margin-bottom:14px;" onclick="openCompetitionForm(${microIdx})">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nueva competencia
+    </button>
+
+    ${sortedComps.length > 0 ? `
+      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);font-weight:700;margin-bottom:8px;">Del calendario del equipo (${sortedComps.length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${sortedComps.map(c=>{
+          const lc = /WSL|Internac/i.test(c.level||'') ? 'var(--cyan)' : /Centro|Pan/i.test(c.level||'') ? 'var(--amber)' : /Nacional/i.test(c.level||'') ? 'var(--purple)' : 'var(--grey)';
+          const highlight = inThisWeek(c) ? 'background:rgba(0,210,255,.06);border-color:var(--cyan);' : '';
+          const groupName = (S.groups||[]).find(g=>g.id===c.group_id)?.name || '';
+          return `<button onclick='assignTeamCompToMicro(${microIdx}, ${JSON.stringify(c).replace(/'/g,"&#39;")})' style="text-align:left;background:rgba(255,255,255,.03);border:1px solid var(--border2);border-left:3px solid ${lc};${highlight}border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--white);font-size:12px;">
+            <div style="font-weight:800;">${esc(c.name)}</div>
+            <div style="font-size:10px;color:var(--text-soft);margin-top:2px;">${c.date_from}${c.date_to&&c.date_to!==c.date_from?' → '+c.date_to:''} ${groupName?'· '+esc(groupName):''}</div>
+            <div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap;">
+              ${c.level?`<span style="padding:1px 5px;border-radius:5px;background:${lc};color:#000;font-size:8px;font-weight:800;">${esc(c.level)}</span>`:''}
+              ${c.athlete_category?`<span style="padding:1px 5px;border-radius:5px;background:rgba(168,85,247,.18);color:var(--purple);font-size:8px;font-weight:700;">${esc(c.athlete_category)}</span>`:''}
+            </div>
+          </button>`;
+        }).join('')}
+      </div>
+    ` : `<p style="font-size:11px;color:var(--text-soft);text-align:center;padding:12px;font-style:italic;">No hay competencias en el calendario del equipo todavía.<br>Agregalas desde tab Equipo → Comp.</p>`}
+  `;
+}
+function clearMicroCompetition(microIdx){
+  if(!_editingProgram) return;
+  _editingProgram.matrix.micros[microIdx].competition = null;
+  _editingProgram.matrix.micros[microIdx].competition_ref = null;
+  closeModal('compPickerModal');
+  renderProgramEditor();
+  scheduleProgramSave();
+}
+function assignTeamCompToMicro(microIdx, comp){
+  if(!_editingProgram) return;
+  _editingProgram.matrix.micros[microIdx].competition = {
+    name: comp.name,
+    date_from: comp.date_from || null,
+    date_to: comp.date_to || comp.date_from || null,
+    level: comp.level || null,
+    category: comp.athlete_category || null,
+    location: comp.location || null,
+    notes: comp.notes || null,
+    source: 'team',
+    source_id: comp.id
+  };
+  _editingProgram.matrix.micros[microIdx].competition_ref = comp.name;
+  closeModal('compPickerModal');
+  renderProgramEditor();
+  scheduleProgramSave();
+  toast(`🏆 ${comp.name} asignada a M${String(_editingProgram.matrix.micros[microIdx].week).padStart(2,'0')}`,'success');
+}
+function openCompetitionForm(microIdx){
+  if(!_editingProgram) return;
+  const m = _editingProgram.matrix.micros[microIdx];
+  const c = m.competition || {};
+  // Sugerir date_from basado en preview
+  let suggestedFrom = c.date_from || '';
+  if(!suggestedFrom && _previewStartDate){
+    const d = new Date(_previewStartDate+'T00:00:00');
+    d.setDate(d.getDate() + (m.week-1)*7);
+    suggestedFrom = localDateStr(d);
+  }
+  let modal = document.getElementById('compFormInline'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='compFormInline';
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:460px;">
+    <div class="modal-head">
+      <div><div class="modal-title">${c.name?'Editar':'Nueva'} competencia</div><div class="modal-sub">M${String(m.week).padStart(2,'0')}</div></div>
+      <button class="modal-close" onclick="closeModal('compFormInline')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <label class="inp-label">Nombre *</label>
+    <input type="text" class="inp" id="cfName" placeholder="ej. Centroamericanos Junior 2026" value="${escAttr(c.name||'')}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+      <div>
+        <label class="inp-label">Desde *</label>
+        <input type="date" class="inp" id="cfFrom" value="${c.date_from||suggestedFrom}">
+      </div>
+      <div>
+        <label class="inp-label">Hasta</label>
+        <input type="date" class="inp" id="cfTo" value="${c.date_to||''}">
+      </div>
+    </div>
+    <label class="inp-label" style="margin-top:10px;">Nivel</label>
+    <select class="sel" id="cfLevel">
+      <option value="">— Sin especificar —</option>
+      ${PROGRAM_CATALOGS.competition_level.map(l=>`<option value="${l}" ${c.level===l?'selected':''}>${l}</option>`).join('')}
+    </select>
+    <label class="inp-label" style="margin-top:10px;">Categoría</label>
+    <select class="sel" id="cfCategory">
+      <option value="">— Sin especificar —</option>
+      ${PROGRAM_CATALOGS.athlete_category.map(cat=>`<option value="${cat}" ${c.category===cat?'selected':''}>${cat}</option>`).join('')}
+    </select>
+    <label class="inp-label" style="margin-top:10px;">Lugar</label>
+    <input type="text" class="inp" id="cfLocation" placeholder="ej. Punta Roca, El Salvador" value="${escAttr(c.location||'')}">
+    <label class="inp-label" style="margin-top:10px;">Notas</label>
+    <textarea class="ta" id="cfNotes" placeholder="ej. Heats 25 min, dos olas mejores">${esc(c.notes||'')}</textarea>
+    <button class="save-btn" style="margin-top:14px;" onclick="saveInlineCompetition(${microIdx})">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+      Guardar competencia
+    </button>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('compFormInline'); };
+}
+function saveInlineCompetition(microIdx){
+  const name = gv('cfName')?.trim();
+  const dateFrom = gv('cfFrom');
+  const dateTo = gv('cfTo') || dateFrom || null;
+  if(!name){ toast('Nombre requerido','error'); return; }
+  if(!dateFrom){ toast('Fecha de inicio requerida','error'); return; }
+  if(dateTo && dateTo < dateFrom){ toast('La fecha de fin no puede ser anterior al inicio','error'); return; }
+  _editingProgram.matrix.micros[microIdx].competition = {
+    name, date_from: dateFrom, date_to: dateTo,
+    level: gv('cfLevel') || null,
+    category: gv('cfCategory') || null,
+    location: gv('cfLocation')?.trim() || null,
+    notes: gv('cfNotes')?.trim() || null,
+    source: 'manual'
+  };
+  _editingProgram.matrix.micros[microIdx].competition_ref = name;
+  closeModal('compFormInline');
+  closeModal('compPickerModal');
+  renderProgramEditor();
+  scheduleProgramSave();
+  toast(`🏆 ${name} asignada a M${String(_editingProgram.matrix.micros[microIdx].week).padStart(2,'0')}`,'success');
 }
 
 function scheduleProgramSave(){
@@ -3896,7 +4152,8 @@ async function confirmAssignProgram(programId){
     // 2. Materializar planes
     const result = await materializeProgramAssignment(a.id);
     if(result.error) throw result.error;
-    toast(`✅ Asignado · ${result.inserted} planes diarios generados`, 'success');
+    const compMsg = result.competitions ? ` · ${result.competitions} competencia${result.competitions===1?'':'s'} en su perfil` : '';
+    toast(`✅ Asignado · ${result.inserted} planes${compMsg}`, 'success');
     closeModal('assignProgModal');
   } catch(e){
     const msg = e.message || JSON.stringify(e);
@@ -4592,8 +4849,8 @@ function openAddBlockModalWithFilter(date){
   openAddBlockModal(date, preData);
 }
 
-function openAddBlockModal(date, existData=null){
-  _planTasks = existData&&existData._blocks ? (Array.isArray(existData._blocks)?existData._blocks:JSON.parse(existData._blocks)) : [];
+function openAddBlockModal(date, existData=null, programCtx=null){
+  _planTasks = existData&&existData._blocks ? (Array.isArray(existData._blocks)?existData._blocks:JSON.parse(existData._blocks||'[]')) : [];
   // Pre-selección automática según modo activo
   let defaultScope = 'general', defaultTarget = '';
   if(S.activeAthlete && !existData){ defaultScope='individual'; defaultTarget=S.activeAthlete; }
@@ -4602,18 +4859,26 @@ function openAddBlockModal(date, existData=null){
   const curTarget = existData?(existData.target_id||''):defaultTarget;
   const groupOpts = S.groups.map(g=>`<option value="${g.id}" ${curTarget===g.id?'selected':''}>${g.name}</option>`).join('');
   const athOpts = S.athletes.map(a=>`<option value="${a.id}" ${curTarget===a.id?'selected':''}>${a.name}</option>`).join('');
+  const isProgram = !!programCtx;
+  const headerSub = isProgram
+    ? `M${String(_editingProgram.matrix.micros[programCtx.microIdx].week).padStart(2,'0')} · ${DOW_NAMES[_editingProgram.matrix.micros[programCtx.microIdx].days[programCtx.dayIdx].dow]} · ${esc(_editingProgram.name)}`
+    : fmtDate(date);
   const m=document.createElement('div'); m.className='modal-overlay'; m.id='blockModal';
   m.innerHTML=`<div class="modal-sheet">
     <div class="modal-head">
       <div>
-        <div class="modal-title">${existData?'Editar Actividad':'Nueva Actividad'}</div>
-        <div class="modal-sub">${fmtDate(date)}</div>
+        <div class="modal-title">${existData?'Editar Bloque':'Nuevo Bloque'}${isProgram?' del programa':''}</div>
+        <div class="modal-sub">${headerSub}</div>
       </div>
       <button class="modal-close" onclick="closeModal('blockModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
 
-    <label class="inp-label">¿Para quién?</label>
-    <div style="display:flex;gap:6px;margin-bottom:10px;">
+    ${isProgram?`<div style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--purple);">
+      <svg class="ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+      Editando un bloque de programa · al asignar a un atleta se materializa en su Hoy con todos estos detalles
+    </div>`:''}
+
+    ${isProgram?'':`<div style="display:flex;gap:6px;margin-bottom:10px;">
       <button type="button" class="scope-tab${curScope==='general'?' active':''}" onclick="switchScope('general',this)"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>Todo el equipo</button>
       <button type="button" class="scope-tab${curScope==='group'?' active':''}" onclick="switchScope('group',this)"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Grupo</button>
       <button type="button" class="scope-tab${curScope==='individual'?' active':''}" onclick="switchScope('individual',this)"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Individual</button>
@@ -4626,10 +4891,10 @@ function openAddBlockModal(date, existData=null){
     <div id="scopeAthRow" style="display:${curScope==='individual'?'block':'none'};">
       <label class="inp-label">Atleta</label>
       <select class="sel" id="blockAthSel">${athOpts}</select>
-    </div>
+    </div>`}
 
     <!-- Excluir atletas (solo aplica a general/group) -->
-    <div id="scopeExcludeRow" style="display:${curScope==='general'||curScope==='group'?'block':'none'};margin-top:6px;">
+    ${isProgram?'':`<div id="scopeExcludeRow" style="display:${curScope==='general'||curScope==='group'?'block':'none'};margin-top:6px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <label class="inp-label" style="margin:0;">¿Algunos atletas NO lo reciben?</label>
         <button type="button" id="toggleExcludeBtn" class="btn btn-xs btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="toggleExcludePanel()">Mostrar lista</button>
@@ -4644,7 +4909,7 @@ function openAddBlockModal(date, existData=null){
         </div>
         <div id="excludeList" style="display:flex;flex-direction:column;gap:4px;"></div>
       </div>
-    </div>
+    </div>`}
 
     <label class="inp-label">Tipo de Actividad</label>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="blockTypeRow">
@@ -4695,35 +4960,37 @@ function openAddBlockModal(date, existData=null){
       <button type="button" class="btn btn-xs btn-outline" onclick="openVideoPicker()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Buscar en librería</button>
     </div>
     <input type="url" class="inp" id="blockVideo" value="${existData?existData.video_url||'':''}" placeholder="https://youtube.com/...">
-    <button class="save-btn" style="margin-top:16px;" onclick="saveBlock('${date}','${existData?existData.id:''}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Actividad</button>
+    <button class="save-btn" style="margin-top:16px;" onclick="${isProgram?`saveProgramBlock(${programCtx.microIdx},${programCtx.dayIdx},${programCtx.blockIdx===null||programCtx.blockIdx===undefined?'null':programCtx.blockIdx})`:`saveBlock('${date}','${existData?existData.id:''}')`}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> ${isProgram?'Guardar bloque':'Guardar Actividad'}</button>
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{ if(e.target===m) closeModal('blockModal'); };
-  // Apply preselected scope/target after DOM ready
-  // Inicializar exclusiones desde existData o vacío
-  window._blockExcluded = (existData && Array.isArray(existData.excluded_athletes)) ? [...existData.excluded_athletes] : [];
-  if(existData && existData.scope && existData.scope!=='general'){
-    switchScope(existData.scope, null);
-    if(existData.scope==='individual' && existData.target_id){
-      const athSel=document.getElementById('blockAthSel');
-      if(athSel) athSel.value=existData.target_id;
+  if(!isProgram){
+    // Apply preselected scope/target after DOM ready
+    // Inicializar exclusiones desde existData o vacío
+    window._blockExcluded = (existData && Array.isArray(existData.excluded_athletes)) ? [...existData.excluded_athletes] : [];
+    if(existData && existData.scope && existData.scope!=='general'){
+      switchScope(existData.scope, null);
+      if(existData.scope==='individual' && existData.target_id){
+        const athSel=document.getElementById('blockAthSel');
+        if(athSel) athSel.value=existData.target_id;
+      }
+      if(existData.scope==='group' && existData.target_id){
+        const grpSel=document.getElementById('blockGroupSel');
+        if(grpSel) grpSel.value=existData.target_id;
+      }
     }
-    if(existData.scope==='group' && existData.target_id){
-      const grpSel=document.getElementById('blockGroupSel');
-      if(grpSel) grpSel.value=existData.target_id;
-    }
+    // Refrescar contador del botón guardar si hay exclusiones existentes
+    setTimeout(() => {
+      if(window._blockExcluded && window._blockExcluded.length){ updateSaveBtnCount(); }
+      // Cuando el coach cambia el grupo, re-renderizar la lista de excluidos
+      const grpSel = document.getElementById('blockGroupSel');
+      if(grpSel) grpSel.addEventListener('change', () => {
+        const panel = document.getElementById('excludePanel');
+        if(panel && panel.style.display === 'block') renderExcludeList();
+        updateSaveBtnCount();
+      });
+    }, 50);
   }
-  // Refrescar contador del botón guardar si hay exclusiones existentes
-  setTimeout(() => {
-    if(window._blockExcluded && window._blockExcluded.length){ updateSaveBtnCount(); }
-    // Cuando el coach cambia el grupo, re-renderizar la lista de excluidos
-    const grpSel = document.getElementById('blockGroupSel');
-    if(grpSel) grpSel.addEventListener('change', () => {
-      const panel = document.getElementById('excludePanel');
-      if(panel && panel.style.display === 'block') renderExcludeList();
-      updateSaveBtnCount();
-    });
-  }, 50);
   renderPlanTaskList();
 }
 
