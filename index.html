@@ -3217,7 +3217,8 @@ async function materializeProgramAssignment(assignmentId){
     }
   }
 
-  // 5. Insertar sesiones presenciales del programa en tss_presencial_sessions
+  // 5. Insertar sesiones presenciales del programa en tss_presencial_sessions (como PROPUESTAS)
+  //    Coach las confirmará/ajustará luego en tab Sesión Presencial (día/hora/atletas)
   const psRows = [];
   for(const micro of micros){
     for(const p of (micro.presencials || [])){
@@ -3232,10 +3233,10 @@ async function materializeProgramAssignment(assignmentId){
         pilar: p.pilar || null,
         sub_pilar: p.sub_pilar || null,
         mission: p.mission || null,
-        notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')}]${p.notes?' '+p.notes:''}`,
+        notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')}] Por confirmar día/hora con el coach.${p.notes?' '+p.notes:''}`,
         athlete_ids: a.athlete_id,
         created_by: a.created_by || S.user?.id || null,
-        status: 'programada'
+        status: 'propuesta'
       });
     }
   }
@@ -3249,7 +3250,13 @@ async function materializeProgramAssignment(assignmentId){
     }
   }
 
-  // 6. Insertar citas/evaluaciones del programa en tss_appointments
+  // 6. Insertar citas/evaluaciones del programa en tss_appointments (como PROPUESTAS)
+  //    Coach las confirmará/ajustará luego en tab Citas (cada una con su día/hora final)
+  const apTypeMap = {  // mapeo PROGRAM_CATALOGS.appointment_type → APPT_TYPES.id internos
+    'Medical':'medico', 'Physio':'masaje', 'Nutrition':'nutricion', 'Dental':'medico',
+    'Psychology':'psicologo', 'Evaluation':'eval_fisica', 'Recovery':'masaje',
+    'Equipment':'otro', 'Other':'otro'
+  };
   const apRows = [];
   for(const micro of micros){
     for(const p of (micro.appointments || [])){
@@ -3257,14 +3264,14 @@ async function materializeProgramAssignment(assignmentId){
       d.setDate(startDate.getDate() + (micro.week - 1) * 7 + ((p.dow||1) - 1));
       apRows.push({
         athlete_id: a.athlete_id,
-        type: p.type || 'Other',
+        type: apTypeMap[p.type] || p.type || 'otro',
         date: localDateStr(d),
         time: p.time || null,
         duration_min: p.duration_min || 45,
         location: p.location || null,
         provider_name: p.provider_name || null,
-        notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')}]${p.notes?' '+p.notes:''}`,
-        status: 'programada',
+        notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')} · ${p.type||'Cita'}] Por confirmar día/hora con el coach.${p.notes?' '+p.notes:''}`,
+        status: 'propuesta',
         created_by: a.created_by || S.user?.id || null,
         batch_id: assignmentId
       });
@@ -4674,9 +4681,9 @@ async function confirmAssignProgram(programId){
     const parts = [];
     if(result.inserted) parts.push(`${result.inserted} planes`);
     if(result.competitions) parts.push(`${result.competitions} competencia${result.competitions===1?'':'s'}`);
-    if(result.presenciales) parts.push(`${result.presenciales} presencial${result.presenciales===1?'':'es'}`);
-    if(result.appointments) parts.push(`${result.appointments} cita${result.appointments===1?'':'s'}`);
-    toast(`✅ Asignado · ${parts.join(' · ')}`, 'success');
+    const proposalCount = (result.presenciales||0) + (result.appointments||0);
+    if(proposalCount) parts.push(`${proposalCount} propuesta${proposalCount===1?'':'s'} por confirmar`);
+    toast(`✅ Asignado · ${parts.join(' · ')}${proposalCount?' (revisá tab Citas para confirmar día/hora)':''}`, 'success');
     closeModal('assignProgModal');
   } catch(e){
     const msg = e.message || JSON.stringify(e);
@@ -8496,6 +8503,7 @@ const APPT_TYPES = [
 function apptType(id){ return APPT_TYPES.find(t=>t.id===id) || APPT_TYPES[APPT_TYPES.length-1]; }
 function apptStatusBadge(status){
   const map = {
+    propuesta:   {lbl:'⚠ Por confirmar', bg:'rgba(245,158,11,.15)', c:'var(--amber)'},
     programada:  {lbl:'Programada',  bg:'rgba(0,210,255,.1)',  c:'var(--cyan)'},
     confirmada:  {lbl:'Confirmada',  bg:'rgba(34,197,94,.12)', c:'var(--green)'},
     cumplida:    {lbl:'Cumplida',    bg:'rgba(34,197,94,.18)', c:'var(--green)'},
@@ -8521,19 +8529,131 @@ async function vCitas(){
       <button class="itab" id="it-cit-semana" onclick="citasTab('semana')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Semana</button>
       <button class="itab" id="it-cit-atleta" onclick="citasTab('atleta')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Por Atleta</button>
       <button class="itab" id="it-cit-cumplidas" onclick="citasTab('cumplidas')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Cumplidas</button>
+      <button class="itab" id="it-cit-dia" onclick="citasTab('dia')" style="background:linear-gradient(135deg,rgba(168,85,247,.15),rgba(0,210,255,.08));color:var(--purple);font-weight:700;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>Día del equipo</button>
     </div>
     <div id="citasContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
   citasTab('prox');
 }
 
 function citasTab(t){
-  document.querySelectorAll('#it-cit-prox,#it-cit-hoy,#it-cit-semana,#it-cit-atleta,#it-cit-cumplidas').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#it-cit-prox,#it-cit-hoy,#it-cit-semana,#it-cit-atleta,#it-cit-cumplidas,#it-cit-dia').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById('it-cit-'+t); if(el) el.classList.add('active');
   if(t==='prox') loadApptsProx();
   else if(t==='hoy') loadApptsHoy();
   else if(t==='semana') loadApptsSemana();
   else if(t==='atleta') loadApptsByAthlete();
   else if(t==='cumplidas') loadApptsCumplidas();
+  else if(t==='dia') loadDayDashboard();
+}
+let _dayDashDate = null;
+async function loadDayDashboard(){
+  const el = document.getElementById('citasContent'); if(!el) return;
+  if(!_dayDashDate) _dayDashDate = todayStr();
+  // Header con date picker
+  el.innerHTML = `<div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:14px;margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--purple);font-weight:800;">📅 Día del equipo</div>
+        <div style="font-size:13px;color:var(--text-soft);margin-top:2px;">Todo lo que pasa este día con cualquier atleta</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-xs btn-ghost" onclick="shiftDayDash(-1)" style="font-size:14px;padding:4px 10px;">‹</button>
+        <input type="date" id="ddDate" value="${_dayDashDate}" onchange="_dayDashDate=this.value;loadDayDashboard()" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:6px 10px;font-size:12px;">
+        <button class="btn btn-xs btn-ghost" onclick="shiftDayDash(1)" style="font-size:14px;padding:4px 10px;">›</button>
+        <button class="btn btn-xs btn-cyan" onclick="_dayDashDate=todayStr();loadDayDashboard()" style="font-size:11px;padding:4px 10px;">Hoy</button>
+      </div>
+    </div>
+  </div>
+  <div id="ddBody"><p style="padding:20px;text-align:center;color:var(--grey);">Cargando…</p></div>`;
+  await renderDayDashboardBody();
+}
+function shiftDayDash(days){
+  const d = new Date(_dayDashDate+'T00:00:00');
+  d.setDate(d.getDate() + days);
+  _dayDashDate = localDateStr(d);
+  loadDayDashboard();
+}
+async function renderDayDashboardBody(){
+  const body = document.getElementById('ddBody'); if(!body) return;
+  try {
+    const date = _dayDashDate;
+    const[ ap, ps ] = await Promise.all([
+      db.from('tss_appointments').select('*').eq('date', date).order('time'),
+      db.from('tss_presencial_sessions').select('*').eq('date', date).order('time_start')
+    ]);
+    const appts = ap.data || [];
+    const sessions = ps.data || [];
+
+    // Unificar en una sola línea de tiempo
+    const items = [];
+    appts.forEach(a => items.push({kind:'appt', time: a.time || '23:59', data: a}));
+    sessions.forEach(s => items.push({kind:'ps', time: s.time_start || '23:59', data: s}));
+    items.sort((a,b) => a.time.localeCompare(b.time));
+
+    const dt = new Date(date+'T00:00:00');
+    const dateLabel = dt.toLocaleDateString('es-SV',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+    if(!items.length){
+      body.innerHTML = `<div class="card" style="text-align:center;padding:30px;">
+        <div style="font-size:13px;font-weight:700;color:var(--white);text-transform:capitalize;">${dateLabel}</div>
+        <p style="color:var(--grey);font-size:12px;margin-top:8px;">Sin citas ni sesiones programadas</p>
+      </div>`;
+      return;
+    }
+
+    // Resumen contadores
+    const propCount = appts.filter(a=>a.status==='propuesta').length + sessions.filter(s=>s.status==='propuesta').length;
+    const confCount = appts.filter(a=>['programada','confirmada'].includes(a.status)).length + sessions.filter(s=>['programada','confirmada'].includes(s.status)).length;
+    const compCount = appts.filter(a=>a.status==='cumplida').length + sessions.filter(s=>s.status==='done').length;
+
+    body.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:14px;font-weight:800;color:var(--white);text-transform:capitalize;">${dateLabel}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${propCount?`<span style="padding:3px 9px;border-radius:10px;background:rgba(245,158,11,.15);color:var(--amber);font-size:10px;font-weight:800;">⚠ ${propCount} por confirmar</span>`:''}
+          ${confCount?`<span style="padding:3px 9px;border-radius:10px;background:rgba(0,210,255,.15);color:var(--cyan);font-size:10px;font-weight:800;">${confCount} programadas</span>`:''}
+          ${compCount?`<span style="padding:3px 9px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--foam);font-size:10px;font-weight:800;">${compCount} cumplidas</span>`:''}
+          <span style="padding:3px 9px;border-radius:10px;background:rgba(255,255,255,.05);color:var(--text-soft);font-size:10px;font-weight:700;">Total ${items.length}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${items.map(it=>{
+          if(it.kind==='appt'){
+            const a = it.data;
+            const t = apptType(a.type);
+            const ath = (S.athletes||[]).find(x=>x.id===a.athlete_id);
+            const isProposal = a.status==='propuesta';
+            const border = isProposal ? '2px dashed var(--amber)' : `1px solid var(--border2); border-left:3px solid var(--${t.color})`;
+            return `<div onclick="openApptDetail('${a.id}')" style="background:rgba(255,255,255,.03);border:${border};border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="min-width:54px;font-size:14px;font-weight:800;color:${isProposal?'var(--amber)':'var(--cyan)'};font-family:'DM Mono',monospace;">${a.time?fmtApptTime(a.time):'—:—'}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:800;color:var(--white);display:flex;align-items:center;gap:6px;">${t.icon}${esc(ath?.name||'Atleta')}</div>
+                <div style="font-size:10px;color:var(--text-soft);margin-top:1px;">${t.label}${a.provider_name?' · '+esc(a.provider_name):''}${a.location?' · 📍 '+esc(a.location):''}</div>
+              </div>
+              ${apptStatusBadge(a.status)}
+            </div>`;
+          } else {
+            const s = it.data;
+            const isProposal = s.status==='propuesta';
+            const border = isProposal ? '2px dashed var(--amber)' : '1px solid var(--border2); border-left:3px solid var(--cyan)';
+            const athIds = (s.athlete_ids||'').split(',').filter(Boolean);
+            const athNames = athIds.map(id=>{const a=(S.athletes||[]).find(x=>x.id===id);return a?a.name:'';}).filter(Boolean);
+            return `<div onclick="openPresencialDetail&&openPresencialDetail('${s.id}')" style="background:rgba(0,210,255,.03);border:${border};border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="min-width:54px;font-size:14px;font-weight:800;color:${isProposal?'var(--amber)':'var(--cyan)'};font-family:'DM Mono',monospace;">${s.time_start?fmtApptTime(s.time_start):'—:—'}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:800;color:var(--white);display:flex;align-items:center;gap:6px;">🏄 ${esc(s.title||'Presencial')}</div>
+                <div style="font-size:10px;color:var(--text-soft);margin-top:1px;">${s.pilar?esc(s.pilar)+' · ':''}${athNames.length?athNames.length+' atleta(s): '+athNames.slice(0,3).join(', ')+(athNames.length>3?' +'+(athNames.length-3):''):''}${s.location?' · 📍 '+esc(s.location):''}</div>
+              </div>
+              ${isProposal?`<span style="padding:2px 7px;border-radius:20px;background:rgba(245,158,11,.15);color:var(--amber);font-size:9px;font-weight:700;">⚠ Por confirmar</span>`:`<span style="padding:2px 7px;border-radius:20px;background:rgba(0,210,255,.12);color:var(--cyan);font-size:9px;font-weight:700;">${s.status||'programada'}</span>`}
+            </div>`;
+          }
+        }).join('')}
+      </div>
+    `;
+  } catch(e){
+    body.innerHTML = `<p style="color:var(--coral);padding:20px;">Error: ${esc(e.message)}</p>`;
+    console.error(e);
+  }
 }
 
 async function loadApptsProx(){
@@ -8541,7 +8661,7 @@ async function loadApptsProx(){
   try {
     const today = todayStr();
     const {data, error} = await db.from('tss_appointments')
-      .select('*').gte('date',today).in('status',['programada','confirmada'])
+      .select('*').gte('date',today).in('status',['propuesta','programada','confirmada'])
       .order('date').order('time').limit(60);
     if(error){ el.innerHTML='<p style="padding:20px;color:var(--red);">Error: '+esc(error.message)+'</p>'; return; }
     if(!data||!data.length){ el.innerHTML='<div class="card" style="text-align:center;padding:30px;"><div style="font-size:32px;margin-bottom:6px;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><p style="color:var(--grey);font-size:12px;">Sin citas programadas</p></div>'; return; }
@@ -8583,7 +8703,7 @@ async function loadApptsByAthlete(){
   const el=document.getElementById('citasContent'); if(!el) return;
   try {
     const today = todayStr();
-    const {data} = await db.from('tss_appointments').select('*').gte('date',today).in('status',['programada','confirmada']).order('date').order('time');
+    const {data} = await db.from('tss_appointments').select('*').gte('date',today).in('status',['propuesta','programada','confirmada']).order('date').order('time');
     const byAth={}; (data||[]).forEach(a=>{(byAth[a.athlete_id]=byAth[a.athlete_id]||[]).push(a);});
     const sorted = (S.athletes||[]).filter(a=>a.active!==false).sort((a,b)=>{
       const ca=(byAth[a.id]||[]).length, cb=(byAth[b.id]||[]).length;
@@ -8624,9 +8744,12 @@ function renderApptCard(a){
   const t = apptType(a.type);
   const ath = (S.athletes||[]).find(x=>x.id===a.athlete_id);
   const conf = a.athlete_confirmation;
+  const isProposal = a.status === 'propuesta';
   const confChip = conf==='voy'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--green);"><svg class="ic ic-foam" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Va</span>':conf==='no_puedo'?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,.15);color:var(--red);"><svg class="ic ic-coral" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>No puede</span>':'';
   const batchChip = a.batch_id?'<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:rgba(168,85,247,.15);color:var(--purple);font-weight:700;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Grupal</span>':'';
-  return `<div class="card" style="margin-bottom:8px;border-left:3px solid var(--${t.color});cursor:pointer;" onclick="openApptDetail('${a.id}')">
+  const isCoach = S.user?.role==='coach' || S.user?.role==='acoach';
+  const proposalBorder = isProposal ? 'border:2px dashed var(--amber);' : `border-left:3px solid var(--${t.color});`;
+  return `<div class="card" style="margin-bottom:8px;${proposalBorder}cursor:pointer;" onclick="openApptDetail('${a.id}')">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;">
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:800;color:var(--white);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${t.icon} ${esc(ath?.name||'Atleta')} ${batchChip}</div>
@@ -8636,11 +8759,36 @@ function renderApptCard(a){
     </div>
     <div style="display:flex;gap:8px;font-size:11px;color:var(--grey);margin-top:4px;flex-wrap:wrap;align-items:center;">
       <span>📆 ${fmtApptDate(a.date)} ${fmtDate(a.date)}</span>
-      ${a.time?`<span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${fmtApptTime(a.time)}</span>`:''}
+      ${a.time?`<span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${fmtApptTime(a.time)}</span>`:`<span style="color:var(--amber);font-weight:700;">⏰ sin hora</span>`}
       ${a.location?`<span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ${esc(a.location)}</span>`:''}
       ${confChip}
     </div>
+    ${isProposal && isCoach ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation();">
+      <button class="btn btn-xs btn-cyan" style="font-size:11px;padding:6px 10px;font-weight:700;" onclick="quickConfirmAppt('${a.id}')">✓ Confirmar día/hora</button>
+      <button class="btn btn-xs btn-ghost" style="font-size:10px;padding:6px 10px;" onclick="openApptDetail('${a.id}')">Ver detalle</button>
+    </div>`:''}
   </div>`;
+}
+
+/* Quick-confirm: abre form de edición para definir hora/lugar y cambiar status a programada */
+async function quickConfirmAppt(apptId){
+  try {
+    const{ data: a } = await db.from('tss_appointments').select('*').eq('id', apptId).maybeSingle();
+    if(!a){ toast('Cita no encontrada','error'); return; }
+    openApptForm(a, null);
+    // Marca al guardar para que cambie status a programada — el form ya lo hace si pasa a programada
+    setTimeout(()=>{
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:rgba(245,158,11,.12);border:1px solid var(--amber);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--amber);margin-bottom:10px;';
+      banner.innerHTML = `<strong>Confirmando cita propuesta</strong><br>Definí día/hora/lugar. Al guardar se confirma (status → programada).`;
+      const modal = document.querySelector('#apptFormModal .modal-sheet');
+      const head = modal?.querySelector('.modal-head');
+      if(head && modal) head.insertAdjacentElement('afterend', banner);
+      // Cambiar el status select a 'programada' si existe
+      const statusSel = document.getElementById('apptStatus');
+      if(statusSel) statusSel.value = 'programada';
+    }, 80);
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
 }
 
 function openApptForm(existAppt=null, prefAthleteId=null){
@@ -8782,9 +8930,15 @@ async function saveAppt(existId, prefAthleteId){
   showLoad(true);
   try {
     if(existId){
-      const {error} = await db.from('tss_appointments').update({...basePayload, athlete_id: athleteIds[0]}).eq('id', existId);
+      // Auto-promote: si era propuesta y ahora tiene hora → programada
+      const updatePayload = {...basePayload, athlete_id: athleteIds[0]};
+      const{ data: prev } = await db.from('tss_appointments').select('status').eq('id', existId).maybeSingle();
+      if(prev?.status === 'propuesta' && basePayload.time){
+        updatePayload.status = 'programada';
+      }
+      const {error} = await db.from('tss_appointments').update(updatePayload).eq('id', existId);
       if(error) throw error;
-      toast('Cita actualizada','success');
+      toast(updatePayload.status==='programada' ? '✓ Cita confirmada (programada)' : 'Cita actualizada','success');
     } else {
       const rows = athleteIds.map(aid => ({...basePayload, athlete_id: aid, batch_id: batchId}));
       const {error} = await db.from('tss_appointments').insert(rows);
@@ -8976,7 +9130,7 @@ async function loadUpcomingApptsBanner(){
   try {
     const today = todayStr();
     const {data} = await db.from('tss_appointments').select('*').eq('athlete_id',S.user.id)
-      .gte('date',today).in('status',['programada','confirmada']).order('date').order('time').limit(3);
+      .gte('date',today).in('status',['propuesta','programada','confirmada']).order('date').order('time').limit(3);
     if(!data||!data.length){ el.innerHTML=''; return; }
     let html=`<div class="sec-title"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Próximas Citas</div>`;
     data.forEach(a=>{
