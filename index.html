@@ -3219,9 +3219,12 @@ async function materializeProgramAssignment(assignmentId){
 
   // 5. Insertar sesiones presenciales del programa en tss_presencial_sessions (como PROPUESTAS)
   //    Coach las confirmará/ajustará luego en tab Sesión Presencial (día/hora/atletas)
+  //    target_athletes: si está lleno, solo se crea para los atletas listados.
   const psRows = [];
   for(const micro of micros){
     for(const p of (micro.presencials || [])){
+      // Filtro target_athletes: si tiene lista y este atleta no está, skip
+      if(Array.isArray(p.target_athletes) && p.target_athletes.length && !p.target_athletes.includes(a.athlete_id)) continue;
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + (micro.week - 1) * 7 + ((p.dow||1) - 1));
       psRows.push({
@@ -3260,6 +3263,8 @@ async function materializeProgramAssignment(assignmentId){
   const apRows = [];
   for(const micro of micros){
     for(const p of (micro.appointments || [])){
+      // Filtro target_athletes: si tiene lista y este atleta no está, skip
+      if(Array.isArray(p.target_athletes) && p.target_athletes.length && !p.target_athletes.includes(a.athlete_id)) continue;
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + (micro.week - 1) * 7 + ((p.dow||1) - 1));
       apRows.push({
@@ -4145,6 +4150,7 @@ function renderPresencialPlanner(microIdx){
           <textarea oninput="updatePresencial(${microIdx},${idx},'mission',this.value)" placeholder="ej. Wave selection en sets" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;min-height:36px;resize:vertical;font-family:inherit;">${esc(p.mission||'')}</textarea>
           <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Notas (drills, condiciones, etc)</label>
           <textarea oninput="updatePresencial(${microIdx},${idx},'notes',this.value)" placeholder="opcional" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;min-height:30px;resize:vertical;font-family:inherit;">${esc(p.notes||'')}</textarea>
+          ${renderTargetAthletesRow(microIdx, idx, p.target_athletes, 'presencials')}
         </div>`).join('')}
       </div>
     `}
@@ -4160,7 +4166,7 @@ function addPresencial(microIdx){
   m.presencials = m.presencials || [];
   m.presencials.push({
     title: 'Presencial', dow: 4, time_start: '17:00', duration_min: 90,
-    location: '', pilar: '', mission: '', notes: ''
+    location: '', pilar: '', mission: '', notes: '', target_athletes: []
   });
   renderPresencialPlanner(microIdx);
   refreshMatrixCellsForMicro(microIdx);
@@ -4247,6 +4253,7 @@ function renderAppointmentPlanner(microIdx){
             <input type="text" value="${escAttr(p.location||'')}" oninput="updateAppointment(${microIdx},${idx},'location',this.value)" placeholder="ej. Hospital Diagnóstico, sala 4" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
             <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Notas</label>
             <textarea oninput="updateAppointment(${microIdx},${idx},'notes',this.value)" placeholder="opcional" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;min-height:30px;resize:vertical;font-family:inherit;">${esc(p.notes||'')}</textarea>
+            ${renderTargetAthletesRow(microIdx, idx, p.target_athletes, 'appointments')}
           </div>`;
         }).join('')}
       </div>
@@ -4263,7 +4270,7 @@ function addAppointment(microIdx){
   m.appointments = m.appointments || [];
   m.appointments.push({
     type: 'Medical', dow: 2, time: '10:00', duration_min: 45,
-    location: '', provider_name: '', notes: ''
+    location: '', provider_name: '', notes: '', target_athletes: []
   });
   renderAppointmentPlanner(microIdx);
   refreshMatrixCellsForMicro(microIdx);
@@ -4285,6 +4292,81 @@ function updateAppointment(microIdx, idx, field, value){
 function refreshMatrixCellsForMicro(microIdx){
   // Por simplicidad, re-renderizamos toda la matriz desktop. Es ~5ms.
   if(window.innerWidth >= 900) renderProgramEditor();
+}
+
+/* Renderiza la fila "Aplica a atleta(s)" en cada item de presencial/cita.
+   Si target_athletes está vacío o no existe → aplica a todos los atletas que tengan el programa.
+   Si está lleno → solo esos atletas reciben este item al materializar. */
+function renderTargetAthletesRow(microIdx, idx, targetAthletes, kind){
+  const list = Array.isArray(targetAthletes) ? targetAthletes : [];
+  const allAth = (S.athletes||[]).filter(a=>a.active!==false);
+  let label;
+  if(!list.length){
+    label = `<span style="color:var(--text-soft);">Todos los atletas que reciban el programa</span>`;
+  } else {
+    const names = list.map(id=>(allAth.find(a=>a.id===id)||{}).name||'').filter(Boolean);
+    const preview = names.slice(0,2).join(', ') + (names.length>2?` +${names.length-2}`:'');
+    label = `<span style="color:var(--cyan);font-weight:700;">${esc(preview)}</span> <span style="color:var(--text-soft);">(${list.length} de ${allAth.length})</span>`;
+  }
+  return `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border2);display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <div style="font-size:10px;line-height:1.3;">
+      <span style="color:var(--text-soft);text-transform:uppercase;font-weight:700;letter-spacing:.5px;">Aplica a:</span><br>
+      ${label}
+    </div>
+    <button class="btn btn-xs btn-ghost" style="font-size:10px;padding:5px 10px;flex-shrink:0;" onclick="openTargetAthletesPicker(${microIdx},${idx},'${kind}')">${list.length?'Cambiar':'Limitar atletas'}</button>
+  </div>`;
+}
+function openTargetAthletesPicker(microIdx, idx, kind){
+  const m = _editingProgram.matrix.micros[microIdx];
+  const item = (kind==='presencials'?m.presencials:m.appointments)[idx];
+  const current = new Set(Array.isArray(item.target_athletes) ? item.target_athletes : []);
+  let modal = document.getElementById('targetAthModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='targetAthModal';
+  const allAth = (S.athletes||[]).filter(a=>a.active!==false);
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:460px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">¿A quién aplica?</div><div class="modal-sub">Si lo dejás vacío, va a TODOS los atletas que reciban el programa</div></div>
+      <button class="modal-close" onclick="closeModal('targetAthModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="btn btn-xs btn-ghost" style="font-size:10px;flex:1;" onclick="tgaSelectAll(true)">Marcar todos</button>
+      <button class="btn btn-xs btn-ghost" style="font-size:10px;flex:1;" onclick="tgaSelectAll(false)">Limpiar (= todos por default)</button>
+    </div>
+    <div id="tgaList" style="background:rgba(255,255,255,.02);border:1px solid var(--border2);border-radius:10px;padding:10px;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+      ${allAth.map(a=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--white);" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" class="tga-cb" value="${a.id}" ${current.has(a.id)?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:var(--cyan);">
+        <span>${esc(a.name)}</span>
+      </label>`).join('')}
+    </div>
+    <div id="tgaCount" style="font-size:11px;color:var(--cyan);font-weight:700;margin-top:8px;text-align:right;">${current.size} de ${allAth.length} seleccionados</div>
+    <button class="save-btn" style="margin-top:12px;" onclick="saveTargetAthletes(${microIdx},${idx},'${kind}')">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+      Guardar
+    </button>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('targetAthModal'); };
+  document.querySelectorAll('.tga-cb').forEach(cb => cb.addEventListener('change', updateTgaCount));
+}
+function tgaSelectAll(on){
+  document.querySelectorAll('.tga-cb').forEach(cb => cb.checked = on);
+  updateTgaCount();
+}
+function updateTgaCount(){
+  const cnt = document.querySelectorAll('.tga-cb:checked').length;
+  const total = document.querySelectorAll('.tga-cb').length;
+  const el = document.getElementById('tgaCount'); if(el) el.textContent = `${cnt} de ${total} seleccionados`;
+}
+function saveTargetAthletes(microIdx, idx, kind){
+  const selected = Array.from(document.querySelectorAll('.tga-cb:checked')).map(cb => cb.value);
+  const m = _editingProgram.matrix.micros[microIdx];
+  const list = (kind==='presencials'?m.presencials:m.appointments);
+  list[idx].target_athletes = selected;  // vacío = todos
+  closeModal('targetAthModal');
+  if(kind==='presencials') renderPresencialPlanner(microIdx);
+  else renderAppointmentPlanner(microIdx);
+  refreshMatrixCellsForMicro(microIdx);
+  scheduleProgramSave();
 }
 
 function scheduleProgramSave(){
