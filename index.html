@@ -212,6 +212,10 @@ header{padding:calc(10px + env(safe-area-inset-top,0)) 16px 10px;display:flex;al
 
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:600;display:flex;align-items:flex-end;backdrop-filter:blur(8px);}
 .modal-sheet{background:var(--bg2);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;margin:0 auto;max-height:92vh;overflow-y:auto;}
+@media (min-width:900px){
+  .modal-overlay{align-items:center;justify-content:center;}
+  .modal-sheet{border-radius:20px;padding:24px 24px 28px;box-shadow:0 30px 80px rgba(0,0,0,.5);}
+}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
 .modal-title{font-size:18px;font-weight:800;color:var(--white);letter-spacing:-.3px;}
 .modal-sub{font-size:11px;color:var(--grey);margin-top:2px;}
