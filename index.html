@@ -3546,6 +3546,34 @@ function renderMicrosDesktop(micros){
     }).join('');
     return `<div class="prog-row"><div class="prog-cell prog-cell-label">Evaluaciones</div>${cells}</div>`;
   };
+  const renderRowPillar = (label, key, accent) => {
+    const cells = micros.map((m,i)=>{
+      const raw = m.pillars?.[key];
+      const p = (raw && typeof raw === 'object') ? raw : (raw ? {pct:null, goal: raw} : {pct:null, goal:''});
+      return `<div class="prog-cell" style="flex-direction:column;align-items:stretch;gap:2px;padding:5px 6px;">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" min="0" max="100" placeholder="—" value="${p.pct ?? ''}" oninput="updatePillarField(${i},'${key}','pct',this.value)" style="width:42px;background:rgba(255,255,255,.05);border:1px solid var(--border2);border-radius:5px;color:${accent};font-size:12px;font-weight:800;text-align:center;padding:2px 4px;">
+          <span style="font-size:9px;color:${accent};font-weight:700;">%</span>
+        </div>
+        <textarea placeholder="Objetivo del pilar" oninput="updatePillarField(${i},'${key}','goal',this.value)" style="width:100%;background:transparent;border:none;color:var(--text-soft);font-size:10px;resize:none;padding:0;min-height:22px;font-family:inherit;line-height:1.3;">${esc(p.goal || '')}</textarea>
+      </div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label" style="border-left:3px solid ${accent};">${label}</div>${cells}</div>`;
+  };
+  const renderRowPillarTotal = () => {
+    const keys = ['physical','technical','tactical','mental','equipment','surf_sessions'];
+    const cells = micros.map((m,i)=>{
+      const total = keys.reduce((sum,k)=>{
+        const p = m.pillars?.[k];
+        const pct = (p && typeof p === 'object') ? (p.pct||0) : 0;
+        return sum + pct;
+      },0);
+      const ok = total === 100;
+      const color = ok ? 'var(--foam)' : total === 0 ? 'var(--text-soft)' : 'var(--amber)';
+      return `<div class="prog-cell" style="justify-content:center;font-size:12px;font-weight:800;color:${color};">${total}${ok?' ✓':total>0?'':''}%</div>`;
+    }).join('');
+    return `<div class="prog-row"><div class="prog-cell prog-cell-label" style="background:rgba(255,255,255,.06);">Total %</div>${cells}</div>`;
+  };
   const renderRowCompetition = (micros) => {
     const levelColor = lvl => /WSL|Internac/i.test(lvl||'') ? 'var(--cyan)' : /Centro|Pan/i.test(lvl||'') ? 'var(--amber)' : /Nacional/i.test(lvl||'') ? 'var(--purple)' : 'var(--grey)';
     const cells = micros.map((m,i)=>{
@@ -3616,12 +3644,13 @@ function renderMicrosDesktop(micros){
         ${renderRowCompetition(micros)}
         ${renderRowEval()}
         ${renderRowText('Sesión Presencial', 'presencial_label')}
-        ${renderRowText('Físico', 'physical', true)}
-        ${renderRowText('Técnico', 'technical', true)}
-        ${renderRowText('Táctico', 'tactical', true)}
-        ${renderRowText('Mental', 'mental', true)}
-        ${renderRowText('Equipment', 'equipment', true)}
-        ${renderRowText('Surf Sessions', 'surf_sessions', true)}
+        ${renderRowPillar('Físico', 'physical', 'var(--amber)')}
+        ${renderRowPillar('Técnico', 'technical', 'var(--cyan)')}
+        ${renderRowPillar('Táctico', 'tactical', 'var(--amber)')}
+        ${renderRowPillar('Mental', 'mental', 'var(--purple)')}
+        ${renderRowPillar('Equipment', 'equipment', 'var(--grey)')}
+        ${renderRowPillar('Surf Sessions', 'surf_sessions', 'var(--cyan)')}
+        ${renderRowPillarTotal()}
         ${renderRowDays()}
       </div>
     </div>
@@ -3678,6 +3707,45 @@ function updatePillar(idx, key, value){
   if(!_editingProgram) return;
   if(!_editingProgram.matrix.micros[idx].pillars) _editingProgram.matrix.micros[idx].pillars = {};
   _editingProgram.matrix.micros[idx].pillars[key] = value;
+  scheduleProgramSave();
+}
+function updatePillarField(idx, key, field, value){
+  if(!_editingProgram) return;
+  if(!_editingProgram.matrix.micros[idx].pillars) _editingProgram.matrix.micros[idx].pillars = {};
+  let p = _editingProgram.matrix.micros[idx].pillars[key];
+  if(typeof p === 'string' || !p) p = {pct: null, goal: typeof p==='string'?p:''};
+  if(field === 'pct'){
+    const n = parseInt(value);
+    p.pct = (value === '' || isNaN(n)) ? null : Math.max(0, Math.min(100, n));
+  } else {
+    p[field] = value;
+  }
+  _editingProgram.matrix.micros[idx].pillars[key] = p;
+  // Refresh solo el row de total
+  const totalRow = document.querySelector('.prog-grid');
+  if(field === 'pct' && totalRow){
+    // Re-render entire matrix is heavy; just update the total cells inline
+    const keys = ['physical','technical','tactical','mental','equipment','surf_sessions'];
+    const total = keys.reduce((s,k)=>{
+      const pp = _editingProgram.matrix.micros[idx].pillars[k];
+      return s + ((pp && typeof pp === 'object') ? (pp.pct||0) : 0);
+    },0);
+    // Find Total % row cells and update the corresponding one
+    const labels = totalRow.querySelectorAll('.prog-cell-label');
+    labels.forEach(lbl => {
+      if(lbl.textContent.trim().startsWith('Total')){
+        const row = lbl.parentElement;
+        const cells = row.children;
+        const cell = cells[idx+1];
+        if(cell){
+          const ok = total === 100;
+          const color = ok ? 'var(--foam)' : total === 0 ? 'var(--text-soft)' : 'var(--amber)';
+          cell.style.color = color;
+          cell.textContent = `${total}${ok?' ✓':''}%`;
+        }
+      }
+    });
+  }
   scheduleProgramSave();
 }
 function addMicro(){
@@ -3982,18 +4050,83 @@ function renderMicroDays(microIdx){
       <div style="font-size:11px;font-weight:800;color:var(--cyan);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;text-align:center;padding:4px;background:rgba(0,210,255,.08);border-radius:6px;">${DOW_NAMES[d.dow]}</div>
       ${blocks.map((b,bIdx)=>{
         const bt = getBlockType(b.work_type);
-        return `<div style="background:var(--bg2);border:1px solid var(--border2);border-left:3px solid ${bt.color==='cyan'?'var(--cyan)':bt.color==='amber'?'var(--amber)':bt.color==='green'?'var(--foam)':bt.color==='purple'?'var(--purple)':'var(--grey)'};border-radius:6px;padding:6px;margin-bottom:5px;font-size:11px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;margin-bottom:3px;">
-            <strong style="color:var(--white);font-size:10px;">${esc(bt.label)}</strong>
-            <button onclick="removeBlockFromMicro(${microIdx},${dayIdx},${bIdx})" style="background:none;border:none;color:var(--coral);font-size:14px;cursor:pointer;padding:0 4px;line-height:1;">×</button>
+        const accent = bt.color==='cyan'?'var(--cyan)':bt.color==='amber'?'var(--amber)':bt.color==='green'?'var(--foam)':bt.color==='purple'?'var(--purple)':'var(--grey)';
+        const hasDetail = b.objective || b.notes || (Array.isArray(b.exercises)&&b.exercises.length) || b.video_url || b.sesion_time;
+        return `<div onclick="editProgramBlock(${microIdx},${dayIdx},${bIdx})" style="background:var(--bg2);border:1px solid var(--border2);border-left:3px solid ${accent};border-radius:6px;padding:7px;margin-bottom:5px;font-size:11px;cursor:pointer;transition:all .15s;" onmouseover="this.style.background='rgba(255,255,255,.04)';" onmouseout="this.style.background='var(--bg2)';">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;">
+            <div style="flex:1;min-width:0;">
+              <strong style="color:var(--white);font-size:11px;display:block;line-height:1.2;">${esc(bt.label)}</strong>
+              ${b.objective?`<div style="font-size:10px;color:${accent};font-weight:600;margin-top:2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(b.objective)}</div>`:''}
+              ${b.notes?`<div style="font-size:9px;color:var(--text-soft);margin-top:2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc((b.notes||'').replace(/\{.*?\}/g,'').slice(0,80))}</div>`:''}
+              <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">
+                ${Array.isArray(b.exercises)&&b.exercises.length?`<span style="font-size:8px;padding:1px 4px;border-radius:4px;background:rgba(0,210,255,.12);color:var(--cyan);font-weight:700;">${b.exercises.length} tareas</span>`:''}
+                ${b.video_url?`<span style="font-size:8px;padding:1px 4px;border-radius:4px;background:rgba(168,85,247,.15);color:var(--purple);font-weight:700;">📹 video</span>`:''}
+                ${b.sesion_time?`<span style="font-size:8px;padding:1px 4px;border-radius:4px;background:rgba(245,158,11,.12);color:var(--amber);font-weight:700;">⏱ ${esc(b.sesion_time)}</span>`:''}
+              </div>
+              ${!hasDetail?`<div style="font-size:9px;color:var(--text-soft);font-style:italic;margin-top:2px;">Tap para detalles…</div>`:''}
+            </div>
+            <button onclick="event.stopPropagation();removeBlockFromMicro(${microIdx},${dayIdx},${bIdx})" style="background:none;border:none;color:var(--coral);font-size:14px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;">×</button>
           </div>
-          <input type="text" value="${escAttr(b.objective||'')}" placeholder="Objetivo" oninput="updateBlockField(${microIdx},${dayIdx},${bIdx},'objective',this.value)" style="width:100%;background:transparent;border:none;color:var(--white);font-size:10px;padding:2px 0;">
-          <textarea placeholder="Notas / instrucciones" oninput="updateBlockField(${microIdx},${dayIdx},${bIdx},'notes',this.value)" style="width:100%;background:transparent;border:none;color:var(--text-soft);font-size:10px;min-height:32px;resize:none;padding:2px 0;font-family:inherit;">${esc(b.notes||'')}</textarea>
         </div>`;
       }).join('')}
-      <button class="btn btn-xs btn-ghost" style="width:100%;font-size:10px;margin-top:4px;" onclick="addBlockToDay(${microIdx},${dayIdx})">+ Bloque</button>
+      <div style="display:flex;gap:4px;margin-top:4px;">
+        <button class="btn btn-xs btn-ghost" style="flex:1;font-size:10px;" onclick="addBlockToDay(${microIdx},${dayIdx})">+ Bloque</button>
+        <button class="btn btn-xs btn-ghost" title="Aplicar template a este día" onclick="openTemplateForProgramDay(${microIdx},${dayIdx})" style="font-size:10px;padding:5px 8px;color:var(--purple);border-color:rgba(168,85,247,.3);">📋</button>
+      </div>
     </div>`;
   }).join('');
+}
+function editProgramBlock(microIdx, dayIdx, blockIdx){
+  if(!_editingProgram) return;
+  const block = _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks[blockIdx];
+  if(!block) return;
+  const existData = {
+    work_type: block.work_type,
+    objective: block.objective || '',
+    notes: block.notes || '',
+    _blocks: Array.isArray(block.exercises) ? block.exercises : [],
+    video_url: block.video_url || null,
+    sesion_time: block.sesion_time || null,
+    sesion_reps: block.sesion_reps || null,
+    scope: 'individual', target_id: ''
+  };
+  openAddBlockModal(null, existData, {microIdx, dayIdx, blockIdx});
+}
+async function saveProgramBlock(microIdx, dayIdx, blockIdx){
+  const work_type = gv('blockTypeVal');
+  if(!work_type){ toast('Selecciona el tipo de bloque','error'); return; }
+  const isCompTrain = work_type === 'comp_training';
+  const isSesionBlock = work_type === 'sesion';
+  let notesVal = gv('blockNotes') || '';
+  if(isCompTrain){
+    notesVal = JSON.stringify({
+      spot: gv('ctSpot') || '',
+      target_score: gv('ctTargetScore') || '',
+      include_prep: gv('ctIncludePrep') === '1',
+      instructions: gv('blockNotes') || ''
+    });
+  }
+  const block = {
+    work_type,
+    objective: gv('blockObj') || '',
+    notes: notesVal,
+    exercises: (_planTasks || []).filter(t=>t && t.name && t.name.trim()),
+    video_url: gv('blockVideo') || null,
+    sesion_time: isSesionBlock ? (gv('blockSesionTime') || null) : null,
+    sesion_reps: isSesionBlock ? (gv('blockSesionReps') || null) : null
+  };
+  const day = _editingProgram.matrix.micros[microIdx].days[dayIdx];
+  day.blocks = day.blocks || [];
+  if(blockIdx === null || blockIdx === undefined || blockIdx < 0){
+    day.blocks.push(block);
+  } else {
+    day.blocks[blockIdx] = block;
+  }
+  closeModal('blockModal');
+  const grid = document.getElementById('microDaysGrid');
+  if(grid) grid.innerHTML = renderMicroDays(microIdx);
+  scheduleProgramSave();
+  toast('Bloque guardado','success');
 }
 function addBlockToDay(microIdx, dayIdx){
   let modal = document.getElementById('blockTypeSheet'); if(modal) modal.remove();
@@ -4031,12 +4164,81 @@ function addBlockToDay(microIdx, dayIdx){
   modal.onclick = e => { if(e.target===modal) closeModal('blockTypeSheet'); };
 }
 function confirmAddBlock(microIdx, dayIdx, workType){
-  _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks.push({
-    work_type: workType, objective:'', notes:'', exercises:[], video_url:null, duration_min:null
-  });
   closeModal('blockTypeSheet');
-  document.getElementById('microDaysGrid').innerHTML = renderMicroDays(microIdx);
-  scheduleProgramSave();
+  // Abre el modal completo con el tipo ya seleccionado y todos los campos disponibles
+  const existData = {
+    work_type: workType, objective:'', notes:'', _blocks:[],
+    video_url:null, sesion_time:null, sesion_reps:null,
+    scope:'individual', target_id:''
+  };
+  openAddBlockModal(null, existData, {microIdx, dayIdx, blockIdx: null});
+}
+async function openTemplateForProgramDay(microIdx, dayIdx){
+  // Carga las plantillas existentes (tss_templates) y deja aplicar una al día
+  let modal = document.getElementById('templatePickerModal'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='templatePickerModal';
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:520px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">📋 Aplicar Template</div><div class="modal-sub">M${String(_editingProgram.matrix.micros[microIdx].week).padStart(2,'0')} · ${DOW_NAMES[_editingProgram.matrix.micros[microIdx].days[dayIdx].dow]}</div></div>
+      <button class="modal-close" onclick="closeModal('templatePickerModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="tplPickerBody"><p style="text-align:center;padding:20px;color:var(--grey);">Cargando…</p></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('templatePickerModal'); };
+  const body = document.getElementById('tplPickerBody');
+  try {
+    const{ data: templates, error } = await db.from('tss_templates').select('*').order('created_at', {ascending:false});
+    if(error) throw error;
+    if(!templates || !templates.length){
+      body.innerHTML = `<p style="font-size:12px;color:var(--text-soft);text-align:center;padding:20px;font-style:italic;">No hay templates todavía.<br>Creá uno desde tab Plan → cargá un día → "Guardar como Template".</p>`;
+      return;
+    }
+    body.innerHTML = `<p style="font-size:11px;color:var(--text-soft);margin-bottom:10px;">Los bloques del template se agregarán a este día del programa.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${templates.map(t=>{
+          let blocks = []; try { blocks = JSON.parse(t.blocks||'[]'); } catch(e){}
+          const totalBlocks = blocks.length;
+          return `<button onclick="applyTemplateToProgramDay('${t.id}',${microIdx},${dayIdx})" style="text-align:left;background:rgba(255,255,255,.03);border:1px solid var(--border2);border-left:3px solid var(--purple);border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--white);font-size:12px;">
+            <div style="font-weight:800;font-size:13px;">${esc(t.name)}</div>
+            <div style="font-size:10px;color:var(--cyan);font-weight:700;margin-top:3px;">${totalBlocks} bloque${totalBlocks===1?'':'s'}</div>
+          </button>`;
+        }).join('')}
+      </div>`;
+  } catch(e){
+    body.innerHTML = `<p style="color:var(--coral);padding:20px;">Error: ${esc(e.message)}</p>`;
+  }
+}
+async function applyTemplateToProgramDay(templateId, microIdx, dayIdx){
+  showLoad(true);
+  try {
+    const{ data: t, error } = await db.from('tss_templates').select('*').eq('id', templateId).single();
+    if(error) throw error;
+    let blocks = []; try { blocks = JSON.parse(t.blocks||'[]'); } catch(e){}
+    if(!blocks.length){ toast('Template vacío','error'); return; }
+    const day = _editingProgram.matrix.micros[microIdx].days[dayIdx];
+    day.blocks = day.blocks || [];
+    blocks.forEach(p=>{
+      let exercises = p.exercises;
+      if(typeof exercises === 'string'){ try { exercises = JSON.parse(exercises); } catch(e){ exercises = []; } }
+      if(!Array.isArray(exercises)) exercises = [];
+      day.blocks.push({
+        work_type: p.work_type,
+        objective: p.objective || '',
+        notes: p.notes || '',
+        exercises,
+        video_url: p.video_url || null,
+        sesion_time: p.sesion_time || null,
+        sesion_reps: p.sesion_reps || null
+      });
+    });
+    closeModal('templatePickerModal');
+    const grid = document.getElementById('microDaysGrid');
+    if(grid) grid.innerHTML = renderMicroDays(microIdx);
+    scheduleProgramSave();
+    toast(`✅ ${blocks.length} bloque${blocks.length===1?'':'s'} agregado${blocks.length===1?'':'s'} desde "${t.name}"`,'success');
+  } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+  finally { showLoad(false); }
 }
 function removeBlockFromMicro(microIdx, dayIdx, bIdx){
   _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks.splice(bIdx, 1);
