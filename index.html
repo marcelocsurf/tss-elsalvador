@@ -4109,7 +4109,11 @@ function renderPresencialPlanner(microIdx){
         ${ps.map((p,idx)=>`<div style="background:rgba(0,210,255,.04);border:1px solid rgba(0,210,255,.2);border-left:3px solid var(--cyan);border-radius:10px;padding:10px 12px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
             <div style="font-size:13px;font-weight:800;color:var(--white);">${esc(p.title||'Presencial')}</div>
-            <button onclick="removePresencial(${microIdx},${idx})" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--coral);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;">× Quitar</button>
+            <div style="display:flex;gap:4px;flex-shrink:0;">
+              <button title="Subir" onclick="movePresencial(${microIdx},${idx},-1)" style="background:rgba(255,255,255,.06);border:none;color:var(--text-soft);font-size:11px;cursor:pointer;padding:3px 7px;line-height:1;border-radius:5px;${idx===0?'opacity:.3;pointer-events:none;':''}">▲</button>
+              <button title="Bajar" onclick="movePresencial(${microIdx},${idx},1)" style="background:rgba(255,255,255,.06);border:none;color:var(--text-soft);font-size:11px;cursor:pointer;padding:3px 7px;line-height:1;border-radius:5px;${idx===ps.length-1?'opacity:.3;pointer-events:none;':''}">▼</button>
+              <button onclick="removePresencial(${microIdx},${idx})" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--coral);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;">× Quitar</button>
+            </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
             <div>
@@ -4219,7 +4223,11 @@ function renderAppointmentPlanner(microIdx){
           return `<div style="background:rgba(255,255,255,.03);border:1px solid var(--border2);border-left:3px solid ${c};border-radius:10px;padding:10px 12px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
               <div style="font-size:13px;font-weight:800;color:${c};">${esc(p.type||'Cita')}</div>
-              <button onclick="removeAppointment(${microIdx},${idx})" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--coral);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;">× Quitar</button>
+              <div style="display:flex;gap:4px;flex-shrink:0;">
+                <button title="Subir" onclick="moveAppointment(${microIdx},${idx},-1)" style="background:rgba(255,255,255,.06);border:none;color:var(--text-soft);font-size:11px;cursor:pointer;padding:3px 7px;line-height:1;border-radius:5px;${idx===0?'opacity:.3;pointer-events:none;':''}">▲</button>
+                <button title="Bajar" onclick="moveAppointment(${microIdx},${idx},1)" style="background:rgba(255,255,255,.06);border:none;color:var(--text-soft);font-size:11px;cursor:pointer;padding:3px 7px;line-height:1;border-radius:5px;${idx===aps.length-1?'opacity:.3;pointer-events:none;':''}">▼</button>
+                <button onclick="removeAppointment(${microIdx},${idx})" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--coral);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;">× Quitar</button>
+              </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
               <div>
@@ -4467,7 +4475,11 @@ function renderMicroDays(microIdx){
               </div>
               ${!hasDetail?`<div style="font-size:9px;color:var(--text-soft);font-style:italic;margin-top:2px;">Tap para detalles…</div>`:''}
             </div>
-            <button onclick="event.stopPropagation();removeBlockFromMicro(${microIdx},${dayIdx},${bIdx})" style="background:none;border:none;color:var(--coral);font-size:14px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;">×</button>
+            <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;align-items:center;">
+              <button title="Subir" onclick="event.stopPropagation();moveBlock(${microIdx},${dayIdx},${bIdx},-1)" style="background:rgba(255,255,255,.06);border:none;color:var(--text-soft);font-size:10px;cursor:pointer;padding:1px 5px;line-height:1;border-radius:4px;${bIdx===0?'opacity:.3;pointer-events:none;':''}">▲</button>
+              <button title="Bajar" onclick="event.stopPropagation();moveBlock(${microIdx},${dayIdx},${bIdx},1)" style="background:rgba(255,255,255,.06);border:none;color:var(--text-soft);font-size:10px;cursor:pointer;padding:1px 5px;line-height:1;border-radius:4px;${bIdx===blocks.length-1?'opacity:.3;pointer-events:none;':''}">▼</button>
+              <button title="Borrar" onclick="event.stopPropagation();removeBlockFromMicro(${microIdx},${dayIdx},${bIdx})" style="background:none;border:none;color:var(--coral);font-size:14px;cursor:pointer;padding:0 4px;line-height:1;margin-top:2px;">×</button>
+            </div>
           </div>
         </div>`;
       }).join('')}
@@ -4642,6 +4654,35 @@ async function applyTemplateToProgramDay(templateId, microIdx, dayIdx){
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
   finally { showLoad(false); }
 }
+/* Helpers genéricos de reordenar — arrays in-place */
+function _moveItem(arr, from, to){
+  if(!Array.isArray(arr) || from<0 || from>=arr.length || to<0 || to>=arr.length || from===to) return false;
+  const [it] = arr.splice(from, 1); arr.splice(to, 0, it); return true;
+}
+function moveBlock(microIdx, dayIdx, bIdx, dir){
+  const blocks = _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks;
+  if(_moveItem(blocks, bIdx, bIdx+dir)){
+    document.getElementById('microDaysGrid').innerHTML = renderMicroDays(microIdx);
+    scheduleProgramSave();
+  }
+}
+function movePresencial(microIdx, idx, dir){
+  const list = _editingProgram.matrix.micros[microIdx].presencials || [];
+  if(_moveItem(list, idx, idx+dir)){
+    renderPresencialPlanner(microIdx);
+    refreshMatrixCellsForMicro(microIdx);
+    scheduleProgramSave();
+  }
+}
+function moveAppointment(microIdx, idx, dir){
+  const list = _editingProgram.matrix.micros[microIdx].appointments || [];
+  if(_moveItem(list, idx, idx+dir)){
+    renderAppointmentPlanner(microIdx);
+    refreshMatrixCellsForMicro(microIdx);
+    scheduleProgramSave();
+  }
+}
+
 function removeBlockFromMicro(microIdx, dayIdx, bIdx){
   _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks.splice(bIdx, 1);
   document.getElementById('microDaysGrid').innerHTML = renderMicroDays(microIdx);
