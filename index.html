@@ -3248,6 +3248,7 @@ async function cancelAssignment(assignmentId){
 let _programs = [];
 let _editingProgram = null;        // programa que se está editando · {id, name, ..., matrix}
 let _editingProgramSaveTimer = null;
+let _previewStartDate = null;      // fecha base para visualizar el calendario del programa en el editor
 
 async function openProgramsHub(){
   let m = document.getElementById('programsHub'); if(m) m.remove();
@@ -3307,6 +3308,7 @@ async function renderProgramsList(){
                 <div style="display:flex;gap:6px;margin-top:4px;">
                   <button class="btn btn-xs" style="flex:1;background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3);" onclick="event.stopPropagation();openProgramEditor('${p.id}')">✏️ Editar</button>
                   <button class="btn btn-xs btn-cyan" style="flex:1;" onclick="event.stopPropagation();openAssignProgramModal('${p.id}')">→ Asignar</button>
+                  <button class="btn btn-xs btn-ghost" title="Duplicar" onclick="event.stopPropagation();duplicateProgram('${p.id}')"><svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
                   <button class="btn btn-xs" style="background:rgba(239,68,68,.1);color:var(--coral);border:1px solid rgba(239,68,68,.2);" onclick="event.stopPropagation();deleteProgram('${p.id}','${escAttr(p.name)}')"><svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                 </div>
               </div>`;
@@ -3343,6 +3345,29 @@ async function deleteProgram(programId, name){
     const{ error } = await db.from('tss_programs').delete().eq('id', programId);
     if(error) throw error;
     toast('Programa borrado','success');
+    renderProgramsList();
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
+async function duplicateProgram(programId){
+  const orig = _programs.find(x=>x.id===programId);
+  if(!orig){ toast('Programa no encontrado','error'); return; }
+  const newName = prompt('Nombre para la copia:', `${orig.name} (copia)`);
+  if(!newName || !newName.trim()) return;
+  showLoad(true);
+  try {
+    const{ data, error } = await db.from('tss_programs').insert({
+      name: newName.trim(),
+      description: orig.description,
+      weeks_total: orig.weeks_total,
+      discipline: orig.discipline,
+      level: orig.level,
+      matrix: orig.matrix,
+      created_by: S.user?.id || null
+    }).select().single();
+    if(error) throw error;
+    toast('Programa duplicado','success');
     renderProgramsList();
   } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
   finally { showLoad(false); }
@@ -3439,10 +3464,15 @@ function renderMicrosDesktop(micros){
   const COL_W = 200;
   // Generamos columnas: cada micro
   const colTemplate = `${ROW_LABEL_W}px ${micros.map(()=>COL_W+'px').join(' ')}`;
-  const headerCols = micros.map((m,i)=>`<div class="prog-cell prog-cell-header" onclick="openMicroDetail(${i})" style="cursor:pointer;">M${String(m.week).padStart(2,'0')}<div style="font-size:8px;color:var(--text-soft);font-weight:500;margin-top:2px;">Sem ${m.week}</div></div>`).join('');
-  const startDates = micros.map(m=>{
-    // Las fechas no se materializan acá (depende del start_date del assignment)
-    return `<div class="prog-cell">—</div>`;
+  const baseDate = _previewStartDate ? new Date(_previewStartDate+'T00:00:00') : null;
+  const headerCols = micros.map((m,i)=>{
+    let dateLabel = `<div style="font-size:8px;color:var(--text-soft);font-weight:500;margin-top:2px;">Sem ${m.week}</div>`;
+    if(baseDate){
+      const d = new Date(baseDate); d.setDate(baseDate.getDate() + (m.week-1)*7);
+      const e = new Date(d); e.setDate(d.getDate()+6);
+      dateLabel = `<div style="font-size:8px;color:var(--cyan);font-weight:600;margin-top:2px;">${d.toLocaleDateString('es-SV',{day:'2-digit',month:'short'})} → ${e.toLocaleDateString('es-SV',{day:'2-digit',month:'short'})}</div>`;
+    }
+    return `<div class="prog-cell prog-cell-header" onclick="openMicroDetail(${i})" style="cursor:pointer;">M${String(m.week).padStart(2,'0')}${dateLabel}</div>`;
   }).join('');
 
   const renderRowSelect = (label, key, options) => {
@@ -3455,7 +3485,8 @@ function renderMicrosDesktop(micros){
   const renderRowText = (label, key, isPillar=false) => {
     const cells = micros.map((m,i)=>{
       const v = isPillar ? (m.pillars?.[key]||'') : (m[key]||'');
-      return `<div class="prog-cell"><textarea class="prog-textarea" oninput="${isPillar?`updatePillar(${i},'${key}',this.value)`:`updateMicroField(${i},'${key}',this.value)`}" placeholder="—">${esc(v)}</textarea></div>`;
+      const extra = (!isPillar && key==='competition_ref' && v) ? `<button title="Auto-marcar este micro como Competition y las previas como Pre-Comp/Taper" onclick="autoMarkPreCompTaper(${i})" style="position:absolute;top:2px;right:2px;background:rgba(245,158,11,.18);border:1px solid var(--amber);color:var(--amber);border-radius:6px;padding:1px 5px;font-size:9px;font-weight:700;cursor:pointer;line-height:1.2;">🎯</button>` : '';
+      return `<div class="prog-cell" style="position:relative;"><textarea class="prog-textarea" oninput="${isPillar?`updatePillar(${i},'${key}',this.value)`:`updateMicroField(${i},'${key}',this.value)`}" placeholder="—" style="${extra?'padding-right:30px;':''}">${esc(v)}</textarea>${extra}</div>`;
     }).join('');
     return `<div class="prog-row"><div class="prog-cell prog-cell-label">${label}</div>${cells}</div>`;
   };
@@ -3488,9 +3519,13 @@ function renderMicrosDesktop(micros){
       .prog-textarea { width:100%; min-height:36px; background:transparent; border:none; color:var(--white); font-size:11px; resize:none; font-family:inherit; padding:4px; line-height:1.3; }
       .prog-textarea:focus { outline:1px solid var(--cyan); border-radius:4px; }
     </style>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div style="font-size:11px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:1px;">📊 Matriz del programa · ${numWeeks} microciclos</div>
-      <div style="display:flex;gap:6px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:11px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:1px;">📊 Matriz · ${numWeeks} microciclos</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:10px;color:var(--text-soft);font-weight:600;">Preview desde:</label>
+        <input type="date" value="${_previewStartDate||''}" onchange="setPreviewStartDate(this.value)" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;color:var(--white);font-size:11px;cursor:pointer;">
+        ${_previewStartDate?`<button class="btn btn-xs btn-ghost" style="font-size:10px;padding:3px 6px;" onclick="setPreviewStartDate('')" title="Limpiar preview">×</button>`:''}
+        <span style="width:1px;height:18px;background:var(--border2);margin:0 4px;"></span>
         <button class="btn btn-xs btn-ghost" onclick="addMicro()">+ Agregar micro</button>
         ${numWeeks>1 ? `<button class="btn btn-xs btn-ghost" style="color:var(--coral);" onclick="removeLastMicro()">– Quitar último</button>` : ''}
       </div>
@@ -3584,6 +3619,24 @@ function removeLastMicro(){
   _editingProgram.weeks_total = _editingProgram.matrix.micros.length;
   renderProgramEditor();
   scheduleProgramSave();
+}
+function setPreviewStartDate(v){
+  _previewStartDate = v || null;
+  renderProgramEditor();
+}
+function autoMarkPreCompTaper(microIdx){
+  if(!_editingProgram) return;
+  const micros = _editingProgram.matrix.micros;
+  // Marca el micro como Competition y las semanas previas
+  micros[microIdx].type = 'Competition';
+  if(microIdx-1 >= 0) micros[microIdx-1].type = 'Taper';
+  if(microIdx-2 >= 0) micros[microIdx-2].type = 'Pre-Competition';
+  if(microIdx-3 >= 0 && micros[microIdx-3].type === 'Load') micros[microIdx-3].type = 'Pre-Competition';
+  // Y el micro post-competencia como Recovery
+  if(microIdx+1 < micros.length) micros[microIdx+1].type = 'Recovery';
+  renderProgramEditor();
+  scheduleProgramSave();
+  toast(`Auto-marcado: M${String(micros[microIdx].week).padStart(2,'0')} = Competition · semanas previas = Pre-Comp/Taper`, 'success');
 }
 
 function scheduleProgramSave(){
@@ -3683,13 +3736,45 @@ function renderMicroDays(microIdx){
   }).join('');
 }
 function addBlockToDay(microIdx, dayIdx){
-  const types = BLOCK_TYPES.map(bt=>bt.id);
-  const choice = prompt(`Tipo de bloque:\n\n${BLOCK_TYPES.map((bt,i)=>`${i+1}. ${bt.label}`).join('\n')}\n\nEscribe el número:`);
-  const num = parseInt(choice); if(!num || num<1 || num>types.length) return;
-  const wt = types[num-1];
+  let modal = document.getElementById('blockTypeSheet'); if(modal) modal.remove();
+  modal = document.createElement('div'); modal.className='modal-overlay'; modal.id='blockTypeSheet';
+  const colorMap = { cyan:'var(--cyan)', amber:'var(--amber)', green:'var(--foam)', purple:'var(--purple)', grey:'var(--grey)' };
+  const iconSvg = id => {
+    const map = {
+      waves:'<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+      flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+      activity:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+      brain:'<path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>',
+      dumbbell:'<path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',
+      target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+      droplet:'<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+      trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+      clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'
+    };
+    return map[id] || map.clipboard;
+  };
+  const buttons = BLOCK_TYPES.map(bt => {
+    const c = colorMap[bt.color] || colorMap.grey;
+    return `<button onclick="confirmAddBlock(${microIdx},${dayIdx},'${bt.id}')" style="display:flex;align-items:center;gap:10px;width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-left:3px solid ${c};border-radius:10px;padding:12px 14px;color:var(--white);font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:all .15s;" onmouseover="this.style.background='rgba(255,255,255,.08)';this.style.transform='translateX(2px)';" onmouseout="this.style.background='rgba(255,255,255,.04)';this.style.transform='translateX(0)';">
+      <span style="color:${c};display:inline-flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconSvg(bt.ic)}</svg></span>
+      ${bt.label}
+    </button>`;
+  }).join('');
+  modal.innerHTML = `<div class="modal-sheet" style="max-width:420px;">
+    <div class="modal-head">
+      <div><div class="modal-title">Tipo de bloque</div><div class="modal-sub">${DOW_NAMES[_editingProgram.matrix.micros[microIdx].days[dayIdx].dow]} · M${String(_editingProgram.matrix.micros[microIdx].week).padStart(2,'0')}</div></div>
+      <button class="modal-close" onclick="closeModal('blockTypeSheet')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;padding:4px 0;">${buttons}</div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.onclick = e => { if(e.target===modal) closeModal('blockTypeSheet'); };
+}
+function confirmAddBlock(microIdx, dayIdx, workType){
   _editingProgram.matrix.micros[microIdx].days[dayIdx].blocks.push({
-    work_type: wt, objective:'', notes:'', exercises:[], video_url:null, duration_min:null
+    work_type: workType, objective:'', notes:'', exercises:[], video_url:null, duration_min:null
   });
+  closeModal('blockTypeSheet');
   document.getElementById('microDaysGrid').innerHTML = renderMicroDays(microIdx);
   scheduleProgramSave();
 }
