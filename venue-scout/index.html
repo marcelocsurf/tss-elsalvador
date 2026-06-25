@@ -6,11 +6,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0A1628">
-<title>Venue Scout · TSS</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M5 50c10 0 10-15 25-15s15 15 30 15 15-15 30-15v40H5z' fill='%2300D2FF'/%3E%3C/svg%3E">
+<title>Venue Scout · The Surf Sequence®</title>
+<link rel="icon" href="tss-logo-wave.png" type="image/png">
+<link rel="apple-touch-icon" href="tss-logo-wave.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Work+Sans:wght@400;500;600&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Work+Sans:wght@400;500;600&family=DM+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0A1628; --bg2:#0E1F3D; --bg3:#1a2842;
@@ -23,15 +24,25 @@
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Work Sans',system-ui,sans-serif; min-height:100vh; min-height:100dvh; overscroll-behavior:none; -webkit-font-smoothing:antialiased;}
 h1,h2,h3{font-family:'Outfit',sans-serif; margin:0; font-weight:700;}
+.serif{font-family:'Instrument Serif',serif; font-weight:400; font-style:italic; letter-spacing:-.01em;}
 button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
 input,textarea,select{font-family:inherit;}
 .mono{font-family:'DM Mono',monospace;}
 
 /* ---------- Layout ---------- */
 .app{max-width:100%; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;}
-.topbar{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(10,22,40,.92); backdrop-filter:blur(10px); z-index:10;}
-.brand{font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; color:var(--cyan); letter-spacing:.5px;}
-.brand small{color:var(--text-soft); font-weight:500; margin-left:6px; letter-spacing:0;}
+.topbar{display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(10,22,40,.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); z-index:10;}
+.brand-block{display:flex; align-items:center; gap:14px;}
+.brand-logo{height:22px; width:auto; opacity:.95;}
+.brand-divider{width:1px; height:18px; background:var(--border2);}
+.brand-tool{font-family:'Outfit',sans-serif; font-weight:500; font-size:12px; color:var(--text-soft); letter-spacing:.6px; text-transform:uppercase;}
+.brand-tool strong{color:var(--cyan); font-weight:700;}
+.brand-ctx{font-family:'Work Sans',sans-serif; font-size:12px; color:var(--text-soft); display:none;}
+.brand-ctx strong{color:var(--text); font-weight:600;}
+@media(min-width:600px){ .brand-ctx{display:inline;} }
+.menu-btn{padding:7px; border:1px solid var(--border2); border-radius:8px; color:var(--text-soft); display:inline-flex; align-items:center; justify-content:center; transition:all .15s;}
+.menu-btn:hover{border-color:var(--cyan); color:var(--cyan);}
+.menu-btn svg{width:16px; height:16px;}
 .screen{padding:16px; flex:1; display:flex; flex-direction:column; gap:14px;}
 
 /* ---------- Inputs ---------- */
@@ -238,6 +249,31 @@ function load(){
 }
 function reset(){ if(!confirm('¿Borrar el análisis actual y empezar de cero?')) return; localStorage.removeItem(STORAGE_KEY); location.reload(); }
 
+function openAppMenu(){
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay';
+  m.innerHTML = `<div class="modal" style="max-width:340px;">
+    <div class="modal-h">
+      <div>
+        <div class="modal-t">Opciones</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;">v1.4</div>
+      </div>
+      <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${state.screen!=='setup' ? `<button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();state.screen='setup';save();render();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="15 18 9 12 15 6"/></svg>Volver al setup</button>`:''}
+      <button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();window.print();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir / guardar PDF</button>
+      <button class="btn btn-coral btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();reset();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Nuevo análisis (borra el actual)</button>
+    </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:10px;color:var(--grey);text-align:center;letter-spacing:.5px;line-height:1.6;">
+      The Surf Sequence®<br>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;">venue scout · standalone</span>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+
 function toast(msg, ms=1800){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -245,10 +281,20 @@ function toast(msg, ms=1800){ const t=document.createElement('div'); t.className
    ════════════════════════════════════════════════════════════════════ */
 function render(){
   const app = document.getElementById('app');
+  const ctx = state.config.spotName
+    ? `<span class="brand-ctx"><strong>${esc(state.config.spotName)}</strong>${state.screen!=='setup'?` · ${state.config.date}`:''}</span>`
+    : '';
   const topbar = `<header class="topbar">
-    <div class="brand">VENUE SCOUT <small>TSS</small></div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;" onclick="reset()" title="Reiniciar">↺ Reset</button>
+    <div class="brand-block">
+      <img src="tss-logo-white-h.png" alt="The Surf Sequence" class="brand-logo">
+      <div class="brand-divider"></div>
+      <span class="brand-tool">Venue <strong>Scout</strong></span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      ${ctx}
+      <button class="menu-btn" onclick="openAppMenu()" aria-label="Menu" title="Opciones">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </div>
   </header>`;
   let body = '';
@@ -965,8 +1011,8 @@ function renderReport(){
     <section class="section">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">
         <div>
-          <h2 style="font-size:18px;">${esc(state.config.spotName||'Spot')}</h2>
-          <div style="font-size:12px;color:var(--text-soft);margin-top:3px;">${state.config.date} · ${stats.totalMin} min · ${state.waves.length} olas</div>
+          <h2 class="serif" style="font-size:30px;color:var(--white);line-height:1.05;">${esc(state.config.spotName||'Spot')}</h2>
+          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'DM Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${stats.totalMin} MIN · ${state.waves.length} OLAS</div>
         </div>
         <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="goBackToObserve()">← Seguir marcando</button>
       </div>
