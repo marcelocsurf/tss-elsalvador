@@ -125,16 +125,44 @@ input,textarea,select{font-family:inherit;}
 .modal-x{font-size:22px; color:var(--grey); padding:0 6px;}
 
 /* ---------- Report ---------- */
-.report-block{background:rgba(255,255,255,.03); border:1px solid var(--border); border-left:4px solid var(--gold); border-radius:0 10px 10px 0; padding:12px 14px; margin-bottom:8px;}
+.report-block{background:rgba(255,255,255,.025); border:1px solid var(--border); border-left:4px solid var(--gold); border-radius:0 12px 12px 0; padding:0; margin-bottom:10px; overflow:hidden;}
 .report-block.silver{border-left-color:var(--silver);}
 .report-block.bronze{border-left-color:var(--bronze);}
-.report-h{font-size:12px; font-weight:700; color:var(--gold-text); letter-spacing:.8px; margin-bottom:5px;}
-.report-block.silver .report-h{color:var(--silver-text);}
-.report-block.bronze .report-h{color:var(--bronze-text);}
-.report-stat{font-size:12px; color:var(--text-soft); margin-top:3px; line-height:1.5;}
-.report-stat strong{color:var(--cyan); font-weight:600; font-family:'DM Mono',monospace;}
-.plan-card{background:rgba(0,210,255,.08); border:1px solid rgba(0,210,255,.3); border-radius:12px; padding:12px 14px; margin-top:10px;}
-.plan-h{font-size:12px; font-weight:700; color:var(--cyan); letter-spacing:.8px; margin-bottom:6px;}
+.report-cat-banner{display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:rgba(245,158,11,.08); border-bottom:1px solid var(--border);}
+.report-block.silver .report-cat-banner{background:rgba(156,163,175,.06);}
+.report-block.bronze .report-cat-banner{background:rgba(180,83,9,.06);}
+.report-cat-lbl{font-size:11px; font-weight:700; letter-spacing:1px; color:var(--gold-text);}
+.report-block.silver .report-cat-lbl{color:var(--silver-text);}
+.report-block.bronze .report-cat-lbl{color:var(--bronze-text);}
+.report-cat-meta{font-size:11px; color:var(--text-soft); font-family:'DM Mono',monospace;}
+.report-hero{padding:18px 16px 14px; text-align:center;}
+.report-hero-coord{font-family:'DM Mono',monospace; font-size:44px; font-weight:700; color:var(--gold-text); line-height:.95; letter-spacing:-.02em;}
+.report-block.silver .report-hero-coord{color:var(--silver-text);}
+.report-block.bronze .report-hero-coord{color:var(--bronze-text);}
+.report-hero-arrow{color:var(--cyan); font-size:22px; font-weight:300; margin:0 12px;}
+.report-hero-time{font-family:'DM Mono',monospace; font-size:24px; font-weight:600; color:var(--cyan);}
+.report-hero-row{display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap;}
+.report-hero-sub{font-size:13px; color:var(--text-soft); margin-top:6px; line-height:1.4;}
+.report-hero-sub strong{color:var(--text); font-weight:500;}
+.report-strip{display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--border); flex-wrap:wrap;}
+.report-pill{font-size:11px; padding:4px 10px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid var(--border); color:var(--text-soft);}
+.report-pill strong{color:var(--text); font-weight:600;}
+.report-pill.foam{background:rgba(52,211,153,.12); border-color:rgba(52,211,153,.3); color:var(--foam);}
+.report-pill.amber{background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.3); color:var(--gold-text);}
+.report-pill.coral{background:rgba(252,165,165,.12); border-color:rgba(252,165,165,.3); color:var(--coral);}
+.report-alt-section{padding:10px 14px 14px; border-top:1px solid var(--border);}
+.report-alt-title{font-size:10px; font-weight:700; letter-spacing:1.2px; color:var(--cyan); margin-bottom:8px;}
+.report-alt-row{display:flex; align-items:center; gap:10px; padding:8px 0; font-size:12px; color:var(--text-soft);}
+.report-alt-row + .report-alt-row{border-top:1px dashed var(--border);}
+.report-alt-num{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background:rgba(0,210,255,.15); color:var(--cyan); border-radius:50%; font-family:'DM Mono',monospace; font-size:11px; font-weight:700; flex-shrink:0;}
+.report-alt-coord{font-family:'DM Mono',monospace; font-weight:700; color:var(--text); min-width:42px;}
+.report-alt-refs{flex:1; min-width:0; color:var(--grey); font-size:11px;}
+.report-alt-data{font-family:'DM Mono',monospace; font-size:11px; color:var(--text-soft);}
+.plan-card{background:rgba(0,210,255,.08); border:1px solid rgba(0,210,255,.3); border-radius:12px; padding:14px 16px; margin-top:14px;}
+.plan-h{font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:1px; margin-bottom:8px;}
+.plan-line{font-size:13px; color:var(--text-soft); margin-top:5px; line-height:1.5;}
+.plan-line strong{color:var(--text); font-weight:600;}
+.plan-line.win strong{color:var(--foam);}
 
 /* ---------- Score sliders ---------- */
 .score-row{display:grid; grid-template-columns:30px 1fr 50px; align-items:center; gap:12px; margin-bottom:10px;}
@@ -1069,46 +1097,77 @@ function renderScoreSlider(key, val, color, lbl){
   </div>`;
 }
 function renderReportBlock(cat, s, lbl, score){
-  if(!s.count) return `<div class="report-block ${cat==='mejor'?'':cat==='media'?'silver':'bronze'}">
-    <div class="report-h">${lbl} · score ${score}</div>
-    <div class="report-stat" style="color:var(--grey);font-style:italic;">Sin olas registradas en esta categoría.</div>
-  </div>`;
   const cls = cat==='mejor'?'':cat==='media'?'silver':'bronze';
+  if(!s.count) return `<div class="report-block ${cls}">
+    <div class="report-cat-banner"><span class="report-cat-lbl">${lbl}</span><span class="report-cat-meta">sin olas</span></div>
+    <div style="padding:14px;text-align:center;font-style:italic;color:var(--grey);font-size:12px;">No marcaste ninguna ola en esta categoría.</div>
+  </div>`;
+
+  // Zona principal con sus refs
+  const mainCoord = `${rowToLetter(s.topCell.row)}${s.topCell.col}`;
   const refsForZone = nearestRefs(s.topCell.col, s.topCell.row);
-  const refsLabel = refsForZone.length ? ` (cerca de ${refsForZone.map(r=>r.label).join(', ')})` : '';
-  // Comparación score estimado vs real (cuando hay scores individuales)
-  let scoreLine = '';
+  const refsText = refsForZone.length
+    ? `entre <strong>${refsForZone.map(r=>r.label).join(' y ')}</strong>`
+    : `coordenada <strong>${mainCoord}</strong>`;
+
+  // Score real vs estimado
+  let realScorePill = '';
   if(s.scoredCount > 0){
     const real = s.avgScore.toFixed(1);
     const diff = s.avgScore - score;
-    const diffLbl = Math.abs(diff) < 0.3 ? '≈ coincide' : diff > 0 ? `↑ +${diff.toFixed(1)}` : `↓ ${diff.toFixed(1)}`;
-    const diffColor = Math.abs(diff) < 0.3 ? 'var(--foam)' : diff > 0 ? 'var(--gold-text)' : 'var(--coral)';
-    scoreLine = `<div class="report-stat" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">📊 Promedio real <strong>${real}/10</strong> de ${s.scoredCount} ola${s.scoredCount===1?'':'s'} con score · estimado ${score} <span style="color:${diffColor};font-weight:700;">${diffLbl}</span></div>`;
+    const cls2 = Math.abs(diff) < 0.3 ? 'foam' : diff > 0 ? 'amber' : 'coral';
+    const diffLbl = Math.abs(diff) < 0.3 ? '≈ coincide con estimado' : diff > 0 ? `+${diff.toFixed(1)} sobre estimado` : `${diff.toFixed(1)} bajo estimado`;
+    realScorePill = `<span class="report-pill ${cls2}"><strong>${real}/10</strong> real · ${diffLbl}</span>`;
   }
-  // Hot zones múltiples (cuando hay 2+ picos separados, útil para beach breaks)
-  let zonesBlock = '';
+
+  // Ritmo / sets
+  let rhythmPill = '';
+  if(s.setsDetected){
+    rhythmPill = `<span class="report-pill"><strong>${s.setsDetected} set${s.setsDetected===1?'':'s'}</strong> · ${s.avgPerSet} olas/set · entre sets ${fmtMMSS(s.avgBetweenSets)}</span>`;
+  }
+
+  // Zonas alternativas (solo si hay 2+)
+  let altsBlock = '';
   if(s.zones && s.zones.length >= 2){
-    zonesBlock = `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);">
-      <div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.6px;margin-bottom:6px;">🎯 ${s.zones.length} ZONAS DETECTADAS · el atleta elige según sus tools</div>
-      ${s.zones.map((z,i)=>{
+    const alts = s.zones.slice(1);  // saltamos la primera (ya está en hero)
+    altsBlock = `<div class="report-alt-section">
+      <div class="report-alt-title">🎯 OTRAS ${alts.length} ZONA${alts.length===1?'':'S'} POSIBLE${alts.length===1?'':'S'} · el atleta elige según sus tools</div>
+      ${alts.map((z,i)=>{
         const zRefs = nearestRefs(z.col, z.row);
-        const zRefLabel = zRefs.length ? ` <span style="color:var(--grey);">(${zRefs.map(r=>r.label).join(', ')})</span>` : '';
-        const scoreInfo = z.avgScore !== null ? ` · score real <strong>${z.avgScore.toFixed(1)}</strong>` : '';
-        const intervalInfo = z.avgInterval ? ` · cada <strong>${fmtMMSS(z.avgInterval)}</strong>` : ' · ola única';
-        return `<div style="font-size:12px;color:var(--text-soft);padding:4px 0;line-height:1.5;">
-          <span style="display:inline-block;width:18px;height:18px;background:rgba(0,210,255,.18);color:var(--cyan);border-radius:50%;text-align:center;font-weight:700;font-size:11px;line-height:18px;margin-right:6px;font-family:'DM Mono',monospace;">${i+1}</span>
-          <strong style="color:var(--white);font-family:'DM Mono',monospace;">${rowToLetter(z.row)}${z.col}</strong>${zRefLabel} · ${z.count} ola${z.count===1?'':'s'}${scoreInfo}${intervalInfo}
+        const zRefStr = zRefs.length ? zRefs.map(r=>r.label).join(', ') : 'sin referencia cerca';
+        const scoreStr = z.avgScore !== null ? `score ${z.avgScore.toFixed(1)}` : 'sin score';
+        const intStr = z.avgInterval ? `cada ${fmtMMSS(z.avgInterval)}` : 'ola única';
+        return `<div class="report-alt-row">
+          <span class="report-alt-num">${i+2}</span>
+          <span class="report-alt-coord">${rowToLetter(z.row)}${z.col}</span>
+          <span class="report-alt-refs">${esc(zRefStr)}</span>
+          <span class="report-alt-data">${z.count} ola${z.count===1?'':'s'} · ${scoreStr} · ${intStr}</span>
         </div>`;
       }).join('')}
     </div>`;
   }
+
   return `<div class="report-block ${cls}">
-    <div class="report-h">${lbl} · score estimado ${score}</div>
-    <div class="report-stat">${s.count} ola${s.count===1?'':'s'} · zona principal <strong>${rowToLetter(s.topCell.row)}${s.topCell.col}</strong>${refsLabel}</div>
-    <div class="report-stat">Sale cada <strong>${fmtMMSS(s.avgInterval)}</strong> en promedio</div>
-    ${s.setsDetected ? `<div class="report-stat">${s.setsDetected} set${s.setsDetected===1?'':'s'} detectado${s.setsDetected===1?'':'s'} · promedio <strong>${s.avgPerSet}</strong> olas/set · entre sets <strong>${fmtMMSS(s.avgBetweenSets)}</strong></div>` : ''}
-    ${scoreLine}
-    ${zonesBlock}
+    <div class="report-cat-banner">
+      <span class="report-cat-lbl">${lbl}</span>
+      <span class="report-cat-meta">${s.count} ola${s.count===1?'':'s'} · estimado ${score}/10</span>
+    </div>
+
+    <div class="report-hero">
+      <div class="report-hero-row">
+        <span class="report-hero-coord">${mainCoord}</span>
+        <span class="report-hero-arrow">→</span>
+        <span class="report-hero-time">cada ${fmtMMSS(s.avgInterval)}</span>
+      </div>
+      <div class="report-hero-sub">Aquí salen las ${lbl.toLowerCase()} · ${refsText}</div>
+    </div>
+
+    ${(realScorePill || rhythmPill) ? `<div class="report-strip">
+      ${realScorePill}
+      ${rhythmPill}
+    </div>` : ''}
+
+    ${altsBlock}
   </div>`;
 }
 function renderPlan(stats, cl){
@@ -1145,17 +1204,17 @@ function renderPlan(stats, cl){
   if(!sufficient.length){
     const best = validForData.sort((a,b)=>b.total-a.total)[0];
     return `<div class="plan-card" style="border-color:rgba(252,165,165,.4);background:rgba(252,165,165,.06);">
-      <div class="plan-h" style="color:var(--coral);">⚠ HEAT objetivo ${obj} — no factible con score actual</div>
-      ${best?`<div class="report-stat">Mejor combo disponible: <strong>${best.name} = ${best.total.toFixed(1)}</strong> (falta ${(obj-best.total).toFixed(1)}).</div>`:''}
-      <div class="report-stat" style="color:var(--gold-text);">Subí el score potencial si la ola lo justifica o ajustá el objetivo.</div>
+      <div class="plan-h" style="color:var(--coral);">⚠ HEAT OBJETIVO ${obj} · NO FACTIBLE HOY</div>
+      ${best?`<div class="plan-line">El mejor combo posible da <strong>${best.total.toFixed(1)}</strong> (faltan <strong>${(obj-best.total).toFixed(1)}</strong>).</div>`:''}
+      <div class="plan-line" style="color:var(--gold-text);">Subí el score potencial si la ola lo justifica, o ajustá el objetivo.</div>
     </div>`;
   }
   const primary = sufficient[0];
   const backup = sufficient[1] || sufficient[0];
   return `<div class="plan-card">
-    <div class="plan-h">🏁 PLAN HEAT · objetivo ${obj}</div>
-    <div class="report-stat">✓ Plan A: <strong>${primary.name} = ${primary.total.toFixed(1)}</strong> · factible</div>
-    ${backup !== primary ? `<div class="report-stat" style="color:var(--gold-text);">↺ Plan B: ${backup.name} = ${backup.total.toFixed(1)}</div>` : ''}
+    <div class="plan-h">🏁 PLAN PARA EL HEAT · OBJETIVO ${obj}</div>
+    <div class="plan-line win">✓ Plan A: <strong>${primary.name}</strong> = ${primary.total.toFixed(1)} · factible</div>
+    ${backup !== primary ? `<div class="plan-line">↺ Plan B: <strong>${backup.name}</strong> = ${backup.total.toFixed(1)}</div>` : ''}
   </div>`;
 }
 
