@@ -176,7 +176,7 @@ const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O'].sl
 
 let state = {
   screen: 'setup',
-  config: { spotName: '', date: todayStr(), conditions: { size:'1.5-2m', tide:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20 },
+  config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20 },
   map: { lines: { outside:null, inside:null, orilla:null }, refs: [] },
   waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
@@ -196,7 +196,34 @@ function rowToLetter(r){ return ROW_LETTERS[r-1] || '?'; }
 function coordLbl(w){ return rowToLetter(w.gridRow)+w.gridCol; }
 
 function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){ console.warn(e); } }
-function load(){ try{ const s=localStorage.getItem(STORAGE_KEY); if(s){ const parsed=JSON.parse(s); if(parsed && parsed.screen) state=parsed; } }catch(e){} }
+function load(){
+  try{
+    const s = localStorage.getItem(STORAGE_KEY);
+    if(!s) return;
+    const parsed = JSON.parse(s);
+    if(!parsed || !parsed.screen) return;
+    // Migración v1 → v1.1: condiciones de string a slider numérico
+    const c = parsed.config && parsed.config.conditions;
+    if(c){
+      if(c.size !== undefined && c.sizeFt === undefined){
+        const m = String(c.size).match(/([\d.]+)/);
+        const meters = m ? parseFloat(m[1]) : 1.5;
+        c.sizeFt = Math.max(1, Math.min(12, Math.round(meters * 3.28)));
+        delete c.size;
+      }
+      if(c.tide !== undefined && c.tideLevel === undefined){
+        const tideMap = { 'baja':10, 'media':50, 'alta':90 };
+        c.tideLevel = tideMap[c.tide] !== undefined ? tideMap[c.tide] : 50;
+        c.tideDir = c.tide === 'subiendo' ? 'subiendo' : c.tide === 'bajando' ? 'bajando' : 'parada';
+        delete c.tide;
+      }
+      if(c.sizeFt === undefined) c.sizeFt = 5;
+      if(c.tideLevel === undefined) c.tideLevel = 60;
+      if(c.tideDir === undefined) c.tideDir = 'bajando';
+    }
+    state = parsed;
+  } catch(e){ console.warn('load() failed', e); }
+}
 function reset(){ if(!confirm('¿Borrar el análisis actual y empezar de cero?')) return; localStorage.removeItem(STORAGE_KEY); location.reload(); }
 
 function toast(msg, ms=1800){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
@@ -223,11 +250,34 @@ function render(){
 /* ════════════════════════════════════════════════════════════════════
    1. SETUP
    ════════════════════════════════════════════════════════════════════ */
-const SIZE_OPTS = ['<1m','1-1.5m','1.5-2m','2-2.5m','2.5-3m','3-4m','4m+'];
-const TIDE_OPTS = ['subiendo','alta','bajando','baja'];
 const WIND_OPTS = ['offshore fuerte','offshore suave','sin viento','onshore suave','onshore fuerte','crosshore'];
 const PERIOD_OPTS = ['<8s','8-10s','10-12s','12-14s','14s','15-17s','17s+'];
 const DUR_OPTS = [5,10,15,20,30,45,60];
+
+function sizeLabel(ft){
+  ft = Number(ft) || 0;
+  let qual = '';
+  if(ft<=1.5) qual = 'ankle';
+  else if(ft<=2.5) qual = 'knee';
+  else if(ft<=3.5) qual = 'waist';
+  else if(ft<=5) qual = 'chest';
+  else if(ft<=7) qual = 'overhead';
+  else if(ft<=10) qual = 'double overhead';
+  else qual = 'XXL';
+  return `${ft} ft · ${qual}`;
+}
+function tideLabel(level, dir){
+  level = Number(level)||0;
+  let where = '';
+  if(level<=12) where = 'baja';
+  else if(level<=30) where = 'media-baja';
+  else if(level<=45) where = 'media';
+  else if(level<=60) where = 'media';
+  else if(level<=80) where = 'media-alta';
+  else if(level<=92) where = 'casi alta';
+  else where = 'alta';
+  return dir==='parada' ? `${where} (parada)` : `${where} ${dir}`;
+}
 
 function renderSetup(){
   const c = state.config;
@@ -249,8 +299,30 @@ function renderSetup(){
 
     <section class="section">
       <div class="section-h"><div class="section-t">Condiciones</div></div>
-      ${renderChipGroup('size', 'Tamaño', SIZE_OPTS, c.conditions.size)}
-      ${renderChipGroup('tide', 'Marea', TIDE_OPTS, c.conditions.tide)}
+
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="label" style="margin:0;">Tamaño</div>
+          <div class="mono" style="font-size:13px;font-weight:700;color:var(--cyan);" id="sizeLabel">${sizeLabel(c.conditions.sizeFt)}</div>
+        </div>
+        <input type="range" min="1" max="12" step="0.5" value="${c.conditions.sizeFt}" oninput="state.config.conditions.sizeFt=parseFloat(this.value);document.getElementById('sizeLabel').textContent=sizeLabel(this.value);save();" style="width:100%;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;"><span>1 ft</span><span>6 ft</span><span>12+ ft</span></div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="label" style="margin:0;">Marea</div>
+          <div class="mono" style="font-size:13px;font-weight:700;color:var(--cyan);" id="tideLabel">${tideLabel(c.conditions.tideLevel, c.conditions.tideDir)}</div>
+        </div>
+        <input type="range" min="0" max="100" step="5" value="${c.conditions.tideLevel}" oninput="state.config.conditions.tideLevel=parseInt(this.value);document.getElementById('tideLabel').textContent=tideLabel(this.value, state.config.conditions.tideDir);save();" style="width:100%;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;"><span>baja</span><span>media</span><span>alta</span></div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <span class="chip ${c.conditions.tideDir==='subiendo'?'':'off'}" onclick="state.config.conditions.tideDir='subiendo';save();render();">↑ subiendo</span>
+          <span class="chip ${c.conditions.tideDir==='parada'?'':'off'}" onclick="state.config.conditions.tideDir='parada';save();render();">— parada</span>
+          <span class="chip ${c.conditions.tideDir==='bajando'?'':'off'}" onclick="state.config.conditions.tideDir='bajando';save();render();">↓ bajando</span>
+        </div>
+      </div>
+
       ${renderChipGroup('wind', 'Viento', WIND_OPTS, c.conditions.wind)}
       ${renderChipGroup('period', 'Período swell', PERIOD_OPTS, c.conditions.period)}
     </section>
@@ -404,11 +476,12 @@ function modeHint(mode){
 function renderRecentItem(w){
   const colorMap = { mejor:'var(--gold-text)', media:'var(--silver-text)', otra:'var(--bronze-text)' };
   const c = colorMap[w.category];
-  return `<div class="recent-item">
+  return `<div class="recent-item" onclick="openEditWaveModal('${w.id}')" style="cursor:pointer;">
     <span style="color:${c};font-weight:700;">● ${w.category.toUpperCase()}</span>
     <span class="recent-coord">${coordLbl(w)}</span>
+    ${w.score?`<span style="font-size:10px;background:rgba(0,210,255,.15);color:var(--cyan);padding:1px 6px;border-radius:8px;font-weight:700;">${w.score}/10</span>`:''}
     <span class="recent-time mono">+${fmtMMSS(w.ts)}</span>
-    <button onclick="removeWave('${w.id}')" style="color:var(--coral);font-size:14px;padding:0 4px;line-height:1;" title="Borrar">×</button>
+    <button onclick="event.stopPropagation();removeWave('${w.id}')" style="color:var(--coral);font-size:14px;padding:0 4px;line-height:1;" title="Borrar">×</button>
   </div>`;
 }
 
@@ -534,15 +607,17 @@ function handleMapTap(e){
   if(mode==='mejor' || mode==='media' || mode==='otra'){
     const cellW = MAP_W / GRID_COLS;
     const cellH = MAP_H / GRID_ROWS;
-    const col = Math.floor(x / cellW) + 1;
-    const row = Math.floor(y / cellH) + 1;
-    if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
-    // Si el tap fue sobre un pin existente, abrir modal del cluster
-    if(e.target.closest('.wave-pin')){
-      const cell = e.target.closest('.wave-pin').dataset.cell;
-      const [c,r,cat] = cell.split('-');
-      openClusterModal(parseInt(c), parseInt(r), cat);
-      return;
+    let col, row;
+    // Si el tap cayó sobre un pin existente, plantamos OTRA ola en la MISMA celda
+    // (varias olas pueden romper en el mismo lugar; el contador ×N sube)
+    const hitPin = e.target.closest('.wave-pin');
+    if(hitPin){
+      const [c,r] = hitPin.dataset.cell.split('-');
+      col = parseInt(c); row = parseInt(r);
+    } else {
+      col = Math.floor(x / cellW) + 1;
+      row = Math.floor(y / cellH) + 1;
+      if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
     }
     plantWave(col, row, mode);
     return;
@@ -565,12 +640,7 @@ function handleMapTap(e){
   }
 
   if(mode==='ref'){
-    const name = prompt('Nombre de la referencia (palmera, casa azul, poste, kiosko...):');
-    if(!name || !name.trim()) return;
-    state.map.refs.push({ id: uid(), x, y, label: name.trim() });
-    state.activeMode = 'mejor';
-    save(); render();
-    toast(`Referencia "${name}" plantada`);
+    openRefNameModal(x, y);
     return;
   }
 
@@ -621,6 +691,79 @@ function removeWave(id){
   state.waves = state.waves.filter(w=>w.id!==id);
   save(); render();
 }
+function openRefNameModal(x, y){
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-h">
+      <div>
+        <div class="modal-t">Nueva referencia</div>
+        <div style="font-size:12px;color:var(--grey);margin-top:2px;">Ej: palmera, casa azul, kiosko, poste, roca</div>
+      </div>
+      <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="label">Nombre</div>
+    <input type="text" class="inp" id="refNameInput" placeholder="ej. palmera grande" autofocus>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn btn-ghost btn-block" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+      <button class="btn btn-cyan btn-block" onclick="confirmRef(${x},${y})">Guardar</button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+  setTimeout(()=>{ const i = document.getElementById('refNameInput'); if(i){ i.focus(); i.addEventListener('keydown', e => { if(e.key==='Enter') confirmRef(x,y); }); } }, 80);
+}
+function confirmRef(x, y){
+  const name = (document.getElementById('refNameInput')?.value || '').trim();
+  if(!name){ toast('Poné un nombre'); return; }
+  state.map.refs.push({ id: uid(), x, y, label: name });
+  state.activeMode = 'mejor';
+  document.querySelector('.modal-overlay')?.remove();
+  save(); render();
+  toast(`Referencia "${name}" plantada`);
+}
+
+function openEditWaveModal(waveId){
+  const w = state.waves.find(x=>x.id===waveId); if(!w) return;
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-h">
+      <div>
+        <div class="modal-t">Ola · ${rowToLetter(w.gridRow)}${w.gridCol}</div>
+        <div style="font-size:12px;color:var(--grey);margin-top:2px;">+${fmtMMSS(w.ts)} desde inicio · ${fmtClock(w.absTime)}</div>
+      </div>
+      <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="label">Categoría</div>
+    <div class="cat-row" style="margin-bottom:14px;">
+      <div class="cat cat-mejor ${w.category==='mejor'?'on':''}" onclick="updateWaveCategory('${w.id}','mejor')"><div class="cat-lbl">MEJOR</div></div>
+      <div class="cat cat-media ${w.category==='media'?'on':''}" onclick="updateWaveCategory('${w.id}','media')"><div class="cat-lbl">MEDIA</div></div>
+      <div class="cat cat-otra ${w.category==='otra'?'on':''}" onclick="updateWaveCategory('${w.id}','otra')"><div class="cat-lbl">OTRA</div></div>
+    </div>
+    <div class="label">Potencial de puntos (opcional)</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;">
+      ${['','1','2','3','4','5','6','7','8','9','10'].map(s=>`<span class="chip ${String(w.score||'')===s?'':'off'}" style="font-size:12px;padding:6px 10px;" onclick="updateWaveScore('${w.id}','${s}')">${s===''?'—':s}</span>`).join('')}
+    </div>
+    <button class="btn btn-coral btn-block" onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();">× Borrar esta ola</button>
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+function updateWaveCategory(id, cat){
+  const w = state.waves.find(x=>x.id===id); if(!w) return;
+  w.category = cat;
+  save(); render();
+  // Re-render del modal con la nueva categoría seleccionada
+  openEditWaveModal(id);
+}
+function updateWaveScore(id, score){
+  const w = state.waves.find(x=>x.id===id); if(!w) return;
+  w.score = score === '' ? null : parseInt(score);
+  save();
+  openEditWaveModal(id);
+}
+
 function openClusterModal(col, row, category){
   const matching = state.waves.filter(w=>w.gridCol==col && w.gridRow==row && w.category==category).sort((a,b)=>a.ts-b.ts);
   if(!matching.length) return;
@@ -704,8 +847,8 @@ function renderReport(){
         <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="goBackToObserve()">← Seguir marcando</button>
       </div>
       <div class="chips" style="margin-top:8px;">
-        <span class="chip">${state.config.conditions.size}</span>
-        <span class="chip">${state.config.conditions.tide}</span>
+        <span class="chip">${sizeLabel(state.config.conditions.sizeFt)}</span>
+        <span class="chip">${tideLabel(state.config.conditions.tideLevel, state.config.conditions.tideDir)}</span>
         <span class="chip">${state.config.conditions.wind}</span>
         <span class="chip">${state.config.conditions.period}</span>
       </div>
