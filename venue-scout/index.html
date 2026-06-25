@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A1628">
+<title>Venue Scout · TSS</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M5 50c10 0 10-15 25-15s15 15 30 15 15-15 30-15v40H5z' fill='%2300D2FF'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Work+Sans:wght@400;500;600&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A1628; --bg2:#0E1F3D; --bg3:#1a2842;
+  --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
+  --text:#E8F0F5; --text-soft:#B8CCDF; --grey:#6B7E8F;
+  --cyan:#00D2FF; --purple:#A855F7; --amber:#F59E0B; --foam:#34D399; --coral:#FCA5A5;
+  --gold:#F59E0B; --silver:#9CA3AF; --bronze:#B45309;
+  --gold-text:#FCD34D; --silver-text:#D1D5DB; --bronze-text:#FBBF24;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Work Sans',system-ui,sans-serif; min-height:100vh; min-height:100dvh; overscroll-behavior:none; -webkit-font-smoothing:antialiased;}
+h1,h2,h3{font-family:'Outfit',sans-serif; margin:0; font-weight:700;}
+button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
+input,textarea,select{font-family:inherit;}
+.mono{font-family:'DM Mono',monospace;}
+
+/* ---------- Layout ---------- */
+.app{max-width:100%; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;}
+.topbar{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(10,22,40,.92); backdrop-filter:blur(10px); z-index:10;}
+.brand{font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; color:var(--cyan); letter-spacing:.5px;}
+.brand small{color:var(--text-soft); font-weight:500; margin-left:6px; letter-spacing:0;}
+.screen{padding:16px; flex:1; display:flex; flex-direction:column; gap:14px;}
+
+/* ---------- Inputs ---------- */
+.label{font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:var(--cyan); font-weight:600; margin-bottom:6px;}
+.inp,.sel,.ta{width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border2); border-radius:10px; padding:11px 14px; color:var(--text); font-size:14px;}
+.inp:focus,.sel:focus,.ta:focus{outline:none; border-color:var(--cyan); background:rgba(0,210,255,.04);}
+.ta{resize:vertical; min-height:64px; font-family:inherit;}
+
+/* ---------- Chips ---------- */
+.chips{display:flex; gap:6px; flex-wrap:wrap;}
+.chip{font-size:13px; padding:7px 14px; border-radius:18px; background:rgba(0,210,255,.1); border:1px solid rgba(0,210,255,.3); color:var(--cyan); font-weight:600; cursor:pointer; user-select:none; transition:all .12s;}
+.chip:active{transform:scale(.96);}
+.chip.off{background:transparent; border:1px solid var(--border2); color:var(--grey);}
+.chip.amber{background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.4); color:var(--gold-text);}
+.chip.purple{background:rgba(168,85,247,.12); border-color:rgba(168,85,247,.4); color:#C9B9E8;}
+
+/* ---------- Buttons ---------- */
+.btn{padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600; transition:all .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
+.btn:active{transform:scale(.97);}
+.btn-cyan{background:var(--cyan); color:var(--bg);}
+.btn-ghost{background:transparent; border:1px solid var(--border2); color:var(--text-soft);}
+.btn-coral{background:rgba(252,165,165,.12); border:1px solid rgba(252,165,165,.4); color:var(--coral);}
+.btn-block{width:100%;}
+.btn-lg{padding:14px 18px; font-size:14px;}
+
+/* ---------- Categories ---------- */
+.cat-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+.cat{padding:14px 6px; border-radius:12px; text-align:center; cursor:pointer; user-select:none; transition:all .15s; border:2.5px solid transparent;}
+.cat:active{transform:scale(.97);}
+.cat.on{transform:scale(1.03); box-shadow:0 0 0 3px rgba(255,255,255,.18);}
+.cat-mejor{background:rgba(245,158,11,.18); border-color:var(--gold);}
+.cat-media{background:rgba(156,163,175,.16); border-color:var(--silver);}
+.cat-otra{background:rgba(180,83,9,.18); border-color:var(--bronze);}
+.cat-lbl{font-size:11px; font-weight:700; letter-spacing:.8px;}
+.cat-num{font-size:22px; font-weight:700; font-family:'DM Mono',monospace; margin-top:4px; line-height:1;}
+.cat-mejor .cat-lbl,.cat-mejor .cat-num{color:var(--gold-text);}
+.cat-media .cat-lbl,.cat-media .cat-num{color:var(--silver-text);}
+.cat-otra .cat-lbl,.cat-otra .cat-num{color:var(--bronze-text);}
+
+/* ---------- Toolbar ---------- */
+.toolbar{display:grid; grid-template-columns:repeat(6,1fr); gap:5px;}
+.tool{padding:9px 4px; border-radius:8px; text-align:center; font-size:10px; font-weight:700; border:1px solid var(--border2); color:var(--text-soft); cursor:pointer; user-select:none; letter-spacing:.4px; transition:all .12s; line-height:1.1;}
+.tool:active{transform:scale(.96);}
+.tool svg{display:block; margin:0 auto 3px; width:16px; height:16px;}
+.tool.on{background:rgba(255,255,255,.08); border-color:currentColor;}
+.tool.out{color:var(--purple);}
+.tool.in{color:var(--gold);}
+.tool.ori{color:var(--cyan);}
+.tool.del{color:var(--coral);}
+.tool.misma{color:var(--cyan); border-color:rgba(0,210,255,.4); background:rgba(0,210,255,.08);}
+
+/* ---------- Timer ---------- */
+.timer-bar{display:flex; justify-content:space-between; align-items:center; gap:12px;}
+.timer-big{font-size:28px; font-weight:700; color:var(--cyan); font-family:'DM Mono',monospace; line-height:1;}
+.timer-sub{font-size:11px; color:var(--grey); margin-top:3px;}
+.timer-stop{font-size:13px; color:var(--coral); font-weight:600; padding:8px 14px; border:1px solid rgba(252,165,165,.4); border-radius:8px;}
+.timer-warn{color:var(--gold-text) !important;}
+
+/* ---------- Map ---------- */
+.map-wrap{position:relative; background:#021126; border-radius:14px; overflow:hidden; touch-action:none;}
+.map-wrap svg{display:block; width:100%; height:auto; touch-action:none;}
+.map-meta{display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--grey); padding:4px 2px; font-family:'DM Mono',monospace;}
+
+/* ---------- Section ---------- */
+.section{background:rgba(255,255,255,.025); border:1px solid var(--border); border-radius:14px; padding:14px 14px;}
+.section-h{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+.section-t{font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:var(--cyan); font-weight:700;}
+
+/* ---------- Recent waves list ---------- */
+.recent{max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;}
+.recent-item{display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(255,255,255,.04); border-radius:6px; font-size:12px;}
+.recent-coord{font-family:'DM Mono',monospace; font-weight:700;}
+.recent-time{color:var(--grey); font-size:11px;}
+
+/* ---------- Modal ---------- */
+.modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.78); display:flex; align-items:center; justify-content:center; z-index:200; backdrop-filter:blur(8px); padding:20px;}
+.modal{background:var(--bg2); border:1px solid var(--border2); border-radius:16px; padding:18px 18px 20px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto;}
+.modal-h{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px;}
+.modal-t{font-size:16px; font-weight:700;}
+.modal-x{font-size:22px; color:var(--grey); padding:0 6px;}
+
+/* ---------- Report ---------- */
+.report-block{background:rgba(255,255,255,.03); border:1px solid var(--border); border-left:4px solid var(--gold); border-radius:0 10px 10px 0; padding:12px 14px; margin-bottom:8px;}
+.report-block.silver{border-left-color:var(--silver);}
+.report-block.bronze{border-left-color:var(--bronze);}
+.report-h{font-size:12px; font-weight:700; color:var(--gold-text); letter-spacing:.8px; margin-bottom:5px;}
+.report-block.silver .report-h{color:var(--silver-text);}
+.report-block.bronze .report-h{color:var(--bronze-text);}
+.report-stat{font-size:12px; color:var(--text-soft); margin-top:3px; line-height:1.5;}
+.report-stat strong{color:var(--cyan); font-weight:600; font-family:'DM Mono',monospace;}
+.plan-card{background:rgba(0,210,255,.08); border:1px solid rgba(0,210,255,.3); border-radius:12px; padding:12px 14px; margin-top:10px;}
+.plan-h{font-size:12px; font-weight:700; color:var(--cyan); letter-spacing:.8px; margin-bottom:6px;}
+
+/* ---------- Score sliders ---------- */
+.score-row{display:grid; grid-template-columns:30px 1fr 50px; align-items:center; gap:12px; margin-bottom:10px;}
+.score-row input[type=range]{width:100%; -webkit-appearance:none; background:transparent;}
+.score-row input[type=range]::-webkit-slider-runnable-track{height:8px; background:rgba(255,255,255,.08); border-radius:4px;}
+.score-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--cyan); margin-top:-6px; box-shadow:0 0 0 3px rgba(0,210,255,.18);}
+.score-val{font-family:'DM Mono',monospace; font-weight:700; text-align:right; font-size:15px;}
+
+/* ---------- Empty ---------- */
+.empty{text-align:center; padding:40px 20px; color:var(--grey);}
+
+/* ---------- Tablet landscape (≥1024px, landscape) ---------- */
+@media (min-width:1024px){
+  .app{flex-direction:row;}
+  .topbar{flex-direction:column; width:80px; height:100vh; border-bottom:none; border-right:1px solid var(--border); padding:20px 10px; position:fixed; top:0; left:0;}
+  .brand{writing-mode:vertical-rl; transform:rotate(180deg); font-size:11px;}
+  .brand small{display:none;}
+  .screen{margin-left:80px; max-width:none;}
+  .screen.observe{display:grid; grid-template-columns:1.7fr 1fr; gap:16px;}
+  .screen.observe .map-wrap{grid-row:span 4;}
+  .screen.setup,.screen.report{max-width:680px; margin-left:auto; margin-right:auto; padding-left:96px;}
+}
+
+/* Hide scrollbar */
+.recent::-webkit-scrollbar{width:5px;}
+.recent::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1); border-radius:5px;}
+
+/* SVG cell highlight on tap */
+.cell-hit{fill:rgba(0,210,255,.18); transition:opacity .2s; pointer-events:none;}
+
+/* Toast */
+.toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--bg3); border:1px solid var(--cyan); color:var(--text); padding:10px 18px; border-radius:24px; font-size:13px; font-weight:600; z-index:500; box-shadow:0 6px 24px rgba(0,0,0,.4); animation:toastIn .3s ease-out;}
+@keyframes toastIn{from{opacity:0; transform:translate(-50%,12px);} to{opacity:1; transform:translate(-50%,0);}}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   VENUE SCOUT · TSS — standalone v1
+   Una herramienta de análisis de spots para coach/atleta de surf comp.
+   Estado en localStorage. Sin red. Funciona offline en la beach.
+   ════════════════════════════════════════════════════════════════════ */
+
+const STORAGE_KEY = 'tss_venue_scout_v1';
+const GRID_ROWS = 14;
+const GRID_COLS = 12;
+const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O'].slice(0, GRID_ROWS);
+
+let state = {
+  screen: 'setup',
+  config: { spotName: '', date: todayStr(), conditions: { size:'1.5-2m', tide:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20 },
+  map: { lines: { outside:null, inside:null, orilla:null }, refs: [] },
+  waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
+  timer: { startedAt:null, durationMs:null, paused:false, finished:false },
+  activeMode: 'mejor',  // mejor | media | otra | line-out | line-in | line-ori | ref | erase
+  pendingLineStart: null,
+  closing: { description:'', scores: { mejor:8.5, media:6.5, otra:5.0 }, heatObjective:14.5 }
+};
+
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function nowMs(){ return Date.now(); }
+function fmtMMSS(ms){ if(ms<0) ms=0; const s=Math.floor(ms/1000); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function fmtHM(ms){ const s=Math.floor(ms/1000); const m=Math.floor(s/60); const sec=s%60; return m+':'+String(sec).padStart(2,'0'); }
+function fmtClock(d){ d=new Date(d); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function colToLetter(c){ /* placeholder, columnas siguen siendo numéricas */ return c; }
+function rowToLetter(r){ return ROW_LETTERS[r-1] || '?'; }
+function coordLbl(w){ return rowToLetter(w.gridRow)+w.gridCol; }
+
+function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){ console.warn(e); } }
+function load(){ try{ const s=localStorage.getItem(STORAGE_KEY); if(s){ const parsed=JSON.parse(s); if(parsed && parsed.screen) state=parsed; } }catch(e){} }
+function reset(){ if(!confirm('¿Borrar el análisis actual y empezar de cero?')) return; localStorage.removeItem(STORAGE_KEY); location.reload(); }
+
+function toast(msg, ms=1800){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
+
+/* ════════════════════════════════════════════════════════════════════
+   RENDER ROUTER
+   ════════════════════════════════════════════════════════════════════ */
+function render(){
+  const app = document.getElementById('app');
+  const topbar = `<header class="topbar">
+    <div class="brand">VENUE SCOUT <small>TSS</small></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;" onclick="reset()" title="Reiniciar">↺ Reset</button>
+    </div>
+  </header>`;
+  let body = '';
+  if(state.screen === 'setup') body = renderSetup();
+  else if(state.screen === 'observe') body = renderObserve();
+  else if(state.screen === 'report') body = renderReport();
+  app.innerHTML = topbar + body;
+  if(state.screen === 'observe') attachMapHandlers();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   1. SETUP
+   ════════════════════════════════════════════════════════════════════ */
+const SIZE_OPTS = ['<1m','1-1.5m','1.5-2m','2-2.5m','2.5-3m','3-4m','4m+'];
+const TIDE_OPTS = ['subiendo','alta','bajando','baja'];
+const WIND_OPTS = ['offshore fuerte','offshore suave','sin viento','onshore suave','onshore fuerte','crosshore'];
+const PERIOD_OPTS = ['<8s','8-10s','10-12s','12-14s','14s','15-17s','17s+'];
+const DUR_OPTS = [5,10,15,20,30,45,60];
+
+function renderSetup(){
+  const c = state.config;
+  return `<main class="screen setup">
+    <section class="section">
+      <div class="section-h"><div class="section-t">Spot</div></div>
+      <input type="text" class="inp" id="spotName" value="${esc(c.spotName)}" placeholder="ej. Punta Mango · El Sunzal · Las Flores" oninput="state.config.spotName=this.value;save();" autocomplete="off">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+        <div>
+          <div class="label">Fecha</div>
+          <input type="date" class="inp" value="${c.date}" onchange="state.config.date=this.value;save();">
+        </div>
+        <div>
+          <div class="label">Hora local</div>
+          <div class="inp mono" style="text-align:center;font-weight:700;color:var(--cyan);" id="liveClock">--:--</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-h"><div class="section-t">Condiciones</div></div>
+      ${renderChipGroup('size', 'Tamaño', SIZE_OPTS, c.conditions.size)}
+      ${renderChipGroup('tide', 'Marea', TIDE_OPTS, c.conditions.tide)}
+      ${renderChipGroup('wind', 'Viento', WIND_OPTS, c.conditions.wind)}
+      ${renderChipGroup('period', 'Período swell', PERIOD_OPTS, c.conditions.period)}
+    </section>
+
+    <section class="section">
+      <div class="section-h"><div class="section-t">Duración del análisis</div></div>
+      <div class="chips">
+        ${DUR_OPTS.map(m=>`<span class="chip ${c.durationMin===m?'':'off'}" onclick="state.config.durationMin=${m};save();render();">${m} min</span>`).join('')}
+      </div>
+    </section>
+
+    <button class="btn btn-cyan btn-block btn-lg" onclick="goToObserve()" style="margin-top:8px;">
+      Empezar análisis →
+    </button>
+  </main>`;
+}
+function renderChipGroup(key, label, opts, current){
+  return `<div style="margin-bottom:12px;">
+    <div class="label">${label}</div>
+    <div class="chips">
+      ${opts.map(o=>`<span class="chip ${current===o?'':'off'}" onclick="state.config.conditions.${key}='${o}';save();render();">${o}</span>`).join('')}
+    </div>
+  </div>`;
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function goToObserve(){
+  if(!state.config.spotName.trim()){ toast('Poné un nombre al spot'); return; }
+  if(!state.timer.startedAt){
+    state.timer.startedAt = nowMs();
+    state.timer.durationMs = state.config.durationMin * 60 * 1000;
+  }
+  state.screen = 'observe';
+  save(); render();
+  startTimerLoop();
+}
+
+/* Live clock on setup */
+setInterval(()=>{
+  const el=document.getElementById('liveClock');
+  if(el){ const d=new Date(); el.textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
+}, 1000);
+
+/* ════════════════════════════════════════════════════════════════════
+   2. OBSERVE (map + waves)
+   ════════════════════════════════════════════════════════════════════ */
+let _timerInterval = null;
+function startTimerLoop(){
+  if(_timerInterval) clearInterval(_timerInterval);
+  _timerInterval = setInterval(()=>{
+    if(state.screen !== 'observe') return;
+    if(state.timer.finished || state.timer.paused) return;
+    const el = document.getElementById('timerDisplay');
+    if(!el) return;
+    const remaining = state.timer.startedAt + state.timer.durationMs - nowMs();
+    el.textContent = fmtMMSS(remaining);
+    if(remaining < 60000) el.classList.add('timer-warn'); else el.classList.remove('timer-warn');
+    const elapsed = nowMs() - state.timer.startedAt;
+    const subEl = document.getElementById('timerSub');
+    if(subEl) subEl.textContent = `restante · ${fmtMMSS(elapsed)} transc.`;
+    if(remaining <= 0){
+      state.timer.finished = true;
+      save();
+      toast('⏰ Análisis terminado');
+      goToReport();
+    }
+  }, 250);
+}
+
+function renderObserve(){
+  const counts = countByCategory();
+  return `<main class="screen observe">
+    <section class="section" style="padding:12px 14px;">
+      <div class="timer-bar">
+        <div>
+          <div class="timer-big" id="timerDisplay">${fmtMMSS(state.timer.startedAt+state.timer.durationMs-nowMs())}</div>
+          <div class="timer-sub" id="timerSub">restante</div>
+        </div>
+        <button class="timer-stop" onclick="finishNow()">■ Finalizar</button>
+      </div>
+
+      <div class="cat-row" style="margin-top:14px;">
+        <div class="cat cat-mejor ${state.activeMode==='mejor'?'on':''}" onclick="setMode('mejor')">
+          <div class="cat-lbl">MEJOR</div><div class="cat-num">${counts.mejor}</div>
+        </div>
+        <div class="cat cat-media ${state.activeMode==='media'?'on':''}" onclick="setMode('media')">
+          <div class="cat-lbl">MEDIA</div><div class="cat-num">${counts.media}</div>
+        </div>
+        <div class="cat cat-otra ${state.activeMode==='otra'?'on':''}" onclick="setMode('otra')">
+          <div class="cat-lbl">OTRA</div><div class="cat-num">${counts.otra}</div>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top:10px;">
+        <div class="tool out ${state.activeMode==='line-out'?'on':''}" onclick="setMode('line-out')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="3,2"/></svg>
+          OUT
+        </div>
+        <div class="tool in ${state.activeMode==='line-in'?'on':''}" onclick="setMode('line-in')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="3,2"/></svg>
+          IN
+        </div>
+        <div class="tool ori ${state.activeMode==='line-ori'?'on':''}" onclick="setMode('line-ori')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="3,2"/></svg>
+          ORILLA
+        </div>
+        <div class="tool ${state.activeMode==='ref'?'on':''}" onclick="setMode('ref')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          +REF
+        </div>
+        <div class="tool misma" onclick="plantSameAsLast()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M3.5 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          +MISMA
+        </div>
+        <div class="tool del ${state.activeMode==='erase'?'on':''}" onclick="setMode('erase')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          BORRAR
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--grey);text-align:center;margin-top:6px;line-height:1.4;">
+        ${modeHint(state.activeMode)}
+      </div>
+    </section>
+
+    <section class="map-wrap" id="mapWrap">
+      ${renderMapSVG()}
+    </section>
+
+    <section class="section">
+      <div class="section-h">
+        <div class="section-t">Últimas olas (${state.waves.length})</div>
+        ${state.waves.length?`<button class="btn btn-ghost" style="padding:4px 10px;font-size:10px;" onclick="openAllWavesModal()">Ver todas</button>`:''}
+      </div>
+      <div class="recent">
+        ${state.waves.slice(-7).reverse().map(w=>renderRecentItem(w)).join('') || '<div class="empty" style="padding:20px;font-size:12px;">Tap una celda con MEJOR/MEDIA/OTRA activa para plantar la primera ola.</div>'}
+      </div>
+    </section>
+  </main>`;
+}
+function modeHint(mode){
+  switch(mode){
+    case 'mejor': case 'media': case 'otra': return `tap una celda del mapa para plantar pin ${mode.toUpperCase()} con timestamp`;
+    case 'line-out': return state.pendingLineStart ? 'tap el segundo punto de la línea OUTSIDE' : 'tap el primer punto de la línea OUTSIDE';
+    case 'line-in': return state.pendingLineStart ? 'tap el segundo punto de la línea INSIDE' : 'tap el primer punto de la línea INSIDE';
+    case 'line-ori': return state.pendingLineStart ? 'tap el segundo punto de la línea ORILLA' : 'tap el primer punto de la línea ORILLA';
+    case 'ref': return 'tap donde quieras plantar la referencia (palmera, casa, poste...)';
+    case 'erase': return 'tap un pin para borrarlo';
+  }
+  return '';
+}
+function renderRecentItem(w){
+  const colorMap = { mejor:'var(--gold-text)', media:'var(--silver-text)', otra:'var(--bronze-text)' };
+  const c = colorMap[w.category];
+  return `<div class="recent-item">
+    <span style="color:${c};font-weight:700;">● ${w.category.toUpperCase()}</span>
+    <span class="recent-coord">${coordLbl(w)}</span>
+    <span class="recent-time mono">+${fmtMMSS(w.ts)}</span>
+    <button onclick="removeWave('${w.id}')" style="color:var(--coral);font-size:14px;padding:0 4px;line-height:1;" title="Borrar">×</button>
+  </div>`;
+}
+
+function countByCategory(){
+  const c = {mejor:0,media:0,otra:0};
+  state.waves.forEach(w=>{ if(c[w.category]!==undefined) c[w.category]++; });
+  return c;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MAP RENDER (SVG)
+   ════════════════════════════════════════════════════════════════════ */
+const MAP_W = 600, MAP_H = 600;
+function renderMapSVG(){
+  // 600x600 SVG (responsive via viewBox). Grid uniform.
+  const cellW = MAP_W / GRID_COLS;
+  const cellH = MAP_H / GRID_ROWS;
+
+  // Background gradient simulando océano → white water → playa
+  const bg = `<defs>
+    <linearGradient id="oc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#021126"/>
+      <stop offset="48%" stop-color="#0a3a5c"/>
+      <stop offset="68%" stop-color="#dde7ea"/>
+      <stop offset="88%" stop-color="#8a7a5c"/>
+      <stop offset="100%" stop-color="#3a4a2e"/>
+    </linearGradient>
+  </defs>
+  <rect width="${MAP_W}" height="${MAP_H}" fill="url(#oc)"/>`;
+
+  // Ola decorativa
+  const wave = `<path d="M 0 ${MAP_H*0.4} Q ${MAP_W*0.35} ${MAP_H*0.5} ${MAP_W*0.65} ${MAP_H*0.32} T ${MAP_W} ${MAP_H*0.22}" stroke="#f5f5f5" stroke-width="8" fill="none" opacity="0.45"/>`;
+
+  // Líneas de grilla
+  let grid = '<g stroke="rgba(255,255,255,0.16)" stroke-width="0.8">';
+  for(let r=1; r<GRID_ROWS; r++) grid += `<line x1="0" y1="${r*cellH}" x2="${MAP_W}" y2="${r*cellH}"/>`;
+  for(let c=1; c<GRID_COLS; c++) grid += `<line x1="${c*cellW}" y1="0" x2="${c*cellW}" y2="${MAP_H}"/>`;
+  grid += '</g>';
+
+  // Letras y números
+  let labels = '<g font-family="DM Mono,monospace" font-size="14" fill="rgba(255,255,255,0.6)" font-weight="500">';
+  for(let r=1; r<=GRID_ROWS; r++) labels += `<text x="6" y="${(r-0.4)*cellH}">${rowToLetter(r)}</text>`;
+  for(let c=1; c<=GRID_COLS; c++) labels += `<text x="${(c-0.5)*cellW}" y="${MAP_H-6}" text-anchor="middle">${c}</text>`;
+  labels += '</g>';
+
+  // Líneas de referencia (outside/inside/orilla)
+  let refLines = '';
+  if(state.map.lines.outside) refLines += renderLine(state.map.lines.outside, '#A855F7', 'OUTSIDE');
+  if(state.map.lines.inside)  refLines += renderLine(state.map.lines.inside,  '#F59E0B', 'INSIDE');
+  if(state.map.lines.orilla)  refLines += renderLine(state.map.lines.orilla,  '#00D2FF', 'ORILLA');
+  if(state.pendingLineStart){
+    const p = state.pendingLineStart;
+    const colors = {'line-out':'#A855F7','line-in':'#F59E0B','line-ori':'#00D2FF'};
+    const c = colors[state.activeMode] || '#fff';
+    refLines += `<circle cx="${p.x}" cy="${p.y}" r="8" fill="${c}" stroke="#fff" stroke-width="2"/>`;
+  }
+
+  // Referencias en tierra
+  let refs = '';
+  state.map.refs.forEach(r=>{
+    refs += `<g class="ref-pin" data-id="${r.id}">
+      <circle cx="${r.x}" cy="${r.y}" r="13" fill="#00D2FF" stroke="#fff" stroke-width="2.5"/>
+      <text x="${r.x}" y="${r.y+4}" text-anchor="middle" font-size="13" font-weight="700" fill="#0A1628">${esc(r.label.charAt(0).toUpperCase())}</text>
+      <rect x="${r.x-30}" y="${r.y+14}" width="60" height="16" rx="4" fill="rgba(0,0,0,0.55)"/>
+      <text x="${r.x}" y="${r.y+26}" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">${esc(r.label.slice(0,12))}</text>
+    </g>`;
+  });
+
+  // Pins de olas, agrupados por celda+categoría
+  const grouped = groupWavesByCell();
+  let pins = '';
+  Object.values(grouped).forEach(g=>{
+    const cx = (g.col - 0.5) * cellW;
+    const cy = (g.row - 0.5) * cellH;
+    const colors = { mejor:'#F59E0B', media:'#9CA3AF', otra:'#B45309' };
+    const c = colors[g.category];
+    const baseR = g.category==='mejor' ? 16 : g.category==='media' ? 14 : 12;
+    const r = baseR + Math.min(8, (g.count-1) * 2);
+    pins += `<g class="wave-pin" data-cell="${g.col}-${g.row}-${g.category}" style="cursor:pointer;">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}" stroke="#fff" stroke-width="2.5"/>
+      <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="${g.count>1?12:11}" font-weight="700" fill="#0A1628">${g.count>1?'×'+g.count:'1'}</text>
+    </g>`;
+  });
+
+  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+    ${bg}${wave}${grid}${labels}${refLines}${refs}${pins}
+  </svg>`;
+}
+function renderLine(line, color, label){
+  return `<g>
+    <line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}" stroke="${color}" stroke-width="3" stroke-dasharray="6,4" opacity="0.85"/>
+    <text x="${Math.max(line.x1,line.x2)-4}" y="${Math.min(line.y1,line.y2)-6}" text-anchor="end" font-size="13" font-weight="700" fill="${color}">${label}</text>
+  </g>`;
+}
+function groupWavesByCell(){
+  const g = {};
+  state.waves.forEach(w=>{
+    const k = `${w.gridCol}-${w.gridRow}-${w.category}`;
+    if(!g[k]) g[k] = { col:w.gridCol, row:w.gridRow, category:w.category, count:0, waves:[] };
+    g[k].count++; g[k].waves.push(w);
+  });
+  return g;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MAP INTERACTION
+   ════════════════════════════════════════════════════════════════════ */
+function attachMapHandlers(){
+  const svg = document.querySelector('#mapWrap svg'); if(!svg) return;
+  svg.addEventListener('click', handleMapTap);
+}
+function handleMapTap(e){
+  const svg = e.currentTarget;
+  const rect = svg.getBoundingClientRect();
+  const scaleX = MAP_W / rect.width;
+  const scaleY = MAP_H / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+  if(x<0||y<0||x>MAP_W||y>MAP_H) return;
+
+  const mode = state.activeMode;
+
+  if(mode==='mejor' || mode==='media' || mode==='otra'){
+    const cellW = MAP_W / GRID_COLS;
+    const cellH = MAP_H / GRID_ROWS;
+    const col = Math.floor(x / cellW) + 1;
+    const row = Math.floor(y / cellH) + 1;
+    if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
+    // Si el tap fue sobre un pin existente, abrir modal del cluster
+    if(e.target.closest('.wave-pin')){
+      const cell = e.target.closest('.wave-pin').dataset.cell;
+      const [c,r,cat] = cell.split('-');
+      openClusterModal(parseInt(c), parseInt(r), cat);
+      return;
+    }
+    plantWave(col, row, mode);
+    return;
+  }
+
+  if(mode==='line-out' || mode==='line-in' || mode==='line-ori'){
+    if(!state.pendingLineStart){
+      state.pendingLineStart = {x, y};
+      save(); render();
+    } else {
+      const lineKey = mode==='line-out'?'outside':mode==='line-in'?'inside':'orilla';
+      state.map.lines[lineKey] = { x1:state.pendingLineStart.x, y1:state.pendingLineStart.y, x2:x, y2:y };
+      state.pendingLineStart = null;
+      // Volver al modo MEJOR después de trazar línea
+      state.activeMode = 'mejor';
+      save(); render();
+      toast(`Línea ${lineKey.toUpperCase()} marcada`);
+    }
+    return;
+  }
+
+  if(mode==='ref'){
+    const name = prompt('Nombre de la referencia (palmera, casa azul, poste, kiosko...):');
+    if(!name || !name.trim()) return;
+    state.map.refs.push({ id: uid(), x, y, label: name.trim() });
+    state.activeMode = 'mejor';
+    save(); render();
+    toast(`Referencia "${name}" plantada`);
+    return;
+  }
+
+  if(mode==='erase'){
+    // Si tap sobre pin → borrar todo el cluster (con confirm)
+    if(e.target.closest('.wave-pin')){
+      const cell = e.target.closest('.wave-pin').dataset.cell;
+      const [c,r,cat] = cell.split('-');
+      const matching = state.waves.filter(w=>w.gridCol==c && w.gridRow==r && w.category==cat);
+      if(confirm(`¿Borrar ${matching.length} ola(s) ${cat.toUpperCase()} en ${rowToLetter(parseInt(r))}${c}?`)){
+        state.waves = state.waves.filter(w=>!(w.gridCol==c && w.gridRow==r && w.category==cat));
+        save(); render();
+      }
+      return;
+    }
+    // Tap sobre referencia → borrar
+    if(e.target.closest('.ref-pin')){
+      const id = e.target.closest('.ref-pin').dataset.id;
+      const r = state.map.refs.find(x=>x.id===id);
+      if(r && confirm(`¿Borrar referencia "${r.label}"?`)){
+        state.map.refs = state.map.refs.filter(x=>x.id!==id);
+        save(); render();
+      }
+      return;
+    }
+  }
+}
+
+function plantWave(col, row, category){
+  const ts = nowMs() - state.timer.startedAt;
+  state.waves.push({ id: uid(), gridCol: col, gridRow: row, category, ts, absTime: nowMs() });
+  save(); render();
+}
+function plantSameAsLast(){
+  if(!state.waves.length){ toast('No hay olas aún'); return; }
+  const last = state.waves[state.waves.length-1];
+  plantWave(last.gridCol, last.gridRow, state.activeMode);
+  toast(`+ misma · ${state.activeMode.toUpperCase()} en ${rowToLetter(last.gridRow)}${last.gridCol}`);
+}
+function setMode(mode){
+  if(state.pendingLineStart && !mode.startsWith('line-')){
+    state.pendingLineStart = null;  // cancela línea en proceso
+  }
+  state.activeMode = mode;
+  save(); render();
+}
+function removeWave(id){
+  state.waves = state.waves.filter(w=>w.id!==id);
+  save(); render();
+}
+function openClusterModal(col, row, category){
+  const matching = state.waves.filter(w=>w.gridCol==col && w.gridRow==row && w.category==category).sort((a,b)=>a.ts-b.ts);
+  if(!matching.length) return;
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-h">
+      <div>
+        <div class="modal-t">Olas en ${rowToLetter(row)}${col} · ${category.toUpperCase()}</div>
+        <div style="font-size:12px;color:var(--grey);margin-top:2px;">${matching.length} ola${matching.length===1?'':'s'} registradas</div>
+      </div>
+      <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${matching.map((w,i)=>`<div class="recent-item">
+        <span style="font-weight:700;">#${i+1}</span>
+        <span class="mono">+${fmtMMSS(w.ts)}</span>
+        <span class="recent-time">${fmtClock(w.absTime)}</span>
+        <button onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();" style="color:var(--coral);font-size:14px;">×</button>
+      </div>`).join('')}
+    </div>
+    ${matching.length>1?`<div style="margin-top:12px;padding:10px;background:rgba(0,210,255,.06);border-radius:8px;font-size:12px;color:var(--text-soft);">
+      Intervalo promedio entre estas olas: <strong style="color:var(--cyan);">${avgIntervalLabel(matching)}</strong>
+    </div>`:''}
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+function avgIntervalLabel(waves){
+  if(waves.length<2) return '—';
+  const intervals = [];
+  for(let i=1; i<waves.length; i++) intervals.push(waves[i].ts - waves[i-1].ts);
+  const avg = intervals.reduce((s,x)=>s+x,0) / intervals.length;
+  return fmtMMSS(avg);
+}
+function openAllWavesModal(){
+  if(!state.waves.length) return;
+  const sorted = [...state.waves].sort((a,b)=>b.ts-a.ts);
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay';
+  m.innerHTML = `<div class="modal">
+    <div class="modal-h">
+      <div><div class="modal-t">Todas las olas (${state.waves.length})</div></div>
+      <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;max-height:60vh;overflow-y:auto;">
+      ${sorted.map(w=>renderRecentItem(w)).join('')}
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+
+function finishNow(){
+  if(state.waves.length === 0){
+    if(!confirm('No marcaste ninguna ola. ¿Seguro que querés terminar?')) return;
+  }
+  state.timer.finished = true;
+  state.timer.endedAt = nowMs();
+  save();
+  goToReport();
+}
+function goToReport(){
+  state.screen = 'report';
+  save(); render();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   3. REPORT
+   ════════════════════════════════════════════════════════════════════ */
+function renderReport(){
+  const stats = computeStats();
+  const cl = state.closing;
+  return `<main class="screen report">
+    <section class="section">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">
+        <div>
+          <h2 style="font-size:18px;">${esc(state.config.spotName||'Spot')}</h2>
+          <div style="font-size:12px;color:var(--text-soft);margin-top:3px;">${state.config.date} · ${stats.totalMin} min · ${state.waves.length} olas</div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="goBackToObserve()">← Seguir marcando</button>
+      </div>
+      <div class="chips" style="margin-top:8px;">
+        <span class="chip">${state.config.conditions.size}</span>
+        <span class="chip">${state.config.conditions.tide}</span>
+        <span class="chip">${state.config.conditions.wind}</span>
+        <span class="chip">${state.config.conditions.period}</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-h"><div class="section-t">¿Cómo se ve una buena hoy?</div></div>
+      <textarea class="ta" id="closingDesc" placeholder="Describí la ola ideal de hoy con tus palabras: forma, dónde rompe, qué referencia, qué señales mirar..." oninput="state.closing.description=this.value;save();">${esc(cl.description)}</textarea>
+    </section>
+
+    <section class="section">
+      <div class="section-h"><div class="section-t">Score que la ola hoy puede dar</div></div>
+      ${renderScoreSlider('mejor', cl.scores.mejor, 'var(--gold-text)', 'MEJOR')}
+      ${renderScoreSlider('media', cl.scores.media, 'var(--silver-text)', 'MEDIA')}
+      ${renderScoreSlider('otra',  cl.scores.otra,  'var(--bronze-text)', 'OTRA')}
+
+      <div style="margin-top:14px;display:grid;grid-template-columns:1fr 70px;gap:10px;align-items:center;">
+        <div class="label" style="margin:0;">Heat objetivo (puntaje total a batir)</div>
+        <input type="number" class="inp" value="${cl.heatObjective}" min="0" max="20" step="0.5" oninput="state.closing.heatObjective=parseFloat(this.value)||0;save();render();" style="text-align:center;font-weight:700;color:var(--cyan);">
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-h"><div class="section-t">Reporte automático</div></div>
+      ${renderReportBlock('mejor', stats.mejor, 'MEJOR', cl.scores.mejor)}
+      ${renderReportBlock('media', stats.media, 'MEDIA', cl.scores.media)}
+      ${renderReportBlock('otra',  stats.otra,  'OTRA',  cl.scores.otra)}
+
+      ${renderPlan(stats, cl)}
+    </section>
+
+    <section class="section">
+      <div class="section-h"><div class="section-t">Mapa final</div></div>
+      ${renderMapSVG()}
+    </section>
+
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-cyan btn-block btn-lg" onclick="window.print()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:6px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir / PDF</button>
+      <button class="btn btn-ghost" onclick="reset()">Nuevo análisis</button>
+    </div>
+  </main>`;
+}
+function renderScoreSlider(key, val, color, lbl){
+  return `<div class="score-row">
+    <span style="color:${color};font-weight:700;font-size:14px;">${lbl.charAt(0)}</span>
+    <input type="range" min="0" max="10" step="0.5" value="${val}" oninput="state.closing.scores.${key}=parseFloat(this.value);save();document.getElementById('sv_${key}').textContent=this.value;">
+    <span class="score-val" id="sv_${key}" style="color:${color};">${val}</span>
+  </div>`;
+}
+function renderReportBlock(cat, s, lbl, score){
+  if(!s.count) return `<div class="report-block ${cat==='mejor'?'':cat==='media'?'silver':'bronze'}">
+    <div class="report-h">${lbl} · score ${score}</div>
+    <div class="report-stat" style="color:var(--grey);font-style:italic;">Sin olas registradas en esta categoría.</div>
+  </div>`;
+  const cls = cat==='mejor'?'':cat==='media'?'silver':'bronze';
+  const refsForZone = nearestRefs(s.topCell.col, s.topCell.row);
+  const refsLabel = refsForZone.length ? ` (cerca de ${refsForZone.map(r=>r.label).join(', ')})` : '';
+  return `<div class="report-block ${cls}">
+    <div class="report-h">${lbl} · score ${score}</div>
+    <div class="report-stat">${s.count} ola${s.count===1?'':'s'} · zona principal <strong>${rowToLetter(s.topCell.row)}${s.topCell.col}</strong>${refsLabel}</div>
+    <div class="report-stat">Sale cada <strong>${fmtMMSS(s.avgInterval)}</strong> en promedio</div>
+    ${s.setsDetected ? `<div class="report-stat">${s.setsDetected} set${s.setsDetected===1?'':'s'} detectado${s.setsDetected===1?'':'s'} · promedio <strong>${s.avgPerSet}</strong> olas/set · entre sets <strong>${fmtMMSS(s.avgBetweenSets)}</strong></div>` : ''}
+  </div>`;
+}
+function renderPlan(stats, cl){
+  const obj = cl.heatObjective || 0;
+  if(!obj || stats.mejor.count + stats.media.count + stats.otra.count === 0){
+    return `<div class="plan-card"><div class="plan-h">🏁 Plan táctico</div><div class="report-stat">Definí un objetivo de heat para generar el plan.</div></div>`;
+  }
+  const combos = [
+    { name:'1 MEJOR + 1 MEDIA', total: cl.scores.mejor + cl.scores.media, requires:{mejor:1,media:1} },
+    { name:'2 MEJOR', total: cl.scores.mejor*2, requires:{mejor:2} },
+    { name:'2 MEDIA + 1 OTRA', total: cl.scores.media*2 + cl.scores.otra, requires:{media:2,otra:1} },
+    { name:'1 MEJOR + 1 OTRA', total: cl.scores.mejor + cl.scores.otra, requires:{mejor:1,otra:1} },
+    { name:'3 OTRA', total: cl.scores.otra*3, requires:{otra:3} },
+  ];
+  const validForData = combos.filter(c=>{
+    return (c.requires.mejor||0) <= stats.mejor.count
+        && (c.requires.media||0) <= stats.media.count
+        && (c.requires.otra||0)  <= stats.otra.count;
+  });
+  const sufficient = validForData.filter(c=>c.total >= obj);
+  if(!sufficient.length){
+    const best = validForData.sort((a,b)=>b.total-a.total)[0];
+    return `<div class="plan-card" style="border-color:rgba(252,165,165,.4);background:rgba(252,165,165,.06);">
+      <div class="plan-h" style="color:var(--coral);">⚠ HEAT objetivo ${obj} — no factible con score actual</div>
+      ${best?`<div class="report-stat">Mejor combo disponible: <strong>${best.name} = ${best.total.toFixed(1)}</strong> (falta ${(obj-best.total).toFixed(1)}).</div>`:''}
+      <div class="report-stat" style="color:var(--gold-text);">Subí el score potencial si la ola lo justifica o ajustá el objetivo.</div>
+    </div>`;
+  }
+  const primary = sufficient[0];
+  const backup = sufficient[1] || sufficient[0];
+  return `<div class="plan-card">
+    <div class="plan-h">🏁 PLAN HEAT · objetivo ${obj}</div>
+    <div class="report-stat">✓ Plan A: <strong>${primary.name} = ${primary.total.toFixed(1)}</strong> · factible</div>
+    ${backup !== primary ? `<div class="report-stat" style="color:var(--gold-text);">↺ Plan B: ${backup.name} = ${backup.total.toFixed(1)}</div>` : ''}
+  </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STATS
+   ════════════════════════════════════════════════════════════════════ */
+function computeStats(){
+  const totalMs = state.timer.finished
+    ? (state.timer.endedAt || nowMs()) - state.timer.startedAt
+    : nowMs() - (state.timer.startedAt || nowMs());
+  const totalMin = Math.max(1, Math.round(totalMs / 60000));
+  return {
+    totalMin,
+    totalMs,
+    mejor: statsForCategory('mejor'),
+    media: statsForCategory('media'),
+    otra:  statsForCategory('otra'),
+  };
+}
+function statsForCategory(category){
+  const waves = state.waves.filter(w=>w.category===category).sort((a,b)=>a.ts-b.ts);
+  if(!waves.length) return { count:0 };
+  // Top cell: la celda con más pins
+  const cellCount = {};
+  waves.forEach(w=>{
+    const k = `${w.gridCol}-${w.gridRow}`;
+    cellCount[k] = (cellCount[k]||0) + 1;
+  });
+  const topKey = Object.entries(cellCount).sort((a,b)=>b[1]-a[1])[0][0];
+  const [tc, tr] = topKey.split('-').map(Number);
+  // Intervalo promedio
+  let avgInterval = 0;
+  if(waves.length > 1){
+    const intervals = [];
+    for(let i=1; i<waves.length; i++) intervals.push(waves[i].ts - waves[i-1].ts);
+    avgInterval = intervals.reduce((s,x)=>s+x,0) / intervals.length;
+  }
+  // Detección de sets: 3+ olas en <2 min consecutivas
+  const SET_GAP = 120000;
+  const sets = [];
+  let cur = [waves[0]];
+  for(let i=1; i<waves.length; i++){
+    if(waves[i].ts - waves[i-1].ts <= SET_GAP){
+      cur.push(waves[i]);
+    } else {
+      if(cur.length >= 3) sets.push(cur);
+      cur = [waves[i]];
+    }
+  }
+  if(cur.length >= 3) sets.push(cur);
+  const setsDetected = sets.length;
+  const avgPerSet = setsDetected ? Math.round(sets.reduce((s,x)=>s+x.length,0) / setsDetected) : 0;
+  let avgBetweenSets = 0;
+  if(setsDetected > 1){
+    const gaps = [];
+    for(let i=1; i<sets.length; i++) gaps.push(sets[i][0].ts - sets[i-1][sets[i-1].length-1].ts);
+    avgBetweenSets = gaps.reduce((s,x)=>s+x,0) / gaps.length;
+  }
+  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets };
+}
+function nearestRefs(col, row){
+  if(!state.map.refs.length) return [];
+  const cellW = MAP_W / GRID_COLS;
+  const cellH = MAP_H / GRID_ROWS;
+  const cx = (col - 0.5) * cellW;
+  const cy = (row - 0.5) * cellH;
+  const withDist = state.map.refs.map(r=>({ ...r, d: Math.hypot(r.x-cx, r.y-cy) }));
+  withDist.sort((a,b)=>a.d-b.d);
+  return withDist.slice(0, 2).filter(r=>r.d < MAP_W*0.4);
+}
+
+function goBackToObserve(){
+  if(!confirm('Volver a marcar olas? El cronómetro se reanuda donde estaba.')) return;
+  state.screen = 'observe';
+  state.timer.finished = false;
+  save(); render();
+  startTimerLoop();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════════════════ */
+load();
+render();
+if(state.screen === 'observe' && state.timer.startedAt && !state.timer.finished){
+  startTimerLoop();
+}
+
+// Print styles
+const printStyle = document.createElement('style');
+printStyle.textContent = `@media print {
+  .topbar, .timer-stop, .toolbar, .cat, button { display: none !important; }
+  body { background: white; color: black; }
+  .section { border: 1px solid #ddd; background: white; page-break-inside: avoid; }
+  .report-block, .plan-card { background: white; }
+}`;
+document.head.appendChild(printStyle);
+</script>
+</body>
+</html>
