@@ -72,7 +72,7 @@ input,textarea,select{font-family:inherit;}
 .cat-otra .cat-lbl,.cat-otra .cat-num{color:var(--bronze-text);}
 
 /* ---------- Toolbar ---------- */
-.toolbar{display:grid; grid-template-columns:repeat(6,1fr); gap:5px;}
+.toolbar{display:grid; grid-template-columns:repeat(4,1fr); gap:5px;}
 .tool{padding:9px 4px; border-radius:8px; text-align:center; font-size:10px; font-weight:700; border:1px solid var(--border2); color:var(--text-soft); cursor:pointer; user-select:none; letter-spacing:.4px; transition:all .12s; line-height:1.1;}
 .tool:active{transform:scale(.96);}
 .tool svg{display:block; margin:0 auto 3px; width:16px; height:16px;}
@@ -189,7 +189,7 @@ const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O'].sl
 let state = {
   screen: 'setup',
   config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20 },
-  map: { lines: { outside:null, inside:null, orilla:null }, refs: [] },
+  map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[] },
   waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
   activeMode: 'mejor',  // mejor | media | otra | line-out | line-in | line-ori | ref | erase
@@ -429,6 +429,14 @@ function renderObserve(){
       </div>
 
       <div class="toolbar" style="margin-top:10px;">
+        <div class="tool" onclick="triggerPhotoUpload()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          FOTO
+        </div>
+        <div class="tool ${state.activeMode==='draw'?'on':''}" onclick="setMode('draw')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+          DIBUJ
+        </div>
         <div class="tool out ${state.activeMode==='line-out'?'on':''}" onclick="setMode('line-out')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="3,2"/></svg>
           OUT
@@ -454,6 +462,14 @@ function renderObserve(){
           BORRAR
         </div>
       </div>
+      <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this)">
+      ${state.map.photoDataUrl ? `<div style="display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:11px;">
+        <span style="color:var(--grey);font-weight:600;">Foto:</span>
+        <input type="range" min="20" max="100" step="5" value="${Math.round((state.map.photoOpacity||0.7)*100)}" oninput="state.map.photoOpacity=parseInt(this.value)/100;save();updatePhotoOpacity();" style="flex:1;">
+        <span class="mono" id="photoPct" style="color:var(--cyan);font-weight:700;min-width:32px;text-align:right;">${Math.round((state.map.photoOpacity||0.7)*100)}%</span>
+        <button onclick="if(confirm('¿Quitar la foto?')){state.map.photoDataUrl=null;save();render();}" style="color:var(--coral);font-weight:600;padding:0 4px;">×</button>
+      </div>` : ''}
+      ${(state.map.freehand && state.map.freehand.length) ? `<div style="margin-top:6px;text-align:right;"><button onclick="if(confirm('¿Borrar todos los trazos?')){state.map.freehand=[];save();render();}" style="font-size:11px;color:var(--coral);font-weight:600;">× Limpiar ${state.map.freehand.length} trazo${state.map.freehand.length===1?'':'s'}</button></div>` : ''}
       <div style="font-size:10px;color:var(--grey);text-align:center;margin-top:6px;line-height:1.4;">
         ${modeHint(state.activeMode)}
       </div>
@@ -482,6 +498,7 @@ function modeHint(mode){
     case 'line-ori': return state.pendingLineStart ? 'tap el segundo punto de la línea ORILLA' : 'tap el primer punto de la línea ORILLA';
     case 'ref': return 'tap donde quieras plantar la referencia (palmera, casa, poste...)';
     case 'erase': return 'tap un pin para borrarlo';
+    case 'draw': return 'dibujá con el dedo sobre la cuadrícula (esbozá orilla, banco, lineup...)';
   }
   return '';
 }
@@ -512,7 +529,8 @@ function renderMapSVG(){
   const cellW = MAP_W / GRID_COLS;
   const cellH = MAP_H / GRID_ROWS;
 
-  // Background gradient simulando océano → white water → playa
+  // Background: foto si hay, o gradient simulado
+  const hasPhoto = !!state.map.photoDataUrl;
   const bg = `<defs>
     <linearGradient id="oc" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#021126"/>
@@ -522,10 +540,17 @@ function renderMapSVG(){
       <stop offset="100%" stop-color="#3a4a2e"/>
     </linearGradient>
   </defs>
-  <rect width="${MAP_W}" height="${MAP_H}" fill="url(#oc)"/>`;
+  ${hasPhoto
+    ? `<rect width="${MAP_W}" height="${MAP_H}" fill="#021126"/><image id="mapPhoto" href="${state.map.photoDataUrl}" x="0" y="0" width="${MAP_W}" height="${MAP_H}" preserveAspectRatio="xMidYMid slice" opacity="${state.map.photoOpacity||0.7}"/>`
+    : `<rect width="${MAP_W}" height="${MAP_H}" fill="url(#oc)"/>`}`;
 
-  // Ola decorativa
-  const wave = `<path d="M 0 ${MAP_H*0.4} Q ${MAP_W*0.35} ${MAP_H*0.5} ${MAP_W*0.65} ${MAP_H*0.32} T ${MAP_W} ${MAP_H*0.22}" stroke="#f5f5f5" stroke-width="8" fill="none" opacity="0.45"/>`;
+  // Ola decorativa solo cuando NO hay foto
+  const wave = hasPhoto ? '' : `<path d="M 0 ${MAP_H*0.4} Q ${MAP_W*0.35} ${MAP_H*0.5} ${MAP_W*0.65} ${MAP_H*0.32} T ${MAP_W} ${MAP_H*0.22}" stroke="#f5f5f5" stroke-width="8" fill="none" opacity="0.45"/>`;
+
+  // Trazos libres
+  const freehandPaths = (state.map.freehand||[]).map((p,i)=>
+    `<path class="freehand-path" data-fh="${i}" d="${p.d}" stroke="${p.color||'#ffffff'}" stroke-width="${p.width||2.8}" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9" style="pointer-events:${state.activeMode==='erase'?'auto':'none'};cursor:${state.activeMode==='erase'?'pointer':'default'};"/>`
+  ).join('') + '<path id="drawPreview" d="" stroke="#00D2FF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.85" style="pointer-events:none;"/>';
 
   // Líneas de grilla
   let grid = '<g stroke="rgba(255,255,255,0.16)" stroke-width="0.8">';
@@ -578,8 +603,8 @@ function renderMapSVG(){
     </g>`;
   });
 
-  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-    ${bg}${wave}${grid}${labels}${refLines}${refs}${pins}
+  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="touch-action:none;">
+    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${refs}${pins}
   </svg>`;
 }
 function renderLine(line, color, label){
@@ -604,6 +629,83 @@ function groupWavesByCell(){
 function attachMapHandlers(){
   const svg = document.querySelector('#mapWrap svg'); if(!svg) return;
   svg.addEventListener('click', handleMapTap);
+  svg.addEventListener('pointerdown', handleDrawStart);
+  svg.addEventListener('pointermove', handleDrawMove);
+  svg.addEventListener('pointerup', handleDrawEnd);
+  svg.addEventListener('pointercancel', handleDrawEnd);
+  svg.addEventListener('pointerleave', handleDrawEnd);
+}
+
+let _drawing = false;
+let _drawingPath = '';
+function svgCoordsFromEvent(e){
+  const svg = e.currentTarget;
+  const rect = svg.getBoundingClientRect();
+  const sx = MAP_W / rect.width;
+  const sy = MAP_H / rect.height;
+  return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+}
+function handleDrawStart(e){
+  if(state.activeMode !== 'draw') return;
+  e.preventDefault();
+  const {x,y} = svgCoordsFromEvent(e);
+  _drawing = true;
+  _drawingPath = `M ${x.toFixed(1)} ${y.toFixed(1)}`;
+  const prev = document.getElementById('drawPreview');
+  if(prev) prev.setAttribute('d', _drawingPath);
+  e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId);
+}
+function handleDrawMove(e){
+  if(!_drawing) return;
+  e.preventDefault();
+  const {x,y} = svgCoordsFromEvent(e);
+  _drawingPath += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  const prev = document.getElementById('drawPreview');
+  if(prev) prev.setAttribute('d', _drawingPath);
+}
+function handleDrawEnd(e){
+  if(!_drawing) return;
+  _drawing = false;
+  // Solo guardar si tiene al menos un L (más de 1 punto)
+  if(_drawingPath.includes(' L ')){
+    state.map.freehand = state.map.freehand || [];
+    state.map.freehand.push({ d: _drawingPath, color: '#ffffff', width: 2.8 });
+    save();
+    render();
+  } else {
+    const prev = document.getElementById('drawPreview');
+    if(prev) prev.setAttribute('d', '');
+  }
+  _drawingPath = '';
+}
+
+function triggerPhotoUpload(){
+  const inp = document.getElementById('photoInput');
+  if(inp) inp.click();
+}
+function handlePhotoUpload(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 6 * 1024 * 1024){
+    if(!confirm('La foto pesa '+(file.size/1024/1024).toFixed(1)+'MB. Puede ser lenta. ¿Continuar?')) return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.map.photoDataUrl = e.target.result;
+    if(!state.map.photoOpacity) state.map.photoOpacity = 0.7;
+    save();
+    render();
+    toast('Foto agregada');
+  };
+  reader.onerror = () => toast('Error leyendo la foto');
+  reader.readAsDataURL(file);
+  input.value = '';  // reset para poder re-subir la misma foto
+}
+function updatePhotoOpacity(){
+  const img = document.getElementById('mapPhoto');
+  if(img) img.setAttribute('opacity', state.map.photoOpacity || 0.7);
+  const pct = document.getElementById('photoPct');
+  if(pct) pct.textContent = Math.round((state.map.photoOpacity||0.7)*100)+'%';
 }
 function handleMapTap(e){
   const svg = e.currentTarget;
@@ -657,6 +759,16 @@ function handleMapTap(e){
   }
 
   if(mode==='erase'){
+    // Tap sobre trazo libre → borrar ese trazo
+    if(e.target.classList && e.target.classList.contains('freehand-path')){
+      const idx = parseInt(e.target.dataset.fh);
+      if(!isNaN(idx)){
+        state.map.freehand.splice(idx, 1);
+        save(); render();
+        toast('Trazo borrado');
+      }
+      return;
+    }
     // Si tap sobre pin → borrar todo el cluster (con confirm)
     if(e.target.closest('.wave-pin')){
       const cell = e.target.closest('.wave-pin').dataset.cell;
