@@ -96,7 +96,7 @@ input,textarea,select{font-family:inherit;}
 
 /* ---------- Timer ---------- */
 .timer-bar{display:flex; justify-content:space-between; align-items:center; gap:12px;}
-.timer-big{font-size:28px; font-weight:700; color:var(--cyan); font-family:'DM Mono',monospace; line-height:1;}
+.timer-big{font-size:28px; font-weight:700; color:var(--text); font-family:'DM Mono',monospace; line-height:1;}
 .timer-sub{font-size:11px; color:var(--grey); margin-top:3px;}
 .timer-stop{font-size:13px; color:var(--coral); font-weight:600; padding:8px 14px; border:1px solid rgba(252,165,165,.4); border-radius:8px;}
 .timer-warn{color:var(--gold-text) !important;}
@@ -139,8 +139,8 @@ input,textarea,select{font-family:inherit;}
 .report-hero-coord{font-family:'DM Mono',monospace; font-size:44px; font-weight:700; color:var(--gold-text); line-height:.95; letter-spacing:-.02em;}
 .report-block.silver .report-hero-coord{color:var(--silver-text);}
 .report-block.bronze .report-hero-coord{color:var(--bronze-text);}
-.report-hero-arrow{color:var(--cyan); font-size:22px; font-weight:300; margin:0 12px;}
-.report-hero-time{font-family:'DM Mono',monospace; font-size:24px; font-weight:600; color:var(--cyan);}
+.report-hero-arrow{color:var(--text-soft); font-size:22px; font-weight:300; margin:0 12px;}
+.report-hero-time{font-family:'DM Mono',monospace; font-size:24px; font-weight:600; color:var(--text);}
 .report-hero-row{display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap;}
 .report-hero-sub{font-size:13px; color:var(--text-soft); margin-top:6px; line-height:1.4;}
 .report-hero-sub strong{color:var(--text); font-weight:500;}
@@ -378,7 +378,7 @@ function renderSetup(){
         </div>
         <div>
           <div class="label">Hora local</div>
-          <div class="inp mono" style="text-align:center;font-weight:700;color:var(--cyan);" id="liveClock">--:--</div>
+          <div class="inp mono" style="text-align:center;font-weight:700;color:var(--text);" id="liveClock">--:--</div>
         </div>
       </div>
     </section>
@@ -389,7 +389,7 @@ function renderSetup(){
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div class="label" style="margin:0;">Tamaño</div>
-          <div class="mono" style="font-size:13px;font-weight:700;color:var(--cyan);" id="sizeLabel">${sizeLabel(c.conditions.sizeFt)}</div>
+          <div class="mono" style="font-size:13px;font-weight:700;color:var(--text);" id="sizeLabel">${sizeLabel(c.conditions.sizeFt)}</div>
         </div>
         <input type="range" min="1" max="12" step="0.5" value="${c.conditions.sizeFt}" oninput="state.config.conditions.sizeFt=parseFloat(this.value);document.getElementById('sizeLabel').textContent=sizeLabel(this.value);save();" style="width:100%;">
         <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;"><span>1 ft</span><span>6 ft</span><span>12+ ft</span></div>
@@ -398,7 +398,7 @@ function renderSetup(){
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div class="label" style="margin:0;">Marea</div>
-          <div class="mono" style="font-size:13px;font-weight:700;color:var(--cyan);" id="tideLabel">${tideLabel(c.conditions.tideLevel, c.conditions.tideDir)}</div>
+          <div class="mono" style="font-size:13px;font-weight:700;color:var(--text);" id="tideLabel">${tideLabel(c.conditions.tideLevel, c.conditions.tideDir)}</div>
         </div>
         <input type="range" min="0" max="100" step="5" value="${c.conditions.tideLevel}" oninput="state.config.conditions.tideLevel=parseInt(this.value);document.getElementById('tideLabel').textContent=tideLabel(this.value, state.config.conditions.tideDir);save();" style="width:100%;">
         <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;"><span>baja</span><span>media</span><span>alta</span></div>
@@ -540,7 +540,7 @@ function renderObserve(){
       ${state.map.photoDataUrl ? `<div style="display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:8px;font-size:11px;">
         <span style="color:var(--grey);font-weight:600;">Foto:</span>
         <input type="range" min="20" max="100" step="5" value="${Math.round((state.map.photoOpacity||0.7)*100)}" oninput="state.map.photoOpacity=parseInt(this.value)/100;save();updatePhotoOpacity();" style="flex:1;">
-        <span class="mono" id="photoPct" style="color:var(--cyan);font-weight:700;min-width:32px;text-align:right;">${Math.round((state.map.photoOpacity||0.7)*100)}%</span>
+        <span class="mono" id="photoPct" style="color:var(--text);font-weight:700;min-width:32px;text-align:right;">${Math.round((state.map.photoOpacity||0.7)*100)}%</span>
         <button onclick="if(confirm('¿Quitar la foto?')){state.map.photoDataUrl=null;save();render();}" style="color:var(--coral);font-weight:600;padding:0 4px;">×</button>
       </div>` : ''}
       ${(state.map.freehand && state.map.freehand.length) ? `<div style="margin-top:6px;text-align:right;"><button onclick="if(confirm('¿Borrar todos los trazos?')){state.map.freehand=[];save();render();}" style="font-size:11px;color:var(--coral);font-weight:600;">× Limpiar ${state.map.freehand.length} trazo${state.map.freehand.length===1?'':'s'}</button></div>` : ''}
@@ -582,7 +582,7 @@ function renderRecentItem(w){
   return `<div class="recent-item" onclick="openEditWaveModal('${w.id}')" style="cursor:pointer;">
     <span style="color:${c};font-weight:700;">● ${w.category.toUpperCase()}</span>
     <span class="recent-coord">${coordLbl(w)}</span>
-    ${w.score?`<span style="font-size:10px;background:rgba(0,210,255,.15);color:var(--cyan);padding:1px 6px;border-radius:8px;font-weight:700;">${w.score}/10</span>`:''}
+    ${w.score?`<span style="font-size:10px;background:rgba(255,255,255,.08);color:var(--text);padding:1px 6px;border-radius:8px;font-weight:700;">${w.score}/10</span>`:''}
     <span class="recent-time mono">+${fmtMMSS(w.ts)}</span>
     <button onclick="event.stopPropagation();removeWave('${w.id}')" style="color:var(--coral);font-size:14px;padding:0 4px;line-height:1;" title="Borrar">×</button>
   </div>`;
