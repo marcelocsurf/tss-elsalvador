@@ -906,11 +906,21 @@ function renderReportBlock(cat, s, lbl, score){
   const cls = cat==='mejor'?'':cat==='media'?'silver':'bronze';
   const refsForZone = nearestRefs(s.topCell.col, s.topCell.row);
   const refsLabel = refsForZone.length ? ` (cerca de ${refsForZone.map(r=>r.label).join(', ')})` : '';
+  // Comparación score estimado vs real (cuando hay scores individuales)
+  let scoreLine = '';
+  if(s.scoredCount > 0){
+    const real = s.avgScore.toFixed(1);
+    const diff = s.avgScore - score;
+    const diffLbl = Math.abs(diff) < 0.3 ? '≈ coincide' : diff > 0 ? `↑ +${diff.toFixed(1)}` : `↓ ${diff.toFixed(1)}`;
+    const diffColor = Math.abs(diff) < 0.3 ? 'var(--foam)' : diff > 0 ? 'var(--gold-text)' : 'var(--coral)';
+    scoreLine = `<div class="report-stat" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">📊 Promedio real <strong>${real}/10</strong> de ${s.scoredCount} ola${s.scoredCount===1?'':'s'} con score · estimado ${score} <span style="color:${diffColor};font-weight:700;">${diffLbl}</span></div>`;
+  }
   return `<div class="report-block ${cls}">
-    <div class="report-h">${lbl} · score ${score}</div>
+    <div class="report-h">${lbl} · score estimado ${score}</div>
     <div class="report-stat">${s.count} ola${s.count===1?'':'s'} · zona principal <strong>${rowToLetter(s.topCell.row)}${s.topCell.col}</strong>${refsLabel}</div>
     <div class="report-stat">Sale cada <strong>${fmtMMSS(s.avgInterval)}</strong> en promedio</div>
     ${s.setsDetected ? `<div class="report-stat">${s.setsDetected} set${s.setsDetected===1?'':'s'} detectado${s.setsDetected===1?'':'s'} · promedio <strong>${s.avgPerSet}</strong> olas/set · entre sets <strong>${fmtMMSS(s.avgBetweenSets)}</strong></div>` : ''}
+    ${scoreLine}
   </div>`;
 }
 function renderPlan(stats, cl){
@@ -918,12 +928,25 @@ function renderPlan(stats, cl){
   if(!obj || stats.mejor.count + stats.media.count + stats.otra.count === 0){
     return `<div class="plan-card"><div class="plan-h">🏁 Plan táctico</div><div class="report-stat">Definí un objetivo de heat para generar el plan.</div></div>`;
   }
+  // Si hay suficientes scores reales (≥2 por categoría), usamos avg real en vez del estimado
+  const MIN_SCORED = 2;
+  const score = {
+    mejor: (stats.mejor.scoredCount >= MIN_SCORED) ? stats.mejor.avgScore : cl.scores.mejor,
+    media: (stats.media.scoredCount >= MIN_SCORED) ? stats.media.avgScore : cl.scores.media,
+    otra:  (stats.otra.scoredCount  >= MIN_SCORED) ? stats.otra.avgScore  : cl.scores.otra,
+  };
+  const usingReal = {
+    mejor: stats.mejor.scoredCount >= MIN_SCORED,
+    media: stats.media.scoredCount >= MIN_SCORED,
+    otra:  stats.otra.scoredCount  >= MIN_SCORED,
+  };
+  const realityChip = (cat) => usingReal[cat] ? `<span style="font-size:9px;background:rgba(52,211,153,.18);color:var(--foam);padding:1px 5px;border-radius:6px;font-weight:700;margin-left:3px;">REAL</span>` : '';
   const combos = [
-    { name:'1 MEJOR + 1 MEDIA', total: cl.scores.mejor + cl.scores.media, requires:{mejor:1,media:1} },
-    { name:'2 MEJOR', total: cl.scores.mejor*2, requires:{mejor:2} },
-    { name:'2 MEDIA + 1 OTRA', total: cl.scores.media*2 + cl.scores.otra, requires:{media:2,otra:1} },
-    { name:'1 MEJOR + 1 OTRA', total: cl.scores.mejor + cl.scores.otra, requires:{mejor:1,otra:1} },
-    { name:'3 OTRA', total: cl.scores.otra*3, requires:{otra:3} },
+    { name:`1 MEJOR${realityChip('mejor')} + 1 MEDIA${realityChip('media')}`, total: score.mejor + score.media, requires:{mejor:1,media:1} },
+    { name:`2 MEJOR${realityChip('mejor')}`, total: score.mejor*2, requires:{mejor:2} },
+    { name:`2 MEDIA${realityChip('media')} + 1 OTRA${realityChip('otra')}`, total: score.media*2 + score.otra, requires:{media:2,otra:1} },
+    { name:`1 MEJOR${realityChip('mejor')} + 1 OTRA${realityChip('otra')}`, total: score.mejor + score.otra, requires:{mejor:1,otra:1} },
+    { name:`3 OTRA${realityChip('otra')}`, total: score.otra*3, requires:{otra:3} },
   ];
   const validForData = combos.filter(c=>{
     return (c.requires.mejor||0) <= stats.mejor.count
@@ -982,6 +1005,10 @@ function statsForCategory(category){
     for(let i=1; i<waves.length; i++) intervals.push(waves[i].ts - waves[i-1].ts);
     avgInterval = intervals.reduce((s,x)=>s+x,0) / intervals.length;
   }
+  // Score promedio real (de las olas que tienen score asignado)
+  const scoredWaves = waves.filter(w => typeof w.score === 'number' && w.score > 0);
+  const scoredCount = scoredWaves.length;
+  const avgScore = scoredCount ? (scoredWaves.reduce((s,w)=>s+w.score, 0) / scoredCount) : null;
   // Detección de sets: 3+ olas en <2 min consecutivas
   const SET_GAP = 120000;
   const sets = [];
@@ -1003,7 +1030,7 @@ function statsForCategory(category){
     for(let i=1; i<sets.length; i++) gaps.push(sets[i][0].ts - sets[i-1][sets[i-1].length-1].ts);
     avgBetweenSets = gaps.reduce((s,x)=>s+x,0) / gaps.length;
   }
-  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets };
+  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets, scoredCount, avgScore };
 }
 function nearestRefs(col, row){
   if(!state.map.refs.length) return [];
