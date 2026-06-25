@@ -915,12 +915,30 @@ function renderReportBlock(cat, s, lbl, score){
     const diffColor = Math.abs(diff) < 0.3 ? 'var(--foam)' : diff > 0 ? 'var(--gold-text)' : 'var(--coral)';
     scoreLine = `<div class="report-stat" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">📊 Promedio real <strong>${real}/10</strong> de ${s.scoredCount} ola${s.scoredCount===1?'':'s'} con score · estimado ${score} <span style="color:${diffColor};font-weight:700;">${diffLbl}</span></div>`;
   }
+  // Hot zones múltiples (cuando hay 2+ picos separados, útil para beach breaks)
+  let zonesBlock = '';
+  if(s.zones && s.zones.length >= 2){
+    zonesBlock = `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);">
+      <div style="font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.6px;margin-bottom:6px;">🎯 ${s.zones.length} ZONAS DETECTADAS · el atleta elige según sus tools</div>
+      ${s.zones.map((z,i)=>{
+        const zRefs = nearestRefs(z.col, z.row);
+        const zRefLabel = zRefs.length ? ` <span style="color:var(--grey);">(${zRefs.map(r=>r.label).join(', ')})</span>` : '';
+        const scoreInfo = z.avgScore !== null ? ` · score real <strong>${z.avgScore.toFixed(1)}</strong>` : '';
+        const intervalInfo = z.avgInterval ? ` · cada <strong>${fmtMMSS(z.avgInterval)}</strong>` : ' · ola única';
+        return `<div style="font-size:12px;color:var(--text-soft);padding:4px 0;line-height:1.5;">
+          <span style="display:inline-block;width:18px;height:18px;background:rgba(0,210,255,.18);color:var(--cyan);border-radius:50%;text-align:center;font-weight:700;font-size:11px;line-height:18px;margin-right:6px;font-family:'DM Mono',monospace;">${i+1}</span>
+          <strong style="color:var(--white);font-family:'DM Mono',monospace;">${rowToLetter(z.row)}${z.col}</strong>${zRefLabel} · ${z.count} ola${z.count===1?'':'s'}${scoreInfo}${intervalInfo}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
   return `<div class="report-block ${cls}">
     <div class="report-h">${lbl} · score estimado ${score}</div>
     <div class="report-stat">${s.count} ola${s.count===1?'':'s'} · zona principal <strong>${rowToLetter(s.topCell.row)}${s.topCell.col}</strong>${refsLabel}</div>
     <div class="report-stat">Sale cada <strong>${fmtMMSS(s.avgInterval)}</strong> en promedio</div>
     ${s.setsDetected ? `<div class="report-stat">${s.setsDetected} set${s.setsDetected===1?'':'s'} detectado${s.setsDetected===1?'':'s'} · promedio <strong>${s.avgPerSet}</strong> olas/set · entre sets <strong>${fmtMMSS(s.avgBetweenSets)}</strong></div>` : ''}
     ${scoreLine}
+    ${zonesBlock}
   </div>`;
 }
 function renderPlan(stats, cl){
@@ -998,6 +1016,9 @@ function statsForCategory(category){
   });
   const topKey = Object.entries(cellCount).sort((a,b)=>b[1]-a[1])[0][0];
   const [tc, tr] = topKey.split('-').map(Number);
+  // Hot zones: detecta hasta 3 zonas separadas por al menos 2 celdas
+  // Cada zona ranquea por (count × avgScore) para priorizar densidad + calidad
+  const zones = findHotZones(waves);
   // Intervalo promedio
   let avgInterval = 0;
   if(waves.length > 1){
@@ -1030,7 +1051,38 @@ function statsForCategory(category){
     for(let i=1; i<sets.length; i++) gaps.push(sets[i][0].ts - sets[i-1][sets[i-1].length-1].ts);
     avgBetweenSets = gaps.reduce((s,x)=>s+x,0) / gaps.length;
   }
-  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets, scoredCount, avgScore };
+  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets, scoredCount, avgScore, zones };
+}
+
+function findHotZones(waves){
+  // Agrupa por celda exacta
+  const byCell = {};
+  waves.forEach(w=>{
+    const k = `${w.gridCol}-${w.gridRow}`;
+    if(!byCell[k]) byCell[k] = { col:w.gridCol, row:w.gridRow, waves:[] };
+    byCell[k].waves.push(w);
+  });
+  // Por cada celda, calcula stats
+  const cells = Object.values(byCell).map(c=>{
+    const scored = c.waves.filter(w=>typeof w.score === 'number' && w.score > 0);
+    const avgScore = scored.length ? scored.reduce((s,w)=>s+w.score,0)/scored.length : null;
+    const sortedTs = c.waves.map(w=>w.ts).sort((a,b)=>a-b);
+    const intervals = [];
+    for(let i=1; i<sortedTs.length; i++) intervals.push(sortedTs[i]-sortedTs[i-1]);
+    const avgInterval = intervals.length ? intervals.reduce((s,x)=>s+x,0)/intervals.length : null;
+    // Ranking: prioriza densidad × calidad (si hay score, ponderado; si no, solo count)
+    const rank = c.waves.length * (avgScore !== null ? avgScore : 5);
+    return { col:c.col, row:c.row, count:c.waves.length, avgScore, avgInterval, rank };
+  });
+  cells.sort((a,b)=>b.rank - a.rank);
+  // Selecciona hasta 3 zonas separadas por al menos 2 celdas de distancia
+  const selected = [];
+  for(const c of cells){
+    if(selected.length >= 3) break;
+    const tooClose = selected.some(s => Math.abs(s.col-c.col) <= 1 && Math.abs(s.row-c.row) <= 1);
+    if(!tooClose) selected.push(c);
+  }
+  return selected;
 }
 function nearestRefs(col, row){
   if(!state.map.refs.length) return [];
