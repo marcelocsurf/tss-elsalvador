@@ -208,6 +208,20 @@ input,textarea,select{font-family:inherit;}
 /* Toast */
 .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--bg3); border:1px solid var(--cyan); color:var(--text); padding:10px 18px; border-radius:24px; font-size:13px; font-weight:600; z-index:500; box-shadow:0 6px 24px rgba(0,0,0,.4); animation:toastIn .3s ease-out;}
 @keyframes toastIn{from{opacity:0; transform:translate(-50%,12px);} to{opacity:1; transform:translate(-50%,0);}}
+
+/* Box breathing screen */
+.breath-screen{position:fixed; inset:0; background:radial-gradient(ellipse at center, #0a3a5c 0%, #021126 70%, #000a18 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:900; padding:24px;}
+.breath-intro{font-family:'Instrument Serif',serif; font-style:italic; font-size:22px; color:var(--text); text-align:center; line-height:1.4; max-width:480px; margin-bottom:28px; opacity:.95;}
+.breath-circle-wrap{position:relative; width:240px; height:240px; display:flex; align-items:center; justify-content:center;}
+.breath-circle{position:absolute; width:120px; height:120px; border-radius:50%; background:rgba(0,210,255,.12); border:2px solid rgba(0,210,255,.55); transition:transform 4s cubic-bezier(.5,.0,.5,1), background 4s ease, border-color 4s ease;}
+.breath-circle.in{transform:scale(1.9); background:rgba(34,211,238,.25); border-color:#22D3EE;}
+.breath-circle.hold{transform:scale(1.9); background:rgba(34,211,238,.18); border-color:#22D3EE;}
+.breath-circle.out{transform:scale(1); background:rgba(0,210,255,.12); border-color:rgba(0,210,255,.55);}
+.breath-circle.holdout{transform:scale(1); background:rgba(0,210,255,.08); border-color:rgba(0,210,255,.4);}
+.breath-phase{position:absolute; font-family:'Outfit',sans-serif; font-weight:300; font-size:24px; color:var(--text); letter-spacing:2px; text-transform:uppercase; pointer-events:none;}
+.breath-meta{margin-top:32px; font-family:'DM Mono',monospace; font-size:12px; color:var(--text-soft); letter-spacing:1.5px;}
+.breath-skip{margin-top:24px; font-size:12px; color:var(--text-soft); padding:8px 18px; border:1px solid var(--border2); border-radius:20px; transition:all .15s;}
+.breath-skip:hover{color:var(--text); border-color:var(--text-soft);}
 </style>
 </head>
 <body>
@@ -233,6 +247,8 @@ let state = {
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
   activeMode: 'mejor',  // mejor | media | otra | line-out | line-in | line-ori | ref | erase | draw
   activeDirection: null,  // 'L' | 'R' | null — sticky modifier; cada wave hereda este valor
+  activePrediction: null, // {col, row} — predicción pendiente esperando próxima MEJOR
+  predictionStats: { tried:0, hit:0, near:0 },
   pendingLineStart: null,
   closing: { description:'', scores: { mejor:8.5, media:6.5, otra:5.0 }, heatObjective:14.5 }
 };
@@ -424,6 +440,10 @@ function renderSetup(){
     <button class="btn btn-cyan btn-block btn-lg" onclick="goToObserve()" style="margin-top:8px;">
       Empezar análisis →
     </button>
+    <button class="btn btn-ghost btn-block" onclick="startBreathingThenObserve()" style="margin-top:8px;border:1px solid rgba(34,211,238,.3);color:#22D3EE;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+      Conectar 60 seg primero · box breathing
+    </button>
   </main>`;
 }
 function renderChipGroup(key, label, opts, current){
@@ -438,6 +458,72 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 function goToObserve(){
   if(!state.config.spotName.trim()){ toast('Poné un nombre al spot'); return; }
+  if(!state.timer.startedAt){
+    state.timer.startedAt = nowMs();
+    state.timer.durationMs = state.config.durationMin * 60 * 1000;
+  }
+  state.screen = 'observe';
+  save(); render();
+  startTimerLoop();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   BOX BREATHING · 4-4-4-4 × 4 ciclos · 64s total
+   Antes de observar: calmar sistema nervioso, abrir visión periférica
+   ════════════════════════════════════════════════════════════════════ */
+function startBreathingThenObserve(){
+  if(!state.config.spotName.trim()){ toast('Poné un nombre al spot'); return; }
+  showBreathingScreen();
+}
+function showBreathingScreen(){
+  let scr = document.getElementById('breathScreen'); if(scr) scr.remove();
+  scr = document.createElement('div');
+  scr.id = 'breathScreen';
+  scr.className = 'breath-screen';
+  scr.innerHTML = `
+    <div class="breath-intro">Es hora de conectar con el aquí y ahora · sentí el océano antes de leerlo</div>
+    <div class="breath-circle-wrap">
+      <div class="breath-circle" id="breathCircle"></div>
+      <div class="breath-phase" id="breathPhase">Listo</div>
+    </div>
+    <div class="breath-meta" id="breathMeta">Ciclo 1 de 4 · 4-4-4-4</div>
+    <button class="breath-skip" onclick="endBreathing(false)">Saltar →</button>
+  `;
+  document.body.appendChild(scr);
+  // Empezamos después de 500ms para que la pantalla aparezca antes de la primera inhalación
+  setTimeout(()=> runBreathingCycle(1), 500);
+}
+let _breathTimers = [];
+function runBreathingCycle(cycle){
+  if(cycle > 4){ endBreathing(true); return; }
+  const meta = document.getElementById('breathMeta');
+  if(meta) meta.textContent = `Ciclo ${cycle} de 4 · 4-4-4-4`;
+  const phases = [
+    { lbl:'Inhalá', cls:'in',      ms:4000 },
+    { lbl:'Mantené', cls:'hold',    ms:4000 },
+    { lbl:'Exhalá', cls:'out',     ms:4000 },
+    { lbl:'Mantené', cls:'holdout', ms:4000 },
+  ];
+  let elapsed = 0;
+  phases.forEach((p, i) => {
+    const t = setTimeout(()=>{
+      const c = document.getElementById('breathCircle');
+      const lbl = document.getElementById('breathPhase');
+      if(c){ c.classList.remove('in','hold','out','holdout'); c.classList.add(p.cls); }
+      if(lbl) lbl.textContent = p.lbl;
+    }, elapsed);
+    _breathTimers.push(t);
+    elapsed += p.ms;
+  });
+  const nextT = setTimeout(()=> runBreathingCycle(cycle+1), elapsed);
+  _breathTimers.push(nextT);
+}
+function endBreathing(completed){
+  _breathTimers.forEach(t => clearTimeout(t));
+  _breathTimers = [];
+  const scr = document.getElementById('breathScreen'); if(scr) scr.remove();
+  if(completed) toast('🌊 Listo · conectado');
+  // Arranca observación
   if(!state.timer.startedAt){
     state.timer.startedAt = nowMs();
     state.timer.durationMs = state.config.durationMin * 60 * 1000;
@@ -551,6 +637,8 @@ function renderObserve(){
         <button onclick="if(confirm('¿Quitar la foto?')){state.map.photoDataUrl=null;save();render();}" style="color:var(--coral);font-weight:600;padding:0 4px;">×</button>
       </div>` : ''}
       ${(state.map.freehand && state.map.freehand.length) ? `<div style="margin-top:6px;text-align:right;"><button onclick="if(confirm('¿Borrar todos los trazos?')){state.map.freehand=[];save();render();}" style="font-size:11px;color:var(--coral);font-weight:600;">× Limpiar ${state.map.freehand.length} trazo${state.map.freehand.length===1?'':'s'}</button></div>` : ''}
+
+      ${renderPredictionWidget()}
       <div style="font-size:10px;color:var(--grey);text-align:center;margin-top:6px;line-height:1.4;">
         ${modeHint(state.activeMode)}
       </div>
@@ -580,8 +668,70 @@ function modeHint(mode){
     case 'ref': return 'tap donde quieras plantar la referencia (palmera, casa, poste...)';
     case 'erase': return 'tap un pin para borrarlo';
     case 'draw': return 'dibujá con el dedo sobre la cuadrícula (esbozá orilla, banco, lineup...)';
+    case 'predict': return '🎯 tap la celda donde predecís que sale la PRÓXIMA mejor';
   }
   return '';
+}
+
+function renderPredictionWidget(){
+  const ps = state.predictionStats || {tried:0, hit:0, near:0};
+  const hasStats = ps.tried > 0;
+  const accuracy = hasStats ? Math.round(((ps.hit + ps.near*0.5) / ps.tried) * 100) : 0;
+  if(state.activePrediction){
+    const p = state.activePrediction;
+    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(34,211,238,.1);border:1.5px dashed #22D3EE;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div style="font-size:11px;color:#22D3EE;font-weight:700;line-height:1.4;">🎯 Predijiste <strong style="font-family:'DM Mono',monospace;font-size:13px;">${rowToLetter(p.row)}${p.col}</strong> · esperando próxima MEJOR...</div>
+      <button onclick="cancelPrediction()" style="font-size:11px;color:var(--text-soft);padding:4px 10px;border:1px solid var(--border2);border-radius:6px;flex-shrink:0;">Cancelar</button>
+    </div>`;
+  }
+  if(state.activeMode === 'predict'){
+    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(34,211,238,.08);border:1.5px solid #22D3EE;border-radius:10px;text-align:center;">
+      <div style="font-size:11px;color:#22D3EE;font-weight:700;">🎯 Tap la celda donde predecís la próxima MEJOR</div>
+      <button onclick="setMode('mejor')" style="margin-top:6px;font-size:11px;color:var(--text-soft);padding:4px 12px;border:1px solid var(--border2);border-radius:6px;">Cancelar</button>
+    </div>`;
+  }
+  return `<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 4px;">
+    <button onclick="startPrediction()" style="font-size:12px;color:#22D3EE;padding:8px 14px;border:1.5px solid rgba(34,211,238,.4);border-radius:9px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+      🎯 Predecir próxima MEJOR
+    </button>
+    ${hasStats ? `<div style="font-size:11px;color:var(--text-soft);font-family:'DM Mono',monospace;">
+      ${ps.hit} aciertos · ${ps.near} cerca · ${ps.tried} intentos · <strong style="color:#22D3EE;">${accuracy}%</strong>
+    </div>` : `<div style="font-size:11px;color:var(--grey);font-style:italic;">opt-in · entrenar lectura del mar</div>`}
+  </div>`;
+}
+
+function startPrediction(){
+  if(state.activePrediction){ toast('Ya tenés una predicción pendiente'); return; }
+  state.activeMode = 'predict';
+  save(); render();
+}
+function cancelPrediction(){
+  state.activePrediction = null;
+  state.activeMode = 'mejor';
+  save(); render();
+}
+function recordPrediction(col, row){
+  state.activePrediction = { col, row };
+  state.activeMode = 'mejor';  // vuelve al modo MEJOR automáticamente
+  save(); render();
+  toast(`🎯 Predijiste ${rowToLetter(row)}${col} · plantá la próxima MEJOR donde realmente salga`);
+}
+function checkPredictionAgainst(col, row){
+  if(!state.activePrediction) return;
+  const p = state.activePrediction;
+  const dist = Math.max(Math.abs(p.col - col), Math.abs(p.row - row));
+  state.predictionStats = state.predictionStats || { tried:0, hit:0, near:0 };
+  state.predictionStats.tried++;
+  if(dist === 0){
+    state.predictionStats.hit++;
+    toast(`🎯 ¡ACERTASTE ${rowToLetter(row)}${col}! Estás leyendo el mar.`, 2800);
+  } else if(dist <= 1){
+    state.predictionStats.near++;
+    toast(`Cerca · predijiste ${rowToLetter(p.row)}${p.col} · salió ${rowToLetter(row)}${col} (a 1 celda)`, 2800);
+  } else {
+    toast(`Lejos · predijiste ${rowToLetter(p.row)}${p.col} · salió ${rowToLetter(row)}${col}`, 2800);
+  }
+  state.activePrediction = null;
 }
 function renderRecentItem(w){
   const colorMap = { mejor:'var(--gold-text)', media:'var(--silver-text)', otra:'var(--bronze-text)' };
@@ -720,8 +870,22 @@ function renderMapSVG(){
     </g>`;
   });
 
+  // Pin de predicción pendiente (cyan punteado pulsante)
+  let predictionPin = '';
+  if(state.activePrediction){
+    const p = state.activePrediction;
+    const pcx = (p.col - 0.5) * cellW;
+    const pcy = (p.row - 0.5) * cellH;
+    predictionPin = `<g style="pointer-events:none;">
+      <circle cx="${pcx}" cy="${pcy}" r="18" fill="rgba(34,211,238,0.18)" stroke="#22D3EE" stroke-width="2.5" stroke-dasharray="4,3">
+        <animate attributeName="r" values="18;22;18" dur="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0.5;1" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+      <text x="${pcx}" y="${pcy+4}" text-anchor="middle" font-size="14" font-weight="700" fill="#22D3EE">🎯</text>
+    </g>`;
+  }
   return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="touch-action:none;">
-    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${refs}${pins}
+    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${refs}${pins}${predictionPin}
   </svg>`;
 }
 function renderLine(line, color, label){
@@ -854,6 +1018,16 @@ function handleMapTap(e){
     return;
   }
 
+  if(mode==='predict'){
+    const cellW = MAP_W / GRID_COLS;
+    const cellH = MAP_H / GRID_ROWS;
+    const col = Math.floor(x / cellW) + 1;
+    const row = Math.floor(y / cellH) + 1;
+    if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
+    recordPrediction(col, row);
+    return;
+  }
+
   if(mode==='line-out' || mode==='line-in' || mode==='line-ori'){
     if(!state.pendingLineStart){
       state.pendingLineStart = {x, y};
@@ -913,6 +1087,10 @@ function handleMapTap(e){
 function plantWave(col, row, category){
   const ts = nowMs() - state.timer.startedAt;
   state.waves.push({ id: uid(), gridCol: col, gridRow: row, category, ts, absTime: nowMs(), direction: state.activeDirection || null });
+  // Si había una predicción pendiente y plantamos MEJOR, comparamos
+  if(category === 'mejor' && state.activePrediction){
+    checkPredictionAgainst(col, row);
+  }
   save(); render();
 }
 function toggleDirection(dir){
@@ -1128,6 +1306,8 @@ function renderReport(){
       </div>
     </section>
 
+    ${renderNarrativeSummary(stats, cl)}
+
     <section class="section">
       <div class="section-h"><div class="section-t">Reporte automático</div></div>
       ${renderReportBlock('mejor', stats.mejor, 'MEJOR', cl.scores.mejor)}
@@ -1138,7 +1318,10 @@ function renderReport(){
     </section>
 
     <section class="section">
-      <div class="section-h"><div class="section-t">Mapa final</div></div>
+      <div class="section-h">
+        <div class="section-t">Mapa final</div>
+        ${state.waves.length > 0 ? `<button class="btn btn-ghost" style="padding:6px 14px;font-size:11px;border:1px solid rgba(34,211,238,.4);color:#22D3EE;font-weight:700;" onclick="openReplay()">▶ Ver replay 30s</button>` : ''}
+      </div>
       ${renderMapSVG()}
     </section>
 
@@ -1148,6 +1331,52 @@ function renderReport(){
     </div>
   </main>`;
 }
+function renderNarrativeSummary(stats, cl){
+  if(stats.mejor.count === 0 && stats.media.count === 0 && stats.otra.count === 0){
+    return '';
+  }
+  const m = stats.mejor;
+  const sp = state.config.spotName || 'el spot';
+  const intro = `Hoy <strong>${esc(sp)}</strong> habló.`;
+  let lines = [intro];
+
+  if(m.count > 0){
+    const mainCoord = `${rowToLetter(m.topCell.row)}${m.topCell.col}`;
+    const refs = nearestRefs(m.topCell.col, m.topCell.row);
+    const refLine = refs.length
+      ? `alineadas con <strong>${refs.map(r=>r.label).join(' y ')}</strong>`
+      : `en zona <strong>${mainCoord}</strong>`;
+    const dirLine = m.dirDominant === 'L' ? ', casi siempre <strong>izquierdas</strong>'
+                  : m.dirDominant === 'R' ? ', casi siempre <strong>derechas</strong>'
+                  : m.dirDominant === 'mixed' ? ', mixtas izq/der'
+                  : '';
+    const intervalLine = m.avgInterval ? `, cada <strong>${fmtMMSS(m.avgInterval)}</strong>` : '';
+    const setsLine = m.setsDetected ? ` Vienen en sets de <strong>${m.avgPerSet}</strong> olas cada <strong>${fmtMMSS(m.avgBetweenSets)}</strong>.` : '';
+    lines.push(`Las <strong>mejores</strong> rompen ${refLine}${dirLine}${intervalLine}.${setsLine}`);
+  }
+
+  // Frase táctica final
+  const obj = cl.heatObjective || 0;
+  if(obj && m.count > 0){
+    const score = (m.scoredCount >= 2 ? m.avgScore : cl.scores.mejor) || 0;
+    const scoreMed = stats.media.scoredCount >= 2 ? stats.media.avgScore : cl.scores.media || 0;
+    if(score + scoreMed >= obj){
+      lines.push(`Para batir el heat de <strong>${obj}</strong> alcanza con una mejor + una media. Tu trabajo es estar donde están.`);
+    } else if(stats.otra.count > 0){
+      lines.push(`El heat de <strong>${obj}</strong> está apretado hoy. Mejor combinar volumen: dos medias + una otra.`);
+    }
+  } else if(m.count > 0 && stats.media.count > 0){
+    lines.push(`Si la <strong>mejor</strong> no aparece, las <strong>medias</strong> en ${rowToLetter(stats.media.topCell.row)}${stats.media.topCell.col} salen seguido.`);
+  }
+
+  return `<section class="section" style="background:linear-gradient(135deg,rgba(0,210,255,.06),rgba(168,85,247,.04));border:1px solid rgba(0,210,255,.2);">
+    <div class="section-h"><div class="section-t" style="color:#22D3EE;">Lo que el spot habló hoy</div></div>
+    <div class="serif" style="font-size:18px;line-height:1.6;color:var(--text);font-style:italic;">
+      ${lines.join(' ')}
+    </div>
+  </section>`;
+}
+
 function renderScoreSlider(key, val, color, lbl){
   return `<div class="score-row">
     <span style="color:${color};font-weight:700;font-size:14px;">${lbl.charAt(0)}</span>
@@ -1423,6 +1652,122 @@ function nearestRefs(col, row){
   const withDist = state.map.refs.map(r=>({ ...r, d: Math.hypot(r.x-cx, r.y-cy) }));
   withDist.sort((a,b)=>a.d-b.d);
   return withDist.slice(0, 2).filter(r=>r.d < MAP_W*0.4);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   REPLAY TEMPORAL · ver los pins apareciendo en orden de tiempo (30 seg)
+   ════════════════════════════════════════════════════════════════════ */
+let _replayTimers = [];
+let _replayInterval = null;
+function openReplay(){
+  if(!state.waves.length){ toast('No hay olas para reproducir'); return; }
+  const sorted = [...state.waves].sort((a,b)=>a.ts-b.ts);
+  const maxTs = sorted[sorted.length-1].ts;
+  const REPLAY_DURATION = 30000; // 30 segundos total
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='replayModal';
+  m.innerHTML = `<div class="modal" style="max-width:560px;max-height:92vh;overflow-y:auto;">
+    <div class="modal-h">
+      <div>
+        <div class="modal-t">▶ Replay del análisis</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;">${state.waves.length} olas en 30 seg · ${Math.round(maxTs/60000)} min reales</div>
+      </div>
+      <button class="modal-x" onclick="closeReplay()">×</button>
+    </div>
+    <div id="replayMapWrap" style="position:relative;background:#021126;border-radius:12px;overflow:hidden;">
+      ${renderReplayMapEmpty()}
+    </div>
+    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-family:'DM Mono',monospace;font-size:11px;">
+      <span style="color:var(--text-soft);">Min reales: <strong id="replayMinReal" style="color:var(--text);font-size:14px;">0:00</strong></span>
+      <span style="color:var(--text-soft);">Olas: <strong id="replayCount" style="color:var(--text);font-size:14px;">0 / ${state.waves.length}</strong></span>
+    </div>
+    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:8px;overflow:hidden;">
+      <div id="replayBar" style="height:100%;background:linear-gradient(90deg,#22D3EE,#FBBF24);width:0%;transition:width .1s linear;"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-ghost btn-block" onclick="closeReplay()">Cerrar</button>
+      <button class="btn btn-cyan btn-block" onclick="openReplay()">↺ Repetir</button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeReplay(); };
+  document.body.appendChild(m);
+  // Schedule cada pin en su tiempo proporcional
+  _replayTimers.forEach(t => clearTimeout(t));
+  _replayTimers = [];
+  if(_replayInterval) clearInterval(_replayInterval);
+  const svg = document.querySelector('#replayMapWrap svg');
+  const pinsLayer = svg ? svg.querySelector('#replayPins') : null;
+  const startedAt = Date.now();
+  sorted.forEach((w, idx) => {
+    const proportion = maxTs > 0 ? (w.ts / maxTs) : 0;
+    const delay = proportion * (REPLAY_DURATION - 200) + 100;  // 100ms primero, último a 29.9s
+    const t = setTimeout(() => {
+      if(!pinsLayer) return;
+      const cellW = MAP_W / GRID_COLS;
+      const cellH = MAP_H / GRID_ROWS;
+      const cx = (w.gridCol - 0.5) * cellW;
+      const cy = (w.gridRow - 0.5) * cellH;
+      const colors = { mejor:'#F59E0B', media:'#9CA3AF', otra:'#B45309' };
+      const c = colors[w.category];
+      const r = w.category==='mejor' ? 14 : w.category==='media' ? 11 : 9;
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}" stroke="#fff" stroke-width="2" opacity="0">
+          <animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze"/>
+          <animate attributeName="r" from="${r*1.6}" to="${r}" dur="0.3s" fill="freeze"/>
+        </circle>`;
+      pinsLayer.appendChild(g);
+      const countEl = document.getElementById('replayCount');
+      if(countEl) countEl.textContent = `${idx+1} / ${state.waves.length}`;
+    }, delay);
+    _replayTimers.push(t);
+  });
+  // Update progress + min real cada 100ms
+  _replayInterval = setInterval(() => {
+    const elapsed = Date.now() - startedAt;
+    if(elapsed >= REPLAY_DURATION){ clearInterval(_replayInterval); _replayInterval = null; }
+    const pct = Math.min(100, (elapsed / REPLAY_DURATION) * 100);
+    const bar = document.getElementById('replayBar');
+    if(bar) bar.style.width = pct + '%';
+    const minReal = (elapsed / REPLAY_DURATION) * (maxTs / 60000);
+    const minRealEl = document.getElementById('replayMinReal');
+    if(minRealEl) minRealEl.textContent = fmtMMSS(elapsed / REPLAY_DURATION * maxTs);
+  }, 80);
+}
+function renderReplayMapEmpty(){
+  // Mismo SVG que renderMapSVG pero con un layer <g id="replayPins"> vacío para que se llene en vivo
+  // Y SIN los pins ya existentes
+  const cellW = MAP_W / GRID_COLS;
+  const cellH = MAP_H / GRID_ROWS;
+  const hasPhoto = !!state.map.photoDataUrl;
+  const bg = `<defs>
+    <linearGradient id="ocReplay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#031b3d"/><stop offset="35%" stop-color="#0a5a8a"/><stop offset="55%" stop-color="#19a3c4"/><stop offset="72%" stop-color="#a8e4d3"/><stop offset="85%" stop-color="#e6c889"/><stop offset="100%" stop-color="#5a7a3c"/>
+    </linearGradient>
+  </defs>
+  ${hasPhoto
+    ? `<rect width="${MAP_W}" height="${MAP_H}" fill="#021126"/><image href="${state.map.photoDataUrl}" x="0" y="0" width="${MAP_W}" height="${MAP_H}" preserveAspectRatio="xMidYMid slice" opacity="${state.map.photoOpacity||0.7}"/>`
+    : `<rect width="${MAP_W}" height="${MAP_H}" fill="url(#ocReplay)"/>`}`;
+  let grid = '<g stroke="rgba(236,72,153,0.45)" stroke-width="0.6">';
+  for(let r=1; r<GRID_ROWS; r++) grid += `<line x1="0" y1="${r*cellH}" x2="${MAP_W}" y2="${r*cellH}"/>`;
+  for(let c=1; c<GRID_COLS; c++) grid += `<line x1="${c*cellW}" y1="0" x2="${c*cellW}" y2="${MAP_H}"/>`;
+  grid += '</g>';
+  let refLines = '';
+  if(state.map.lines.outside) refLines += renderLine(state.map.lines.outside, '#A855F7', 'OUT');
+  if(state.map.lines.inside)  refLines += renderLine(state.map.lines.inside,  '#F59E0B', 'IN');
+  if(state.map.lines.orilla)  refLines += renderLine(state.map.lines.orilla,  '#00D2FF', 'OR');
+  let refs = '';
+  state.map.refs.forEach(r=>{
+    refs += `<g><circle cx="${r.x}" cy="${r.y}" r="10" fill="#00D2FF" stroke="#fff" stroke-width="2"/><text x="${r.x}" y="${r.y+3}" text-anchor="middle" font-size="11" font-weight="700" fill="#0A1628">${esc(r.label.charAt(0).toUpperCase())}</text></g>`;
+  });
+  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;">
+    ${bg}${grid}${refLines}${refs}<g id="replayPins"></g>
+  </svg>`;
+}
+function closeReplay(){
+  _replayTimers.forEach(t => clearTimeout(t));
+  _replayTimers = [];
+  if(_replayInterval){ clearInterval(_replayInterval); _replayInterval = null; }
+  document.querySelector('.modal-overlay')?.remove();
 }
 
 function goBackToObserve(){
