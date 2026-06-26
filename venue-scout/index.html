@@ -221,9 +221,9 @@ input,textarea,select{font-family:inherit;}
    ════════════════════════════════════════════════════════════════════ */
 
 const STORAGE_KEY = 'tss_venue_scout_v1';
-const GRID_ROWS = 14;
-const GRID_COLS = 12;
-const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O'].slice(0, GRID_ROWS);
+const GRID_ROWS = 17;
+const GRID_COLS = 15;
+const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P','Q','R'].slice(0, GRID_ROWS);
 
 let state = {
   screen: 'setup',
@@ -231,7 +231,8 @@ let state = {
   map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[] },
   waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
-  activeMode: 'mejor',  // mejor | media | otra | line-out | line-in | line-ori | ref | erase
+  activeMode: 'mejor',  // mejor | media | otra | line-out | line-in | line-ori | ref | erase | draw
+  activeDirection: null,  // 'L' | 'R' | null — sticky modifier; cada wave hereda este valor
   pendingLineStart: null,
   closing: { description:'', scores: { mejor:8.5, media:6.5, otra:5.0 }, heatObjective:14.5 }
 };
@@ -502,6 +503,12 @@ function renderObserve(){
         </div>
       </div>
 
+      <div class="dir-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
+        <button class="dir-btn ${state.activeDirection==='L'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='L'?'#22D3EE':'var(--border2)'};color:${state.activeDirection==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('L')">← IZQ</button>
+        <button class="dir-btn ${state.activeDirection===null?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection===null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection===null?'var(--text-soft)':'var(--border2)'};color:${state.activeDirection===null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;letter-spacing:.4px;" onclick="toggleDirection(null)">SIN DIR</button>
+        <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FBBF24':'var(--border2)'};color:${state.activeDirection==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;" onclick="toggleDirection('R')">DER →</button>
+      </div>
+
       <div class="toolbar" style="margin-top:10px;">
         <div class="tool" onclick="triggerPhotoUpload()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -579,9 +586,15 @@ function modeHint(mode){
 function renderRecentItem(w){
   const colorMap = { mejor:'var(--gold-text)', media:'var(--silver-text)', otra:'var(--bronze-text)' };
   const c = colorMap[w.category];
+  const dirChip = w.direction === 'L'
+    ? `<span style="font-size:10px;color:#22D3EE;font-weight:700;">←IZQ</span>`
+    : w.direction === 'R'
+    ? `<span style="font-size:10px;color:#FBBF24;font-weight:700;">DER→</span>`
+    : '';
   return `<div class="recent-item" onclick="openEditWaveModal('${w.id}')" style="cursor:pointer;">
     <span style="color:${c};font-weight:700;">● ${w.category.toUpperCase()}</span>
     <span class="recent-coord">${coordLbl(w)}</span>
+    ${dirChip}
     ${w.score?`<span style="font-size:10px;background:rgba(255,255,255,.08);color:var(--text);padding:1px 6px;border-radius:8px;font-weight:700;">${w.score}/10</span>`:''}
     <span class="recent-time mono">+${fmtMMSS(w.ts)}</span>
     <button onclick="event.stopPropagation();removeWave('${w.id}')" style="color:var(--coral);font-size:14px;padding:0 4px;line-height:1;" title="Borrar">×</button>
@@ -603,39 +616,52 @@ function renderMapSVG(){
   const cellW = MAP_W / GRID_COLS;
   const cellH = MAP_H / GRID_ROWS;
 
-  // Background: foto si hay, o gradient simulado
+  // Background: foto si hay, o gradient Ocean Tropical
   const hasPhoto = !!state.map.photoDataUrl;
   const bg = `<defs>
     <linearGradient id="oc" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#021126"/>
-      <stop offset="48%" stop-color="#0a3a5c"/>
-      <stop offset="68%" stop-color="#dde7ea"/>
-      <stop offset="88%" stop-color="#8a7a5c"/>
-      <stop offset="100%" stop-color="#3a4a2e"/>
+      <stop offset="0%" stop-color="#031b3d"/>
+      <stop offset="35%" stop-color="#0a5a8a"/>
+      <stop offset="55%" stop-color="#19a3c4"/>
+      <stop offset="72%" stop-color="#a8e4d3"/>
+      <stop offset="85%" stop-color="#e6c889"/>
+      <stop offset="100%" stop-color="#5a7a3c"/>
     </linearGradient>
   </defs>
   ${hasPhoto
     ? `<rect width="${MAP_W}" height="${MAP_H}" fill="#021126"/><image id="mapPhoto" href="${state.map.photoDataUrl}" x="0" y="0" width="${MAP_W}" height="${MAP_H}" preserveAspectRatio="xMidYMid slice" opacity="${state.map.photoOpacity||0.7}"/>`
     : `<rect width="${MAP_W}" height="${MAP_H}" fill="url(#oc)"/>`}`;
 
-  // Ola decorativa solo cuando NO hay foto
-  const wave = hasPhoto ? '' : `<path d="M 0 ${MAP_H*0.4} Q ${MAP_W*0.35} ${MAP_H*0.5} ${MAP_W*0.65} ${MAP_H*0.32} T ${MAP_W} ${MAP_H*0.22}" stroke="#f5f5f5" stroke-width="8" fill="none" opacity="0.45"/>`;
+  // Sin línea decorativa — fondo limpio
+  const wave = '';
 
   // Trazos libres
   const freehandPaths = (state.map.freehand||[]).map((p,i)=>
     `<path class="freehand-path" data-fh="${i}" d="${p.d}" stroke="${p.color||'#ffffff'}" stroke-width="${p.width||2.8}" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9" style="pointer-events:${state.activeMode==='erase'?'auto':'none'};cursor:${state.activeMode==='erase'?'pointer':'default'};"/>`
   ).join('') + '<path id="drawPreview" d="" stroke="#00D2FF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.85" style="pointer-events:none;"/>';
 
-  // Líneas de grilla
-  let grid = '<g stroke="rgba(255,255,255,0.16)" stroke-width="0.8">';
+  // Líneas de grilla en fucsia
+  let grid = '<g stroke="rgba(236,72,153,0.55)" stroke-width="0.7">';
   for(let r=1; r<GRID_ROWS; r++) grid += `<line x1="0" y1="${r*cellH}" x2="${MAP_W}" y2="${r*cellH}"/>`;
   for(let c=1; c<GRID_COLS; c++) grid += `<line x1="${c*cellW}" y1="0" x2="${c*cellW}" y2="${MAP_H}"/>`;
   grid += '</g>';
 
-  // Letras y números
-  let labels = '<g font-family="DM Mono,monospace" font-size="14" fill="rgba(255,255,255,0.6)" font-weight="500">';
-  for(let r=1; r<=GRID_ROWS; r++) labels += `<text x="6" y="${(r-0.4)*cellH}">${rowToLetter(r)}</text>`;
-  for(let c=1; c<=GRID_COLS; c++) labels += `<text x="${(c-0.5)*cellW}" y="${MAP_H-6}" text-anchor="middle">${c}</text>`;
+  // Labels en chips oscuros · letras cyan eléctrico · números amarillo eléctrico
+  const chipBg = 'rgba(0,0,0,0.7)';
+  let labels = '<g font-family="DM Mono,monospace" font-weight="700">';
+  // Letras (eje vertical, A-Q)
+  for(let r=1; r<=GRID_ROWS; r++){
+    const y = (r-0.5)*cellH;
+    labels += `<rect x="2" y="${y-9}" width="20" height="18" rx="4" fill="${chipBg}"/>`;
+    labels += `<text x="12" y="${y+5}" text-anchor="middle" font-size="12" fill="#22D3EE">${rowToLetter(r)}</text>`;
+  }
+  // Números (eje horizontal, 1-15)
+  for(let c=1; c<=GRID_COLS; c++){
+    const x = (c-0.5)*cellW;
+    const w = c >= 10 ? 24 : 20;
+    labels += `<rect x="${x-w/2}" y="${MAP_H-22}" width="${w}" height="18" rx="4" fill="${chipBg}"/>`;
+    labels += `<text x="${x}" y="${MAP_H-8}" text-anchor="middle" font-size="12" fill="#FBBF24">${c}</text>`;
+  }
   labels += '</g>';
 
   // Líneas de referencia (outside/inside/orilla)
@@ -671,9 +697,26 @@ function renderMapSVG(){
     const c = colors[g.category];
     const baseR = g.category==='mejor' ? 16 : g.category==='media' ? 14 : 12;
     const r = baseR + Math.min(8, (g.count-1) * 2);
+    // Dirección dominante del grupo (solo si ≥70% de las olas marcadas tienen una dirección)
+    const dirCounts = { L:0, R:0, none:0 };
+    g.waves.forEach(w => {
+      if(w.direction === 'L') dirCounts.L++;
+      else if(w.direction === 'R') dirCounts.R++;
+      else dirCounts.none++;
+    });
+    const totalDir = dirCounts.L + dirCounts.R;
+    let dom = null;
+    if(totalDir > 0){
+      if(dirCounts.L / totalDir >= 0.7) dom = 'L';
+      else if(dirCounts.R / totalDir >= 0.7) dom = 'R';
+      else if(dirCounts.L > 0 && dirCounts.R > 0) dom = 'mixed';
+    }
+    const label = g.count > 1 ? '×'+g.count : '1';
+    const arrow = dom === 'L' ? '←' : dom === 'R' ? '→' : dom === 'mixed' ? '⇄' : '';
+    const displayText = arrow ? `${arrow} ${label}` : label;
     pins += `<g class="wave-pin" data-cell="${g.col}-${g.row}-${g.category}" style="cursor:pointer;">
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}" stroke="#fff" stroke-width="2.5"/>
-      <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="${g.count>1?12:11}" font-weight="700" fill="#0A1628">${g.count>1?'×'+g.count:'1'}</text>
+      <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="${displayText.length>2?10:11}" font-weight="700" fill="#0A1628">${displayText}</text>
     </g>`;
   });
 
@@ -869,7 +912,11 @@ function handleMapTap(e){
 
 function plantWave(col, row, category){
   const ts = nowMs() - state.timer.startedAt;
-  state.waves.push({ id: uid(), gridCol: col, gridRow: row, category, ts, absTime: nowMs() });
+  state.waves.push({ id: uid(), gridCol: col, gridRow: row, category, ts, absTime: nowMs(), direction: state.activeDirection || null });
+  save(); render();
+}
+function toggleDirection(dir){
+  state.activeDirection = (state.activeDirection === dir) ? null : dir;
   save(); render();
 }
 function plantSameAsLast(){
@@ -939,6 +986,12 @@ function openEditWaveModal(waveId){
       <div class="cat cat-media ${w.category==='media'?'on':''}" onclick="updateWaveCategory('${w.id}','media')"><div class="cat-lbl">MEDIA</div></div>
       <div class="cat cat-otra ${w.category==='otra'?'on':''}" onclick="updateWaveCategory('${w.id}','otra')"><div class="cat-lbl">OTRA</div></div>
     </div>
+    <div class="label">Dirección</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
+      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='L'?'#22D3EE':'var(--border2)'};color:${w.direction==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','L')">← IZQ</button>
+      <button style="padding:10px 4px;border-radius:9px;background:${w.direction===null||w.direction===undefined?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction===null||w.direction===undefined?'var(--text-soft)':'var(--border2)'};color:${w.direction===null||w.direction===undefined?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;" onclick="updateWaveDir('${w.id}',null)">SIN DIR</button>
+      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='R'?'#FBBF24':'var(--border2)'};color:${w.direction==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','R')">DER →</button>
+    </div>
     <div class="label">Potencial de puntos (opcional)</div>
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;">
       ${['','1','2','3','4','5','6','7','8','9','10'].map(s=>`<span class="chip ${String(w.score||'')===s?'':'off'}" style="font-size:12px;padding:6px 10px;" onclick="updateWaveScore('${w.id}','${s}')">${s===''?'—':s}</span>`).join('')}
@@ -959,6 +1012,12 @@ function updateWaveScore(id, score){
   const w = state.waves.find(x=>x.id===id); if(!w) return;
   w.score = score === '' ? null : parseInt(score);
   save();
+  openEditWaveModal(id);
+}
+function updateWaveDir(id, dir){
+  const w = state.waves.find(x=>x.id===id); if(!w) return;
+  w.direction = dir;
+  save(); render();
   openEditWaveModal(id);
 }
 
@@ -1137,15 +1196,29 @@ function renderReportBlock(cat, s, lbl, score){
         const zRefStr = zRefs.length ? zRefs.map(r=>r.label).join(', ') : 'sin referencia cerca';
         const scoreStr = z.avgScore !== null ? `score ${z.avgScore.toFixed(1)}` : 'sin score';
         const intStr = z.avgInterval ? `cada ${fmtMMSS(z.avgInterval)}` : 'ola única';
+        const dirStr = z.dirDom === 'L' ? ` · <span style="color:#22D3EE;font-weight:700;">←IZQ</span>`
+                      : z.dirDom === 'R' ? ` · <span style="color:#FBBF24;font-weight:700;">DER→</span>`
+                      : z.dirDom === 'mixed' ? ` · <span style="color:var(--text-soft);">mixta</span>`
+                      : '';
         return `<div class="report-alt-row">
           <span class="report-alt-num">${i+2}</span>
           <span class="report-alt-coord">${rowToLetter(z.row)}${z.col}</span>
           <span class="report-alt-refs">${esc(zRefStr)}</span>
-          <span class="report-alt-data">${z.count} ola${z.count===1?'':'s'} · ${scoreStr} · ${intStr}</span>
+          <span class="report-alt-data">${z.count} ola${z.count===1?'':'s'} · ${scoreStr} · ${intStr}${dirStr}</span>
         </div>`;
       }).join('')}
     </div>`;
   }
+
+  // Dirección dominante de la categoría
+  const dirLabel = s.dirDominant === 'L' ? 'OLAS IZQUIERDAS'
+                  : s.dirDominant === 'R' ? 'OLAS DERECHAS'
+                  : s.dirDominant === 'mixed' ? `Mixto (${s.dirCounts.L} izq · ${s.dirCounts.R} der)`
+                  : '';
+  const dirColor = s.dirDominant === 'L' ? '#22D3EE' : s.dirDominant === 'R' ? '#FBBF24' : 'var(--text-soft)';
+  const dirPill = s.dirDominant
+    ? `<span class="report-pill" style="background:${s.dirDominant==='L'?'rgba(34,211,238,.15)':s.dirDominant==='R'?'rgba(251,191,36,.15)':'rgba(255,255,255,.06)'};border-color:${dirColor};color:${dirColor};font-weight:700;">${s.dirDominant==='L'?'← ':''}${dirLabel}${s.dirDominant==='R'?' →':''}${s.dirDominant!=='mixed'?` · ${Math.round(s.dirRatio*100)}%`:''}</span>`
+    : '';
 
   return `<div class="report-block ${cls}">
     <div class="report-cat-banner">
@@ -1159,10 +1232,11 @@ function renderReportBlock(cat, s, lbl, score){
         <span class="report-hero-arrow">→</span>
         <span class="report-hero-time">cada ${fmtMMSS(s.avgInterval)}</span>
       </div>
-      <div class="report-hero-sub">Aquí salen las ${lbl.toLowerCase()} · ${refsText}</div>
+      <div class="report-hero-sub">Aquí salen las ${lbl.toLowerCase()} · ${refsText}${s.dirDominant && s.dirDominant!=='mixed' ? ` · son <strong style="color:${dirColor};">${s.dirDominant==='L'?'OLAS IZQUIERDAS ←':'OLAS DERECHAS →'}</strong>` : ''}</div>
     </div>
 
-    ${(realScorePill || rhythmPill) ? `<div class="report-strip">
+    ${(realScorePill || rhythmPill || dirPill) ? `<div class="report-strip">
+      ${dirPill}
       ${realScorePill}
       ${rhythmPill}
     </div>` : ''}
@@ -1259,6 +1333,23 @@ function statsForCategory(category){
   const scoredWaves = waves.filter(w => typeof w.score === 'number' && w.score > 0);
   const scoredCount = scoredWaves.length;
   const avgScore = scoredCount ? (scoredWaves.reduce((s,w)=>s+w.score, 0) / scoredCount) : null;
+  // Dirección dominante (L/R/mixed/none)
+  const dirCounts = { L:0, R:0, none:0 };
+  waves.forEach(w => {
+    if(w.direction === 'L') dirCounts.L++;
+    else if(w.direction === 'R') dirCounts.R++;
+    else dirCounts.none++;
+  });
+  const totalDir = dirCounts.L + dirCounts.R;
+  let dirDominant = null;
+  let dirRatio = 0;
+  if(totalDir > 0){
+    const lRatio = dirCounts.L / totalDir;
+    const rRatio = dirCounts.R / totalDir;
+    if(lRatio >= 0.7){ dirDominant = 'L'; dirRatio = lRatio; }
+    else if(rRatio >= 0.7){ dirDominant = 'R'; dirRatio = rRatio; }
+    else dirDominant = 'mixed';
+  }
   // Detección de sets: 3+ olas en <2 min consecutivas
   const SET_GAP = 120000;
   const sets = [];
@@ -1280,7 +1371,7 @@ function statsForCategory(category){
     for(let i=1; i<sets.length; i++) gaps.push(sets[i][0].ts - sets[i-1][sets[i-1].length-1].ts);
     avgBetweenSets = gaps.reduce((s,x)=>s+x,0) / gaps.length;
   }
-  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets, scoredCount, avgScore, zones };
+  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets, scoredCount, avgScore, zones, dirCounts, dirDominant, dirRatio };
 }
 
 function findHotZones(waves){
@@ -1299,9 +1390,19 @@ function findHotZones(waves){
     const intervals = [];
     for(let i=1; i<sortedTs.length; i++) intervals.push(sortedTs[i]-sortedTs[i-1]);
     const avgInterval = intervals.length ? intervals.reduce((s,x)=>s+x,0)/intervals.length : null;
+    // Dirección dominante de esta celda
+    let dL=0, dR=0;
+    c.waves.forEach(w => { if(w.direction==='L') dL++; else if(w.direction==='R') dR++; });
+    const tDir = dL + dR;
+    let dirDom = null;
+    if(tDir > 0){
+      if(dL/tDir >= 0.7) dirDom = 'L';
+      else if(dR/tDir >= 0.7) dirDom = 'R';
+      else if(dL>0 && dR>0) dirDom = 'mixed';
+    }
     // Ranking: prioriza densidad × calidad (si hay score, ponderado; si no, solo count)
     const rank = c.waves.length * (avgScore !== null ? avgScore : 5);
-    return { col:c.col, row:c.row, count:c.waves.length, avgScore, avgInterval, rank };
+    return { col:c.col, row:c.row, count:c.waves.length, avgScore, avgInterval, rank, dirDom, dirL:dL, dirR:dR };
   });
   cells.sort((a,b)=>b.rank - a.rank);
   // Selecciona hasta 3 zonas separadas por al menos 2 celdas de distancia
