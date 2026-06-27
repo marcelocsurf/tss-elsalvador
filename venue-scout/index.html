@@ -102,9 +102,13 @@ input,textarea,select{font-family:inherit;}
 .timer-warn{color:var(--gold-text) !important;}
 
 /* ---------- Map ---------- */
-.map-wrap{position:relative; background:#021126; border-radius:14px; overflow:hidden; touch-action:none;}
-.map-wrap svg{display:block; width:100%; height:auto; touch-action:none;}
+.map-wrap{position:relative; background:#021126; border-radius:14px; overflow:hidden; touch-action:pan-y;}
+.map-wrap svg{display:block; width:100%; height:auto; touch-action:pan-y; max-height:52vh;}
+.map-wrap.drawing-mode, .map-wrap.drawing-mode svg{touch-action:none;}
 .map-meta{display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--grey); padding:4px 2px; font-family:'DM Mono',monospace;}
+@media (min-width:1024px){
+  .map-wrap svg{max-height:none;}
+}
 
 /* ---------- Section ---------- */
 .section{background:rgba(255,255,255,.025); border:1px solid var(--border); border-radius:14px; padding:14px 14px;}
@@ -644,7 +648,7 @@ function renderObserve(){
       </div>
     </section>
 
-    <section class="map-wrap" id="mapWrap">
+    <section class="map-wrap${state.activeMode==='draw'?' drawing-mode':''}" id="mapWrap">
       ${renderMapSVG()}
     </section>
 
@@ -886,7 +890,7 @@ function renderMapSVG(){
       <text x="${pcx}" y="${pcy+4}" text-anchor="middle" font-size="14" font-weight="700" fill="#22D3EE">🎯</text>
     </g>`;
   }
-  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="touch-action:none;">
+  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
     ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${refs}${pins}${predictionPin}
   </svg>`;
 }
