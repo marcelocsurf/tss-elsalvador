@@ -590,9 +590,9 @@ function renderObserve(){
       </div>
 
       <div class="dir-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
-        <button class="dir-btn ${state.activeDirection==='L'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='L'?'#22D3EE':'var(--border2)'};color:${state.activeDirection==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('L')">← IZQ</button>
+        <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FBBF24':'var(--border2)'};color:${state.activeDirection==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('R')" title="La ola va hacia tu izquierda visual = ola DERECHA del surfista">← DER</button>
         <button class="dir-btn ${state.activeDirection===null?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection===null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection===null?'var(--text-soft)':'var(--border2)'};color:${state.activeDirection===null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;letter-spacing:.4px;" onclick="toggleDirection(null)">SIN DIR</button>
-        <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FBBF24':'var(--border2)'};color:${state.activeDirection==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;" onclick="toggleDirection('R')">DER →</button>
+        <button class="dir-btn ${state.activeDirection==='L'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='L'?'#22D3EE':'var(--border2)'};color:${state.activeDirection==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;" onclick="toggleDirection('L')" title="La ola va hacia tu derecha visual = ola IZQUIERDA del surfista">IZQ →</button>
       </div>
 
       <div class="toolbar" style="margin-top:10px;">
@@ -737,9 +737,9 @@ function renderRecentItem(w){
   const colorMap = { mejor:'var(--gold-text)', media:'var(--silver-text)', otra:'var(--bronze-text)' };
   const c = colorMap[w.category];
   const dirChip = w.direction === 'L'
-    ? `<span style="font-size:10px;color:#22D3EE;font-weight:700;">←IZQ</span>`
+    ? `<span style="font-size:10px;color:#22D3EE;font-weight:700;">IZQ→</span>`
     : w.direction === 'R'
-    ? `<span style="font-size:10px;color:#FBBF24;font-weight:700;">DER→</span>`
+    ? `<span style="font-size:10px;color:#FBBF24;font-weight:700;">←DER</span>`
     : '';
   return `<div class="recent-item" onclick="openEditWaveModal('${w.id}')" style="cursor:pointer;">
     <span style="color:${c};font-weight:700;">● ${w.category.toUpperCase()}</span>
@@ -862,7 +862,9 @@ function renderMapSVG(){
       else if(dirCounts.L > 0 && dirCounts.R > 0) dom = 'mixed';
     }
     const label = g.count > 1 ? '×'+g.count : '1';
-    const arrow = dom === 'L' ? '←' : dom === 'R' ? '→' : dom === 'mixed' ? '⇄' : '';
+    // Convención surf: ola IZQUIERDA (surfista) se VE visualmente yendo a la derecha desde la playa.
+    // Por eso la flecha visual del pin se invierte respecto al nombre.
+    const arrow = dom === 'L' ? '→' : dom === 'R' ? '←' : dom === 'mixed' ? '⇄' : '';
     const displayText = arrow ? `${arrow} ${label}` : label;
     pins += `<g class="wave-pin" data-cell="${g.col}-${g.row}-${g.category}" style="cursor:pointer;">
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}" stroke="#fff" stroke-width="2.5"/>
@@ -1164,11 +1166,11 @@ function openEditWaveModal(waveId){
       <div class="cat cat-media ${w.category==='media'?'on':''}" onclick="updateWaveCategory('${w.id}','media')"><div class="cat-lbl">MEDIA</div></div>
       <div class="cat cat-otra ${w.category==='otra'?'on':''}" onclick="updateWaveCategory('${w.id}','otra')"><div class="cat-lbl">OTRA</div></div>
     </div>
-    <div class="label">Dirección</div>
+    <div class="label">Dirección · vista desde la playa</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
-      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='L'?'#22D3EE':'var(--border2)'};color:${w.direction==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','L')">← IZQ</button>
+      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='R'?'#FBBF24':'var(--border2)'};color:${w.direction==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','R')" title="Va hacia tu izquierda visual = DERECHA del surfista">← DER</button>
       <button style="padding:10px 4px;border-radius:9px;background:${w.direction===null||w.direction===undefined?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction===null||w.direction===undefined?'var(--text-soft)':'var(--border2)'};color:${w.direction===null||w.direction===undefined?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;" onclick="updateWaveDir('${w.id}',null)">SIN DIR</button>
-      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='R'?'#FBBF24':'var(--border2)'};color:${w.direction==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','R')">DER →</button>
+      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='L'?'#22D3EE':'var(--border2)'};color:${w.direction==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','L')" title="Va hacia tu derecha visual = IZQUIERDA del surfista">IZQ →</button>
     </div>
     <div class="label">Potencial de puntos (opcional)</div>
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;">
@@ -1425,8 +1427,8 @@ function renderReportBlock(cat, s, lbl, score){
         const zRefStr = zRefs.length ? zRefs.map(r=>r.label).join(', ') : 'sin referencia cerca';
         const scoreStr = z.avgScore !== null ? `score ${z.avgScore.toFixed(1)}` : 'sin score';
         const intStr = z.avgInterval ? `cada ${fmtMMSS(z.avgInterval)}` : 'ola única';
-        const dirStr = z.dirDom === 'L' ? ` · <span style="color:#22D3EE;font-weight:700;">←IZQ</span>`
-                      : z.dirDom === 'R' ? ` · <span style="color:#FBBF24;font-weight:700;">DER→</span>`
+        const dirStr = z.dirDom === 'L' ? ` · <span style="color:#22D3EE;font-weight:700;">IZQ→</span>`
+                      : z.dirDom === 'R' ? ` · <span style="color:#FBBF24;font-weight:700;">←DER</span>`
                       : z.dirDom === 'mixed' ? ` · <span style="color:var(--text-soft);">mixta</span>`
                       : '';
         return `<div class="report-alt-row">
@@ -1446,7 +1448,7 @@ function renderReportBlock(cat, s, lbl, score){
                   : '';
   const dirColor = s.dirDominant === 'L' ? '#22D3EE' : s.dirDominant === 'R' ? '#FBBF24' : 'var(--text-soft)';
   const dirPill = s.dirDominant
-    ? `<span class="report-pill" style="background:${s.dirDominant==='L'?'rgba(34,211,238,.15)':s.dirDominant==='R'?'rgba(251,191,36,.15)':'rgba(255,255,255,.06)'};border-color:${dirColor};color:${dirColor};font-weight:700;">${s.dirDominant==='L'?'← ':''}${dirLabel}${s.dirDominant==='R'?' →':''}${s.dirDominant!=='mixed'?` · ${Math.round(s.dirRatio*100)}%`:''}</span>`
+    ? `<span class="report-pill" style="background:${s.dirDominant==='L'?'rgba(34,211,238,.15)':s.dirDominant==='R'?'rgba(251,191,36,.15)':'rgba(255,255,255,.06)'};border-color:${dirColor};color:${dirColor};font-weight:700;">${s.dirDominant==='R'?'← ':''}${dirLabel}${s.dirDominant==='L'?' →':''}${s.dirDominant!=='mixed'?` · ${Math.round(s.dirRatio*100)}%`:''}</span>`
     : '';
 
   return `<div class="report-block ${cls}">
@@ -1461,7 +1463,7 @@ function renderReportBlock(cat, s, lbl, score){
         <span class="report-hero-arrow">→</span>
         <span class="report-hero-time">cada ${fmtMMSS(s.avgInterval)}</span>
       </div>
-      <div class="report-hero-sub">Aquí salen las ${lbl.toLowerCase()} · ${refsText}${s.dirDominant && s.dirDominant!=='mixed' ? ` · son <strong style="color:${dirColor};">${s.dirDominant==='L'?'OLAS IZQUIERDAS ←':'OLAS DERECHAS →'}</strong>` : ''}</div>
+      <div class="report-hero-sub">Aquí salen las ${lbl.toLowerCase()} · ${refsText}${s.dirDominant && s.dirDominant!=='mixed' ? ` · son <strong style="color:${dirColor};">${s.dirDominant==='L'?'OLAS IZQUIERDAS →':'← OLAS DERECHAS'}</strong>` : ''}</div>
     </div>
 
     ${(realScorePill || rhythmPill || dirPill) ? `<div class="report-strip">
