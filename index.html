@@ -3386,6 +3386,54 @@ async function cancelAssignment(assignmentId){
   return db.from('tss_program_assignments').update({ status:'cancelled' }).eq('id', assignmentId);
 }
 
+/* Check qué assignments activos del programa tienen version desactualizada */
+async function checkOutdatedAssignments(programId){
+  if(!programId){ _editingProgramOutdated = { count:0, athletes:[] }; return; }
+  try {
+    const{ data: prog } = await db.from('tss_programs').select('version').eq('id', programId).single();
+    if(!prog){ _editingProgramOutdated = { count:0, athletes:[] }; return; }
+    const{ data: assigns } = await db.from('tss_program_assignments')
+      .select('id, athlete_id, version_at_assign').eq('program_id', programId).eq('status', 'active');
+    const outdated = (assigns||[]).filter(a => (a.version_at_assign||0) < (prog.version||1));
+    const athletes = outdated.map(a => {
+      const ath = (S.athletes||[]).find(x => x.id === a.athlete_id);
+      return { assignmentId: a.id, athleteId: a.athlete_id, name: ath?.name || 'Atleta' };
+    });
+    _editingProgramOutdated = { count: outdated.length, athletes };
+  } catch(e){
+    console.error('checkOutdatedAssignments error', e);
+    _editingProgramOutdated = { count:0, athletes:[] };
+  }
+}
+
+/* Ejecuta resync a TODAS las asignaciones desactualizadas del programa */
+async function resyncAllOutdatedAssignments(programId){
+  await checkOutdatedAssignments(programId);
+  const list = _editingProgramOutdated.athletes;
+  if(!list.length){ toast('No hay atletas con versión anterior','info'); return; }
+  if(!confirm(`Re-sincronizar ${list.length} atleta${list.length===1?'':'s'}:\n\n${list.map(a=>'· '+a.name).join('\n')}\n\n¿Continuar?`)) return;
+  showLoad(true);
+  const totals = { planes:0, ok:0, errores:[] };
+  try {
+    for(const item of list){
+      try {
+        const r = await resyncProgramAssignment(item.assignmentId);
+        if(r.error) totals.errores.push(`${item.name}: ${r.error.message||r.error}`);
+        else { totals.ok++; totals.planes += (r.inserted||0); }
+      } catch(e){ totals.errores.push(`${item.name}: ${e.message}`); }
+    }
+    if(totals.errores.length){
+      toast(`⚠ ${totals.ok}/${list.length} re-sincronizados · ${totals.errores.length} con problema (ver consola)`,'warning');
+      console.warn('Errores en resync bulk:', totals.errores);
+    } else {
+      toast(`✓ ${totals.ok} atletas actualizados · ${totals.planes} planes regenerados`,'success');
+    }
+    await checkOutdatedAssignments(programId);
+    renderProgramEditor();
+  } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
+  finally { showLoad(false); }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    HUB DE PROGRAMAS · openProgramsHub()
    Pantalla principal del módulo de programas.
@@ -3395,6 +3443,8 @@ async function cancelAssignment(assignmentId){
 let _programs = [];
 let _editingProgram = null;        // programa que se está editando · {id, name, ..., matrix}
 let _editingProgramSaveTimer = null;
+let _editingProgramOutdated = { count: 0, athletes: [] };  // assignments desactualizados
+let _editingProgramOutdatedCheckTimer = null;
 let _previewStartDate = null;      // fecha base para visualizar el calendario del programa en el editor
 
 async function openProgramsHub(){
@@ -3536,9 +3586,31 @@ async function openProgramEditor(programId){
     if(!_editingProgram.matrix || !_editingProgram.matrix.micros) {
       _editingProgram.matrix = newEmptyProgram(prog.name, prog.weeks_total).matrix;
     }
+    // Check inicial de assignments desactualizados (no bloquea render)
+    _editingProgramOutdated = { count:0, athletes:[] };
     renderProgramEditor();
+    checkOutdatedAssignments(programId).then(()=>{
+      if(_editingProgram?.id === programId && _editingProgramOutdated.count > 0) renderProgramEditor();
+    });
   } catch(e){ toast('Error: '+e.message, 'error'); console.error(e); }
   finally { showLoad(false); }
+}
+
+function renderOutdatedBanner(programId){
+  const o = _editingProgramOutdated;
+  if(!o || !o.count) return '';
+  const names = o.athletes.slice(0,3).map(a=>esc(a.name)).join(', ');
+  const extra = o.athletes.length > 3 ? ` +${o.athletes.length-3} más` : '';
+  return `<div style="background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(245,158,11,.04));border:1.5px solid var(--amber);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:220px;">
+      <div style="font-size:12px;font-weight:800;color:var(--gold-text);letter-spacing:.3px;">⚠ ${o.count} atleta${o.count===1?'':'s'} con versión anterior</div>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:3px;line-height:1.4;">${names}${extra} · sus planes futuros no reflejan los cambios que hiciste al programa</div>
+    </div>
+    <button class="btn btn-sm" style="background:var(--gold-text);color:var(--bg);font-weight:800;padding:9px 14px;flex-shrink:0;" onclick="resyncAllOutdatedAssignments('${programId}')">
+      <svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Re-sync todos
+    </button>
+  </div>`;
 }
 
 function renderProgramEditor(){
@@ -3554,6 +3626,8 @@ function renderProgramEditor(){
         <button class="btn btn-cyan btn-sm" onclick="openAssignProgramModal('${p.id}')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="9 18 15 12 9 6"/></svg>Asignar a atleta</button>
       </div>
     </div>
+
+    ${renderOutdatedBanner(p.id)}
 
     <!-- Metadata del programa -->
     <div style="background:rgba(0,210,255,.04);border:1px solid var(--border2);border-radius:12px;padding:12px;margin-bottom:14px;">
@@ -4420,6 +4494,16 @@ async function saveEditingProgram(){
     }).eq('id', _editingProgram.id);
     if(error) throw error;
     if(st){ st.textContent = '✅ Guardado · ' + new Date().toLocaleTimeString('es-SV',{hour:'2-digit',minute:'2-digit'}); st.style.color = 'var(--foam)'; }
+    // Re-checkear assignments desactualizados con debounce (2s después del último save)
+    if(_editingProgramOutdatedCheckTimer) clearTimeout(_editingProgramOutdatedCheckTimer);
+    const pid = _editingProgram.id;
+    _editingProgramOutdatedCheckTimer = setTimeout(async ()=>{
+      const before = _editingProgramOutdated.count;
+      await checkOutdatedAssignments(pid);
+      if(_editingProgram?.id === pid && _editingProgramOutdated.count !== before){
+        renderProgramEditor();
+      }
+    }, 2000);
   } catch(e){
     if(st){ st.textContent = '⚠️ Error al guardar: '+e.message; st.style.color = 'var(--coral)'; }
     console.error(e);
