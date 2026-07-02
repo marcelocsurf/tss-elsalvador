@@ -254,7 +254,8 @@ let state = {
   activePrediction: null, // {col, row} — predicción pendiente esperando próxima MEJOR
   predictionStats: { tried:0, hit:0, near:0 },
   pendingLineStart: null,
-  closing: { description:'', scores: { mejor:8.5, media:6.5, otra:5.0 }, heatObjective:14.5 }
+  closing: { description:'', scores: { mejor:8.5, media:6.5, otra:5.0 }, heatObjective:14.5, heatDurationMin:25 },
+  rapidMode: false  // true = tap primero, categorizás después (más natural)
 };
 
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -319,6 +320,10 @@ function openAppMenu(){
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;">
       ${state.screen!=='setup' ? `<button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();state.screen='setup';save();render();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="15 18 9 12 15 6"/></svg>Volver al setup</button>`:''}
+      <button class="btn btn-ghost btn-block" style="justify-content:space-between;padding:14px 16px;" onclick="toggleRapidMode(this)">
+        <span style="display:inline-flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:10px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Modo rápido · tap primero, clasificás después</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:12px;background:${state.rapidMode?'rgba(52,211,153,.18)':'rgba(255,255,255,.06)'};color:${state.rapidMode?'var(--foam)':'var(--text-soft)'};font-weight:700;">${state.rapidMode?'ON':'OFF'}</span>
+      </button>
       <button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();window.print();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir / guardar PDF</button>
       <button class="btn btn-coral btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();reset();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Nuevo análisis (borra el actual)</button>
     </div>
@@ -668,6 +673,11 @@ function renderObserve(){
       ${renderMapSVG()}
     </section>
 
+    ${(()=>{ const pend = pendingWaves(); if(!pend.length) return ''; return `<div style="margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.05);border:1.5px dashed #B8CCDF;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div style="font-size:11px;color:var(--text);"><strong>${pend.length}</strong> ola${pend.length===1?'':'s'} sin clasificar <span style="color:var(--text-soft);">· tap cada pin gris para categorizar</span></div>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px;color:var(--foam);border-color:rgba(52,211,153,.4);" onclick="categorizePendingModal('${pend[pend.length-1].id}')">Clasificar la última</button>
+    </div>`; })()}
+
     <section class="section">
       <div class="section-h">
         <div class="section-t">Últimas olas (${state.waves.length})</div>
@@ -681,7 +691,9 @@ function renderObserve(){
 }
 function modeHint(mode){
   switch(mode){
-    case 'mejor': case 'media': case 'otra': return `tap una celda del mapa para plantar pin ${mode.toUpperCase()} con timestamp`;
+    case 'mejor': case 'media': case 'otra': return state.rapidMode
+      ? `⚡ modo rápido · tap el mapa para plantar pin sin categoría · después categorizás con el chip verde`
+      : `tap una celda del mapa para plantar pin ${mode.toUpperCase()} con timestamp`;
     case 'line-out': return state.pendingLineStart ? 'tap el segundo punto de la línea OUTSIDE' : 'tap el primer punto de la línea OUTSIDE';
     case 'line-in': return state.pendingLineStart ? 'tap el segundo punto de la línea INSIDE' : 'tap el primer punto de la línea INSIDE';
     case 'line-ori': return state.pendingLineStart ? 'tap el segundo punto de la línea ORILLA' : 'tap el primer punto de la línea ORILLA';
@@ -915,6 +927,17 @@ function renderMapSVG(){
     </g>`;
   });
 
+  // Pins PENDING (modo rápido tap-first · gris con "?", clickeables para categorizar)
+  let pendingPins = '';
+  pendingWaves().forEach(w => {
+    const cx = (w.gridCol - 0.5) * cellW;
+    const cy = (w.gridRow - 0.5) * cellH;
+    pendingPins += `<g class="pending-pin" data-wave-id="${w.id}" style="cursor:pointer;">
+      <circle cx="${cx}" cy="${cy}" r="14" fill="rgba(180,180,180,0.35)" stroke="#B8CCDF" stroke-width="2" stroke-dasharray="3,2"/>
+      <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">?</text>
+    </g>`;
+  });
+
   // Pin de predicción pendiente (cyan punteado pulsante)
   let predictionPin = '';
   if(state.activePrediction){
@@ -930,7 +953,7 @@ function renderMapSVG(){
     </g>`;
   }
   return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${entryExit}${refs}${pins}${predictionPin}
+    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${entryExit}${refs}${pins}${pendingPins}${predictionPin}
   </svg>`;
 }
 function renderLine(line, color, label){
@@ -942,11 +965,15 @@ function renderLine(line, color, label){
 function groupWavesByCell(){
   const g = {};
   state.waves.forEach(w=>{
+    if(w.category === 'pending') return;  // pending no cuentan hasta categorizar
     const k = `${w.gridCol}-${w.gridRow}-${w.category}`;
     if(!g[k]) g[k] = { col:w.gridCol, row:w.gridRow, category:w.category, count:0, waves:[] };
     g[k].count++; g[k].waves.push(w);
   });
   return g;
+}
+function pendingWaves(){
+  return state.waves.filter(w => w.category === 'pending');
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1048,8 +1075,13 @@ function handleMapTap(e){
     const cellW = MAP_W / GRID_COLS;
     const cellH = MAP_H / GRID_ROWS;
     let col, row;
-    // Si el tap cayó sobre un pin existente, plantamos OTRA ola en la MISMA celda
-    // (varias olas pueden romper en el mismo lugar; el contador ×N sube)
+    // Si tap sobre pin PENDING → abrir modal para categorizar
+    const hitPendingPin = e.target.closest('.pending-pin');
+    if(hitPendingPin){
+      categorizePendingModal(hitPendingPin.dataset.waveId);
+      return;
+    }
+    // Si tap sobre pin existente categorizado, plantamos OTRA ola en la MISMA celda
     const hitPin = e.target.closest('.wave-pin');
     if(hitPin){
       const [c,r] = hitPin.dataset.cell.split('-');
@@ -1058,6 +1090,11 @@ function handleMapTap(e){
       col = Math.floor(x / cellW) + 1;
       row = Math.floor(y / cellH) + 1;
       if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
+    }
+    // Modo rápido: plantar pending sin categorizar
+    if(state.rapidMode && !hitPin){
+      plantPendingWave(col, row);
+      return;
     }
     plantWave(col, row, mode);
     return;
@@ -1152,6 +1189,50 @@ function handleMapTap(e){
       return;
     }
   }
+}
+
+function toggleRapidMode(btn){
+  state.rapidMode = !state.rapidMode;
+  save();
+  toast(state.rapidMode ? '⚡ Modo rápido ON · tap primero, clasificás después' : '⚡ Modo rápido OFF');
+  const m = btn?.closest('.modal-overlay'); if(m) m.remove();
+  render();
+}
+
+function plantPendingWave(col, row){
+  const ts = nowMs() - state.timer.startedAt;
+  state.waves.push({ id: uid(), gridCol: col, gridRow: row, category: 'pending', ts, absTime: nowMs(), direction: state.activeDirection || null });
+  save(); render();
+}
+
+function categorizePendingModal(waveId){
+  const w = state.waves.find(x=>x.id===waveId); if(!w) return;
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay';
+  m.innerHTML = `<div class="modal" style="max-width:360px;">
+    <div class="modal-h">
+      <div>
+        <div class="modal-t">Clasificá esta ola</div>
+        <div style="font-size:12px;color:var(--grey);margin-top:2px;">${rowToLetter(w.gridRow)}${w.gridCol} · +${fmtMMSS(w.ts)}</div>
+      </div>
+      <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    <div class="cat-row" style="margin-bottom:10px;">
+      <div class="cat cat-mejor" onclick="quickCategorize('${w.id}','mejor')"><div class="cat-lbl">MEJOR</div></div>
+      <div class="cat cat-media" onclick="quickCategorize('${w.id}','media')"><div class="cat-lbl">MEDIA</div></div>
+      <div class="cat cat-otra" onclick="quickCategorize('${w.id}','otra')"><div class="cat-lbl">OTRA</div></div>
+    </div>
+    <button class="btn btn-coral btn-block" onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();">× Borrar esta ola</button>
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+function quickCategorize(id, cat){
+  const w = state.waves.find(x=>x.id===id); if(!w) return;
+  w.category = cat;
+  save(); render();
+  document.querySelector('.modal-overlay')?.remove();
+  toast(`Marcada como ${cat.toUpperCase()}`);
 }
 
 function plantWave(col, row, category){
@@ -1372,11 +1453,18 @@ function renderReport(){
 
       <div style="margin-top:14px;display:grid;grid-template-columns:1fr 70px;gap:10px;align-items:center;">
         <div class="label" style="margin:0;">Heat objetivo (puntaje total a batir)</div>
-        <input type="number" class="inp" value="${cl.heatObjective}" min="0" max="20" step="0.5" oninput="state.closing.heatObjective=parseFloat(this.value)||0;save();render();" style="text-align:center;font-weight:700;color:var(--cyan);">
+        <input type="number" class="inp" value="${cl.heatObjective}" min="0" max="20" step="0.5" oninput="state.closing.heatObjective=parseFloat(this.value)||0;save();render();" style="text-align:center;font-weight:700;color:var(--text);">
+      </div>
+      <div style="margin-top:10px;">
+        <div class="label" style="margin-bottom:6px;">Duración del heat</div>
+        <div class="chips">
+          ${[15,20,25,30,35,40].map(m=>`<span class="chip ${(cl.heatDurationMin||25)===m?'':'off'}" onclick="state.closing.heatDurationMin=${m};save();render();">${m} min</span>`).join('')}
+        </div>
       </div>
     </section>
 
     ${renderNarrativeSummary(stats, cl)}
+    ${renderHeatPlanCard(stats, cl)}
 
     <section class="section">
       <div class="section-h"><div class="section-t">Reporte automático</div></div>
@@ -1604,6 +1692,99 @@ function renderPlan(stats, cl){
 /* ════════════════════════════════════════════════════════════════════
    STATS
    ════════════════════════════════════════════════════════════════════ */
+/* Plan ejecutivo simple: dónde pararse, cuándo cambiar, si alcanza el objetivo */
+function computeHeatPlan(stats, cl){
+  const duration = cl.heatDurationMin || 25;
+  const objective = cl.heatObjective || 0;
+  // Zona top por categoría (la 1ra ya viene rankeada por findHotZones)
+  const zTop = { mejor: stats.mejor.zones?.[0], media: stats.media.zones?.[0], otra: stats.otra.zones?.[0] };
+  const expected = { mejor:0, media:0, otra:0 };
+  ['mejor','media','otra'].forEach(k=>{
+    const z = zTop[k];
+    if(z && z.avgInterval > 0){
+      expected[k] = Math.floor((duration * 60000) / z.avgInterval);
+    } else if(z){
+      expected[k] = z.count;  // ola única · sin intervalo
+    }
+  });
+  // Score usado por combo (real si hay ≥2 scores en la zona · si no, el estimado)
+  const score = {
+    mejor: (stats.mejor.scoredCount >= 2) ? stats.mejor.avgScore : (cl.scores.mejor || 0),
+    media: (stats.media.scoredCount >= 2) ? stats.media.avgScore : (cl.scores.media || 0),
+    otra:  (stats.otra.scoredCount  >= 2) ? stats.otra.avgScore  : (cl.scores.otra  || 0),
+  };
+  // Combos posibles según lo que ESPERAMOS ver en el heat (surf usa top 2 waves)
+  const combos = [
+    { name:'2 MEJOR', total: score.mejor*2, needs:{mejor:2}, feasible: expected.mejor >= 2 },
+    { name:'1 MEJOR + 1 MEDIA', total: score.mejor + score.media, needs:{mejor:1,media:1}, feasible: expected.mejor >= 1 && expected.media >= 1 },
+    { name:'2 MEDIA', total: score.media*2, needs:{media:2}, feasible: expected.media >= 2 },
+    { name:'1 MEDIA + 1 OTRA', total: score.media + score.otra, needs:{media:1,otra:1}, feasible: expected.media >= 1 && expected.otra >= 1 },
+    { name:'2 OTRA', total: score.otra*2, needs:{otra:2}, feasible: expected.otra >= 2 },
+  ].filter(c => c.feasible);
+  // Rankear combos que ALCANCEN objetivo por total desc; si ninguno alcanza, ranquear por total desc
+  const sufficient = combos.filter(c => c.total >= objective).sort((a,b)=>b.total-a.total);
+  const bestFallback = combos.sort((a,b)=>b.total-a.total)[0];
+  const primary = sufficient[0] || bestFallback;
+  const backup = sufficient[1] || (bestFallback && primary !== bestFallback ? bestFallback : null);
+  // Tiempo espera razonable antes de cambiar de zona (si esperás MEJOR pero no cae, cuándo movete)
+  // Regla simple: si el intervalo promedio es X min, esperá hasta 1.5X min antes de cambiar
+  let waitBeforeSwitch = null;
+  if(zTop.mejor && zTop.mejor.avgInterval > 0){
+    waitBeforeSwitch = Math.round((zTop.mejor.avgInterval * 1.5) / 60000);  // en minutos
+  }
+  return {
+    duration, objective, zTop, expected, primary, backup, waitBeforeSwitch, sufficient, hasAnyPlan: !!primary,
+    status: !objective ? 'none' : (sufficient.length ? (primary.total > objective + 2 ? 'yes' : 'tight') : 'no'),
+    lowConfidence: (stats.mejor.count + stats.media.count + stats.otra.count) < 10
+  };
+}
+
+function renderHeatPlanCard(stats, cl){
+  const plan = computeHeatPlan(stats, cl);
+  if(!plan.hasAnyPlan) return '';
+  const statusColor = plan.status === 'yes' ? 'var(--foam)' : plan.status === 'tight' ? 'var(--gold-text)' : plan.status === 'no' ? 'var(--coral)' : 'var(--text-soft)';
+  const statusIcon = plan.status === 'yes' ? '✓' : plan.status === 'tight' ? '⚠' : plan.status === 'no' ? '✗' : '·';
+  const statusLbl = plan.status === 'yes' ? 'FACTIBLE' : plan.status === 'tight' ? 'APRETADO' : plan.status === 'no' ? 'NO ALCANZA' : '';
+  const zM = plan.zTop.mejor;
+  const zMed = plan.zTop.media;
+  const coordM = zM ? `${rowToLetter(zM.row)}${zM.col}` : null;
+  const coordMed = zMed ? `${rowToLetter(zMed.row)}${zMed.col}` : null;
+  const refsM = zM ? nearestRefs(zM.col, zM.row) : [];
+  const refsMedList = zMed ? nearestRefs(zMed.col, zMed.row) : [];
+  const refM = refsM.length ? refsM[0].label : null;
+  const refMed = refsMedList.length ? refsMedList[0].label : null;
+  const lines = [];
+  // Línea 1: dónde pararse
+  if(coordM && plan.expected.mejor >= 1){
+    const interval = zM.avgInterval ? fmtMMSS(zM.avgInterval) : '—';
+    lines.push(`Empezá en <strong style="color:var(--gold-text);">${coordM}</strong>${refM?` (${esc(refM)})`:''} · esperás <strong>~${plan.expected.mejor}</strong> MEJOR en ${plan.duration} min (${interval} c/u)`);
+  } else if(coordMed){
+    lines.push(`No hay MEJOR frecuente hoy. Andá directo a <strong style="color:var(--silver-text);">${coordMed}</strong>${refMed?` (${esc(refMed)})`:''} para MEDIA`);
+  }
+  // Línea 2: cuándo cambiar / backup
+  if(plan.waitBeforeSwitch && coordMed && plan.expected.mejor >= 1){
+    lines.push(`Si no cae MEJOR en <strong>${plan.waitBeforeSwitch} min</strong> → movete a <strong style="color:var(--silver-text);">${coordMed}</strong>${refMed?` (${esc(refMed)})`:''} para MEDIA`);
+  }
+  // Línea 3: score potencial
+  if(plan.primary){
+    lines.push(`<strong>${plan.primary.name}</strong> = <strong style="color:${statusColor};">${plan.primary.total.toFixed(1)} pts</strong> · objetivo ${plan.objective}`);
+  }
+  const bgGrad = plan.status === 'yes' ? 'linear-gradient(135deg,rgba(52,211,153,.12),rgba(52,211,153,.03))'
+              : plan.status === 'tight' ? 'linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.03))'
+              : plan.status === 'no' ? 'linear-gradient(135deg,rgba(252,165,165,.12),rgba(252,165,165,.03))'
+              : 'linear-gradient(135deg,rgba(0,210,255,.08),rgba(0,210,255,.02))';
+  return `<section class="section" style="background:${bgGrad};border:1.5px solid ${statusColor};margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:${statusColor};">🏁 Plan para tu heat · ${plan.duration} min</div>
+      <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.06);">${statusIcon} ${statusLbl}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${lines.map(l => `<div style="font-size:14px;color:var(--text);line-height:1.6;">${l}</div>`).join('')}
+    </div>
+    ${plan.lowConfidence ? `<div style="margin-top:8px;font-size:11px;color:var(--gold-text);font-style:italic;">⚠ Confianza baja · pocos datos observados (menos de 10 olas)</div>` : ''}
+  </section>`;
+}
+
 function computeStats(){
   const totalMs = state.timer.finished
     ? (state.timer.endedAt || nowMs()) - state.timer.startedAt
