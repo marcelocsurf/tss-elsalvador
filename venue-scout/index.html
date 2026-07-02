@@ -255,7 +255,7 @@ let state = {
   predictionStats: { tried:0, hit:0, near:0 },
   pendingLineStart: null,
   closing: { description:'', scores: { mejor:8.5, media:6.5, otra:5.0 }, heatObjective:14.5, heatDurationMin:25 },
-  rapidMode: false  // true = tap primero, categorizás después (más natural)
+  rapidMode: true  // true (default) = tap primero, asignás score después · el score auto-clasifica
 };
 
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -321,7 +321,7 @@ function openAppMenu(){
     <div style="display:flex;flex-direction:column;gap:6px;">
       ${state.screen!=='setup' ? `<button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();state.screen='setup';save();render();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="15 18 9 12 15 6"/></svg>Volver al setup</button>`:''}
       <button class="btn btn-ghost btn-block" style="justify-content:space-between;padding:14px 16px;" onclick="toggleRapidMode(this)">
-        <span style="display:inline-flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:10px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Modo rápido · tap primero, clasificás después</span>
+        <span style="display:inline-flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:10px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Score auto-clasifica · tap primero, score después</span>
         <span style="font-size:11px;padding:3px 10px;border-radius:12px;background:${state.rapidMode?'rgba(52,211,153,.18)':'rgba(255,255,255,.06)'};color:${state.rapidMode?'var(--foam)':'var(--text-soft)'};font-weight:700;">${state.rapidMode?'ON':'OFF'}</span>
       </button>
       <button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();window.print();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir / guardar PDF</button>
@@ -673,9 +673,9 @@ function renderObserve(){
       ${renderMapSVG()}
     </section>
 
-    ${(()=>{ const pend = pendingWaves(); if(!pend.length) return ''; return `<div style="margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.05);border:1.5px dashed #B8CCDF;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-      <div style="font-size:11px;color:var(--text);"><strong>${pend.length}</strong> ola${pend.length===1?'':'s'} sin clasificar <span style="color:var(--text-soft);">· tap cada pin gris para categorizar</span></div>
-      <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px;color:var(--foam);border-color:rgba(52,211,153,.4);" onclick="categorizePendingModal('${pend[pend.length-1].id}')">Clasificar la última</button>
+    ${(()=>{ const pend = pendingWaves(); if(!pend.length) return ''; return `<div style="margin-top:8px;padding:10px 12px;background:rgba(52,211,153,.06);border:1.5px dashed var(--foam);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div style="font-size:11px;color:var(--text);"><strong>${pend.length}</strong> ola${pend.length===1?'':'s'} sin score <span style="color:var(--text-soft);">· tap cada pin gris para asignar score</span></div>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px;color:var(--foam);border-color:rgba(52,211,153,.4);" onclick="categorizePendingModal('${pend[pend.length-1].id}')">Score de la última</button>
     </div>`; })()}
 
     <section class="section">
@@ -692,7 +692,7 @@ function renderObserve(){
 function modeHint(mode){
   switch(mode){
     case 'mejor': case 'media': case 'otra': return state.rapidMode
-      ? `⚡ modo rápido · tap el mapa para plantar pin sin categoría · después categorizás con el chip verde`
+      ? `tap el mapa donde salió la ola · después le asignás score 1-10 y se clasifica sola`
       : `tap una celda del mapa para plantar pin ${mode.toUpperCase()} con timestamp`;
     case 'line-out': return state.pendingLineStart ? 'tap el segundo punto de la línea OUTSIDE' : 'tap el primer punto de la línea OUTSIDE';
     case 'line-in': return state.pendingLineStart ? 'tap el segundo punto de la línea INSIDE' : 'tap el primer punto de la línea INSIDE';
@@ -1205,28 +1205,63 @@ function plantPendingWave(col, row){
   save(); render();
 }
 
+/* Auto-clasifica una ola según su score y los scores potenciales del análisis.
+   En días perfectos (MEJOR=9), los thresholds suben automáticamente.
+   En días malos (MEJOR=5), bajan. La categoría se adapta al día. */
+function scoreToCategory(score, scores){
+  if(!score || score <= 0) return null;
+  scores = scores || (state.closing?.scores || { mejor:8.5, media:6.5, otra:5.0 });
+  const midMejorMedia = (scores.mejor + scores.media) / 2;  // ej: 7.5
+  const midMediaOtra  = (scores.media + scores.otra) / 2;   // ej: 5.75
+  if(score >= midMejorMedia) return 'mejor';
+  if(score >= midMediaOtra) return 'media';
+  return 'otra';
+}
+
 function categorizePendingModal(waveId){
   const w = state.waves.find(x=>x.id===waveId); if(!w) return;
+  const scores = state.closing?.scores || { mejor:8.5, media:6.5, otra:5.0 };
+  const midMM = ((scores.mejor + scores.media) / 2).toFixed(1);
+  const midMO = ((scores.media + scores.otra) / 2).toFixed(1);
   let m = document.querySelector('.modal-overlay'); if(m) m.remove();
   m = document.createElement('div'); m.className='modal-overlay';
-  m.innerHTML = `<div class="modal" style="max-width:360px;">
+  const scoreBtn = (n) => {
+    const cat = scoreToCategory(n, scores);
+    const bg = cat==='mejor' ? 'rgba(245,158,11,.22)' : cat==='media' ? 'rgba(156,163,175,.18)' : cat==='otra' ? 'rgba(180,83,9,.22)' : 'rgba(255,255,255,.06)';
+    const border = cat==='mejor' ? 'var(--gold)' : cat==='media' ? 'var(--silver)' : cat==='otra' ? 'var(--bronze)' : 'var(--border2)';
+    const col = cat==='mejor' ? 'var(--gold-text)' : cat==='media' ? 'var(--silver-text)' : cat==='otra' ? 'var(--bronze-text)' : 'var(--text)';
+    return `<button onclick="assignScore('${w.id}',${n})" style="padding:14px 4px;background:${bg};border:2px solid ${border};border-radius:10px;color:${col};font-weight:800;font-size:16px;font-family:'DM Mono',monospace;">${n}</button>`;
+  };
+  m.innerHTML = `<div class="modal" style="max-width:400px;">
     <div class="modal-h">
       <div>
-        <div class="modal-t">Clasificá esta ola</div>
+        <div class="modal-t">¿Qué score tenía esta ola?</div>
         <div style="font-size:12px;color:var(--grey);margin-top:2px;">${rowToLetter(w.gridRow)}${w.gridCol} · +${fmtMMSS(w.ts)}</div>
       </div>
       <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
     </div>
-    <div class="cat-row" style="margin-bottom:10px;">
-      <div class="cat cat-mejor" onclick="quickCategorize('${w.id}','mejor')"><div class="cat-lbl">MEJOR</div></div>
-      <div class="cat cat-media" onclick="quickCategorize('${w.id}','media')"><div class="cat-lbl">MEDIA</div></div>
-      <div class="cat cat-otra" onclick="quickCategorize('${w.id}','otra')"><div class="cat-lbl">OTRA</div></div>
+    <div style="font-size:11px;color:var(--text-soft);margin-bottom:10px;line-height:1.5;">
+      Se auto-clasifica según el score. Hoy: ≥${midMM} = <strong style="color:var(--gold-text);">MEJOR</strong> · ≥${midMO} = <strong style="color:var(--silver-text);">MEDIA</strong> · &lt;${midMO} = <strong style="color:var(--bronze-text);">OTRA</strong>
     </div>
-    <button class="btn btn-coral btn-block" onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();">× Borrar esta ola</button>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
+      ${[1,2,3,4,5,6,7,8,9,10].map(n => scoreBtn(n)).join('')}
+    </div>
+    <button class="btn btn-coral btn-block" style="margin-top:12px;" onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();">× Borrar esta ola</button>
   </div>`;
   m.onclick = e => { if(e.target===m) m.remove(); };
   document.body.appendChild(m);
 }
+
+function assignScore(id, score){
+  const w = state.waves.find(x=>x.id===id); if(!w) return;
+  const scores = state.closing?.scores || { mejor:8.5, media:6.5, otra:5.0 };
+  w.score = score;
+  w.category = scoreToCategory(score, scores);
+  save(); render();
+  document.querySelector('.modal-overlay')?.remove();
+  toast(`${score}/10 → ${w.category.toUpperCase()}`);
+}
+
 function quickCategorize(id, cat){
   const w = state.waves.find(x=>x.id===id); if(!w) return;
   w.category = cat;
@@ -1340,6 +1375,11 @@ function updateWaveCategory(id, cat){
 function updateWaveScore(id, score){
   const w = state.waves.find(x=>x.id===id); if(!w) return;
   w.score = score === '' ? null : parseInt(score);
+  // Auto-reclasificar según score y los scores potenciales del día
+  if(w.score){
+    const scores = state.closing?.scores || { mejor:8.5, media:6.5, otra:5.0 };
+    w.category = scoreToCategory(w.score, scores);
+  }
   save();
   openEditWaveModal(id);
 }
