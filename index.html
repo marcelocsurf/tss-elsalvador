@@ -340,6 +340,7 @@ header{padding:calc(10px + env(safe-area-inset-top,0)) 16px 10px;display:flex;al
     <button class="btn btn-cyan" onclick="showPin('coach')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>Head Coach</span></button>
     <button class="btn btn-amber" onclick="showPin('acoach')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Coach Manager</span></button>
     <button class="btn btn-green" onclick="showPin('athlete')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>Atleta</span></button>
+    <button class="btn" style="background:linear-gradient(135deg,#A855F7,#22D3EE);color:#fff;" onclick="showPin('specialist')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;">🧠 💪 Specialist</span></button>
   </div>
   <div id="pinPad" style="display:none;width:100%;max-width:300px;">
     <div class="sec-title" style="text-align:center;margin-bottom:16px;" id="pinTitle">INGRESA TU PIN</div>
@@ -686,7 +687,7 @@ function showPin(role){
   S.pin=''; S.loginRole=role;
   document.getElementById('roleButtons').style.display='none';
   document.getElementById('pinPad').style.display='block';
-  const titles={coach:'PIN DE HEAD COACH',acoach:'PIN DE COACH MANAGER',athlete:'INGRESA TU PIN'};
+  const titles={coach:'PIN DE HEAD COACH',acoach:'PIN DE COACH MANAGER',athlete:'INGRESA TU PIN',specialist:'PIN DE SPECIALIST'};
   document.getElementById('pinTitle').textContent=titles[role];
   document.getElementById('athPinErr').style.display='none';
   updateDots();
@@ -708,7 +709,8 @@ async function tryLogin(){
     // Validate role matches
     if(S.loginRole==='coach'&&user.role!=='coach'){ document.getElementById('athPinErr').style.display='block'; showLoad(false); return; }
     if(S.loginRole==='acoach'&&user.role!=='acoach'){ document.getElementById('athPinErr').style.display='block'; showLoad(false); return; }
-    if(S.loginRole==='athlete'&&(user.role==='coach'||user.role==='acoach')){ document.getElementById('athPinErr').style.display='block'; showLoad(false); return; }
+    if(S.loginRole==='specialist'&&user.role!=='specialist'){ document.getElementById('athPinErr').style.display='block'; showLoad(false); return; }
+    if(S.loginRole==='athlete'&&(user.role==='coach'||user.role==='acoach'||user.role==='specialist')){ document.getElementById('athPinErr').style.display='block'; showLoad(false); return; }
     S.user=user; localStorage.setItem('tss_uid',S.user.id);
     await bootApp();
   } catch(e){ toast('Error de conexión','error'); console.error(e); }
@@ -1429,6 +1431,7 @@ function buildNav(){
   let tabs;
   if(r==='coach') tabs=[{id:'panel',icon:'bar-chart',lbl:'Panel'},{id:'planeacion',icon:'clipboard',lbl:'Plan'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'presencial',icon:'activity',lbl:'Sesión'},{id:'evaluar',icon:'star',lbl:'Eval'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'atletas',icon:'users',lbl:'Equipo'},{id:'perfil',icon:'user',lbl:'Perfil'}];
   else if(r==='acoach') tabs=[{id:'panel',icon:'bar-chart',lbl:'Panel'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'presencial',icon:'activity',lbl:'Sesión'},{id:'evaluar',icon:'star',lbl:'Eval'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'atletas',icon:'users',lbl:'Equipo'},{id:'perfil',icon:'user',lbl:'Perfil'}];
+  else if(r==='specialist') tabs=[{id:'panel',icon:'users',lbl:'Atletas'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'perfil',icon:'user',lbl:'Perfil'}];
   else tabs=[{id:'hoy',icon:'waves',lbl:'Hoy'},{id:'semana',icon:'calendar',lbl:'Semana'},{id:'mensajes',icon:'mail',lbl:'Mensajes'},{id:'perfil',icon:'user',lbl:'Mi Perfil'}];
   document.getElementById('bottomNav').innerHTML=tabs.map(t=>`<button class="nav-btn" id="nb-${t.id}" onclick="switchView('${t.id}')">${icon(t.icon,{size:22})}<span>${t.lbl}</span></button>`).join('');
 }
@@ -1438,7 +1441,8 @@ function switchView(view){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById(`nb-${view}`); if(btn) btn.classList.add('active');
   if(view==='competencia') return; // vCompetencia se invoca directo con su ID
-  ({hoy:vHoy,semana:vSemana,perfil:vPerfil,panel:vPanel,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial,mensajes:vMensajes,citas:vCitas})[view]?.();
+  const panelView = S.user?.role==='specialist' ? vSpecialistPanel : vPanel;
+  ({hoy:vHoy,semana:vSemana,perfil:vPerfil,panel:panelView,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial,mensajes:vMensajes,citas:vCitas})[view]?.();
 }
 
 /* ============================================================
@@ -4899,6 +4903,26 @@ async function openAssignProgramModal(programId){
 
     <label class="inp-label" style="margin-top:12px;">Fecha de inicio</label>
     <input type="date" class="inp" id="assignStartDate" value="${localDateStr(nextMon)}" onchange="updateAssignPreview('${p.id}')">
+
+    ${(()=>{
+      const specialists = (S.coaches||[]).filter(c=>c.role==='specialist');
+      if(!specialists.length) return '';
+      return `<label class="inp-label" style="margin-top:12px;">Invitar specialists (opcional)</label>
+      <div style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:8px 10px;">
+        <div style="font-size:10px;color:var(--text-soft);margin-bottom:6px;">Colaborarán en el pilar de su especialidad. Ven todo pero solo editan su parte.</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          ${specialists.map(s => {
+            const emoji = s.specialty==='mental'?'🧠':s.specialty==='physical'?'💪':'👤';
+            const specLbl = s.specialty==='mental'?'Psicólogo':s.specialty==='physical'?'Físico':'Specialist';
+            return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='transparent'">
+              <input type="checkbox" class="ap-spec-cb" value="${s.id}" style="width:15px;height:15px;cursor:pointer;accent-color:var(--purple);">
+              <span>${emoji} ${esc(s.name)} <span style="color:var(--grey);font-size:10px;">· ${specLbl}</span></span>
+            </label>`;
+          }).join('')}
+        </div>
+      </div>`;
+    })()}
+
     <div id="assignPreview" style="margin-top:14px;padding:12px;background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.2);border-radius:10px;font-size:12px;color:var(--white);min-height:60px;">
       Elegí atleta(s) y fecha para ver el preview.
     </div>
@@ -5046,6 +5070,16 @@ async function confirmAssignProgram(programId){
         totals.comps += (result.competitions||0);
         totals.ps += (result.presenciales||0);
         totals.ap += (result.appointments||0);
+        // Invitar specialists si el head coach los marcó
+        const specialistIds = Array.from(document.querySelectorAll('.ap-spec-cb:checked')).map(cb=>cb.value);
+        if(specialistIds.length){
+          const rows = specialistIds.map(sid => ({
+            assignment_id: a.id, specialist_id: sid, invited_by: S.user?.id || null
+          }));
+          const{ error: eC } = await db.from('tss_program_collaborators').insert(rows);
+          if(eC) console.warn('Error invitando specialists:', eC);
+          else totals.specialists = (totals.specialists||0) + specialistIds.length;
+        }
       } catch(e){
         totals.errors.push(`${ath?.name||'Atleta'}: ${e.message}`);
       }
@@ -8159,6 +8193,65 @@ async function openDayReport(athleteId, athleteName){
    MÓDULO: PANEL DEL COACH — Dashboard y gestión de atletas
    vPanel, vPanelAthlete, openEditBio, saveEval, vPresencial
    ════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   PANEL DEL SPECIALIST (psicólogo · preparador físico)
+   Muestra atletas asignados vía tss_program_collaborators.
+   ════════════════════════════════════════════════════════════════════ */
+async function vSpecialistPanel(){
+  const specialty = S.user?.specialty;
+  const specLbl = specialty === 'mental' ? '🧠 Psicólogo Deportivo'
+                : specialty === 'physical' ? '💪 Preparador Físico'
+                : '👤 Specialist';
+  const pillar = specialty === 'mental' ? 'Mental'
+              : specialty === 'physical' ? 'Físico' : '';
+  render(`<div class="page-title">${specLbl}</div>
+    <div class="page-sub">Tus atletas asignados por el head coach</div>
+    <div id="specPanelBody" style="margin-top:14px;"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando…</p></div>`);
+  try {
+    const{ data: collabs, error } = await db.from('tss_program_collaborators')
+      .select('id, assignment_id, invited_at, tss_program_assignments(id, athlete_id, program_id, start_date, end_date, status, tss_programs(id, name, weeks_total))')
+      .eq('specialist_id', S.user.id);
+    if(error) throw error;
+    const list = (collabs||[]).filter(c => c.tss_program_assignments && c.tss_program_assignments.status==='active');
+    const body = document.getElementById('specPanelBody'); if(!body) return;
+    if(!list.length){
+      body.innerHTML = `<div class="card" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:36px;margin-bottom:8px;">🫧</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">Sin atletas asignados aún</div>
+        <div style="font-size:12px;color:var(--grey);line-height:1.5;">El head coach te va a invitar a colaborar en el plan de sus atletas.<br>Trabajás sobre el pilar <strong>${pillar}</strong>.</div>
+      </div>`;
+      return;
+    }
+    body.innerHTML = list.map(c => {
+      const a = c.tss_program_assignments;
+      const ath = (S.athletes||[]).find(x => x.id === a.athlete_id);
+      const prog = a.tss_programs;
+      const initial = (ath?.name||'?').charAt(0).toUpperCase();
+      return `<div class="card" style="margin-bottom:8px;cursor:pointer;" onclick="openSpecialistAthlete('${ath?.id||''}','${a.id}')">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#A855F7,#22D3EE);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;">${initial}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:800;color:var(--text);">${esc(ath?.name||'Atleta')}</div>
+            <div style="font-size:11px;color:var(--text-soft);margin-top:2px;">${esc(prog?.name||'Programa')} · ${prog?.weeks_total||'?'} semanas</div>
+            <div style="font-size:10px;color:var(--grey);font-family:'DM Mono',monospace;margin-top:2px;">${a.start_date} → ${a.end_date||'—'}</div>
+          </div>
+          <div style="flex-shrink:0;color:var(--cyan);font-size:18px;">→</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    const body = document.getElementById('specPanelBody');
+    if(body) body.innerHTML = `<p style="color:var(--coral);padding:20px;">Error: ${esc(e.message)}</p>`;
+    console.error(e);
+  }
+}
+
+async function openSpecialistAthlete(athleteId, assignmentId){
+  if(!athleteId) return;
+  await enterAthlete(athleteId, (S.athletes||[]).find(a=>a.id===athleteId)?.name || 'Atleta');
+  switchView('perfil');
+}
+
 async function vPanel(){
   render(`<div class="page-title">Coach Panel</div><div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando...</div>`);
   try {
@@ -11458,9 +11551,11 @@ function openAddUserModal(initialRole){
     </div>
     <label class="inp-label">Tipo de usuario</label>
     <select class="inp" id="newUserRole" onchange="renderAddUserStanceField()">
-      <option value="athlete"${role==='athlete'?' selected':''}><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>Atleta</option>
-      <option value="acoach"${role==='acoach'?' selected':''}><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Coach Asistente</option>
-      <option value="coach"${role==='coach'?' selected':''}><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>Head Coach</option>
+      <option value="athlete"${role==='athlete'?' selected':''}>🏄 Atleta</option>
+      <option value="acoach"${role==='acoach'?' selected':''}>📋 Coach Asistente</option>
+      <option value="coach"${role==='coach'?' selected':''}>🏆 Head Coach</option>
+      <option value="specialist_mental"${role==='specialist_mental'?' selected':''}>🧠 Psicólogo Deportivo</option>
+      <option value="specialist_physical"${role==='specialist_physical'?' selected':''}>💪 Preparador Físico</option>
     </select>
     <label class="inp-label" style="margin-top:14px;">Nombre completo</label>
     <input type="text" class="inp" id="newAthName" placeholder="Ej: Daniel Monterrosa">
@@ -11494,7 +11589,13 @@ function renderAddUserStanceField(){
 function openAddAthleteModal(){ openAddUserModal('athlete'); }
 
 async function saveNewUser(){
-  const role = document.getElementById('newUserRole')?.value || 'athlete';
+  const rawRole = document.getElementById('newUserRole')?.value || 'athlete';
+  // Parsear specialist_mental / specialist_physical → role=specialist + specialty
+  let role = rawRole, specialty = null;
+  if(rawRole.startsWith('specialist_')){
+    role = 'specialist';
+    specialty = rawRole.replace('specialist_', '');  // 'mental' | 'physical'
+  }
   const name = document.getElementById('newAthName')?.value?.trim();
   const pin = document.getElementById('newAthPin')?.value?.trim();
   if(!name){ toast('Ingresa el nombre','error'); return; }
@@ -11502,19 +11603,18 @@ async function saveNewUser(){
   if(pin==='0000'){ toast('Ese PIN no se permite, elige otro','error'); return; }
   showLoad(true);
   try {
-    // Validar PIN único en TODA la tabla (atletas + coaches activos) via RPC
     const{data:available}=await db.rpc('check_pin_available',{p_pin:pin});
     if(available===false){ toast('Ese PIN ya está en uso, elige otro','error'); showLoad(false); return; }
     const payload = { user_id: crypto.randomUUID(), name, role, pin, active: true };
+    if(specialty) payload.specialty = specialty;
     if(role==='athlete'){
       payload.stance = document.getElementById('newStanceGoofy')?.classList.contains('btn-cyan')?'Goofy':'Regular';
     }
     const{data,error} = await db.from('tss_profiles').insert(payload).select().single();
     if(error) throw error;
-    // Refrescar listas locales
     if(role==='athlete'){ S.athletes.push(data); }
     else { (S.coaches||[]).push(data); S.coaches.sort((a,b)=>a.name.localeCompare(b.name)); }
-    const labels={athlete:'atleta', acoach:'coach asistente', coach:'head coach'};
+    const labels={athlete:'atleta', acoach:'coach asistente', coach:'head coach', specialist:specialty==='mental'?'psicólogo deportivo':'preparador físico'};
     toast(`${name} agregado como ${labels[role]||role}`,'success');
     closeModal('addUserModal');
     vAtletas();
