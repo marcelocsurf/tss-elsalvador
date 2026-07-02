@@ -619,6 +619,12 @@ const ICONS = {
   // Pilares
   'dumbbell':     '<path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/>',
   'brain':        '<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>',
+  'video':        '<path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2" ry="2"/>',
+  'map-pin':      '<path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  'phone':        '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  'monitor':      '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  'external-link':'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
+  'lock':         '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   // Status
   'check':        '<polyline points="20 6 9 17 4 12"/>',
   'check-circle': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
@@ -3628,9 +3634,12 @@ function renderProgramEditor(){
   const micros = p.matrix.micros || [];
 
   const _isSpecUser = S.user?.role === 'specialist';
-  const _specUserLbl = S.user?.specialty === 'mental' ? '🧠 Psicólogo Deportivo · editás solo el pilar MENTAL'
-                    : S.user?.specialty === 'physical' ? '💪 Preparador Físico · editás solo el pilar FÍSICO'
-                    : '👤 Specialist';
+  const _specUserIc = S.user?.specialty === 'mental' ? icon('brain',{size:16,color:'#22D3EE'})
+                    : S.user?.specialty === 'physical' ? icon('dumbbell',{size:16,color:'#22D3EE'})
+                    : icon('user',{size:16,color:'#22D3EE'});
+  const _specUserLbl = S.user?.specialty === 'mental' ? 'Psicólogo Deportivo · editás solo el pilar MENTAL'
+                    : S.user?.specialty === 'physical' ? 'Preparador Físico · editás solo el pilar FÍSICO'
+                    : 'Specialist';
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
       <button class="btn btn-ghost btn-sm" onclick="renderProgramsList()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="15 18 9 12 15 6"/></svg>Volver a la lista</button>
@@ -3641,8 +3650,8 @@ function renderProgramEditor(){
 
     ${_isSpecUser ? `<div style="background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(34,211,238,.06));border:1.5px solid rgba(34,211,238,.4);border-radius:12px;padding:11px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
       <div>
-        <div style="font-size:12px;font-weight:800;color:#22D3EE;letter-spacing:.3px;">${_specUserLbl}</div>
-        <div style="font-size:11px;color:var(--text-soft);margin-top:3px;line-height:1.4;">Ves toda la matriz para tener contexto · las filas con 🔒 son solo lectura</div>
+        <div style="font-size:12px;font-weight:800;color:#22D3EE;letter-spacing:.3px;display:flex;align-items:center;gap:6px;">${_specUserIc}${_specUserLbl}</div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:3px;line-height:1.4;display:flex;align-items:center;gap:4px;">Ves toda la matriz para tener contexto · las filas con ${icon('lock',{size:11})} son solo lectura</div>
       </div>
     </div>` : ''}
 
@@ -3737,7 +3746,7 @@ function renderMicrosDesktop(micros){
       const v = m[key] || '';
       return `<div class="prog-cell" style="${lockStyle(key)}"><select class="prog-select" ${lockAttr(key)} onchange="updateMicroField(${i},'${key}',this.value)">${options.map(o=>`<option value="${o}" ${v===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
     }).join('');
-    return `<div class="prog-row${rowLockClass(key)}"><div class="prog-cell prog-cell-label">${label}${locked?' <span style="font-size:9px;color:var(--grey);">🔒</span>':''}</div>${cells}</div>`;
+    return `<div class="prog-row${rowLockClass(key)}"><div class="prog-cell prog-cell-label">${label}${locked?' <span style="color:var(--grey);vertical-align:-2px;">'+icon('lock',{size:10})+'</span>':''}</div>${cells}</div>`;
   };
   const renderRowText = (label, key, isPillar=false) => {
     const locked = _rowLocked(key);
@@ -3746,7 +3755,7 @@ function renderMicrosDesktop(micros){
       const extra = (!isPillar && key==='competition_ref' && v && !locked) ? `<button title="Auto-marcar este micro como Competition y las previas como Pre-Comp/Taper" onclick="autoMarkPreCompTaper(${i})" style="position:absolute;top:2px;right:2px;background:rgba(245,158,11,.18);border:1px solid var(--amber);color:var(--amber);border-radius:6px;padding:1px 5px;font-size:9px;font-weight:700;cursor:pointer;line-height:1.2;">🎯</button>` : '';
       return `<div class="prog-cell" style="position:relative;${lockStyle(key)}"><textarea class="prog-textarea" ${lockAttr(key)} oninput="${isPillar?`updatePillar(${i},'${key}',this.value)`:`updateMicroField(${i},'${key}',this.value)`}" placeholder="—" style="${extra?'padding-right:30px;':''}">${esc(v)}</textarea>${extra}</div>`;
     }).join('');
-    return `<div class="prog-row${rowLockClass(key)}"><div class="prog-cell prog-cell-label">${label}${locked?' <span style="font-size:9px;color:var(--grey);">🔒</span>':''}</div>${cells}</div>`;
+    return `<div class="prog-row${rowLockClass(key)}"><div class="prog-cell prog-cell-label">${label}${locked?' <span style="color:var(--grey);vertical-align:-2px;">'+icon('lock',{size:10})+'</span>':''}</div>${cells}</div>`;
   };
   const renderRowEval = () => {
     const cells = micros.map((m,i)=>{
@@ -3770,7 +3779,7 @@ function renderMicrosDesktop(micros){
         <textarea placeholder="Objetivo del pilar" ${lockAttr(key)} oninput="updatePillarField(${i},'${key}','goal',this.value)" style="width:100%;background:transparent;border:none;color:var(--text-soft);font-size:10px;resize:none;padding:0;min-height:22px;font-family:inherit;line-height:1.3;">${esc(p.goal || '')}</textarea>
       </div>`;
     }).join('');
-    const labelExtra = locked ? ' <span style="font-size:9px;color:var(--grey);">🔒</span>' : (highlightMine ? ' <span style="font-size:9px;color:#22D3EE;">✏️ Tú</span>' : '');
+    const labelExtra = locked ? ' <span style="color:var(--grey);vertical-align:-2px;">'+icon('lock',{size:10})+'</span>' : (highlightMine ? ' <span style="font-size:9px;color:#22D3EE;display:inline-flex;align-items:center;gap:3px;vertical-align:-1px;">'+icon('pencil',{size:10})+'Tú</span>' : '');
     return `<div class="prog-row${rowLockClass(key)}"><div class="prog-cell prog-cell-label" style="border-left:3px solid ${accent};${highlightMine?'background:rgba(34,211,238,.1);':''}">${label}${labelExtra}</div>${cells}</div>`;
   };
   const renderRowPillarTotal = () => {
@@ -4282,9 +4291,9 @@ function renderPresencialPlanner(microIdx){
             <div>
               <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Modalidad</label>
               <select onchange="updatePresencial(${microIdx},${idx},'modality',this.value);refreshMatrixCellsForMicro(${microIdx});" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
-                <option value="presencial" ${(p.modality||'presencial')==='presencial'?'selected':''}>📍 Presencial</option>
-                <option value="video_call" ${p.modality==='video_call'?'selected':''}>🎥 Video</option>
-                <option value="online" ${p.modality==='online'?'selected':''}>💻 Online</option>
+                <option value="presencial" ${(p.modality||'presencial')==='presencial'?'selected':''}>Presencial</option>
+                <option value="video_call" ${p.modality==='video_call'?'selected':''}>Video llamada</option>
+                <option value="online" ${p.modality==='online'?'selected':''}>Online</option>
               </select>
             </div>
             <div>
@@ -4412,7 +4421,7 @@ function renderAppointmentPlanner(microIdx){
               <option value="presencial" ${(p.modality||'presencial')==='presencial'?'selected':''}>📍 Presencial</option>
               <option value="video_call" ${p.modality==='video_call'?'selected':''}>🎥 Video llamada</option>
               <option value="online" ${p.modality==='online'?'selected':''}>💻 Online</option>
-              <option value="phone" ${p.modality==='phone'?'selected':''}>📞 Teléfono</option>
+              <option value="phone" ${p.modality==='phone'?'selected':''}>Teléfono</option>
             </select>
             ${['video_call','online'].includes(p.modality||'presencial') ? `
               <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Link de la reunión</label>
@@ -4957,11 +4966,11 @@ async function openAssignProgramModal(programId){
         <div style="font-size:10px;color:var(--text-soft);margin-bottom:6px;">Colaborarán en el pilar de su especialidad. Ven todo pero solo editan su parte.</div>
         <div style="display:flex;flex-direction:column;gap:4px;">
           ${specialists.map(s => {
-            const emoji = s.specialty==='mental'?'🧠':s.specialty==='physical'?'💪':'👤';
+            const specIcon = s.specialty==='mental'?icon('brain',{size:14,color:'var(--purple)'}):s.specialty==='physical'?icon('dumbbell',{size:14,color:'var(--purple)'}):icon('user',{size:14,color:'var(--purple)'});
             const specLbl = s.specialty==='mental'?'Psicólogo':s.specialty==='physical'?'Físico':'Specialist';
             return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='transparent'">
               <input type="checkbox" class="ap-spec-cb" value="${s.id}" style="width:15px;height:15px;cursor:pointer;accent-color:var(--purple);">
-              <span>${emoji} ${esc(s.name)} <span style="color:var(--grey);font-size:10px;">· ${specLbl}</span></span>
+              <span style="display:inline-flex;align-items:center;gap:6px;">${specIcon}${esc(s.name)} <span style="color:var(--grey);font-size:10px;">· ${specLbl}</span></span>
             </label>`;
           }).join('')}
         </div>
@@ -8244,12 +8253,15 @@ async function openDayReport(athleteId, athleteName){
    ════════════════════════════════════════════════════════════════════ */
 async function vSpecialistPanel(){
   const specialty = S.user?.specialty;
-  const specLbl = specialty === 'mental' ? '🧠 Psicólogo Deportivo'
-                : specialty === 'physical' ? '💪 Preparador Físico'
-                : '👤 Specialist';
+  const specIc = specialty === 'mental' ? icon('brain',{size:18,color:'var(--cyan)'})
+              : specialty === 'physical' ? icon('dumbbell',{size:18,color:'var(--cyan)'})
+              : icon('user',{size:18,color:'var(--cyan)'});
+  const specTitle = specialty === 'mental' ? 'Psicólogo Deportivo'
+                  : specialty === 'physical' ? 'Preparador Físico'
+                  : 'Specialist';
   const pillar = specialty === 'mental' ? 'Mental'
               : specialty === 'physical' ? 'Físico' : '';
-  render(`<div class="page-title">${specLbl}</div>
+  render(`<div class="page-title" style="display:flex;align-items:center;gap:8px;">${specIc}${specTitle}</div>
     <div class="page-sub">Tus atletas asignados por el head coach</div>
     <div id="specPanelBody" style="margin-top:14px;"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando…</p></div>`);
   try {
@@ -8261,7 +8273,7 @@ async function vSpecialistPanel(){
     const body = document.getElementById('specPanelBody'); if(!body) return;
     if(!list.length){
       body.innerHTML = `<div class="card" style="text-align:center;padding:40px 20px;">
-        <div style="font-size:36px;margin-bottom:8px;">🫧</div>
+        <div style="display:flex;justify-content:center;margin-bottom:12px;color:var(--text-soft);">${icon('users',{size:36})}</div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">Sin atletas asignados aún</div>
         <div style="font-size:12px;color:var(--grey);line-height:1.5;">El head coach te va a invitar a colaborar en el plan de sus atletas.<br>Trabajás sobre el pilar <strong>${pillar}</strong>.</div>
       </div>`;
@@ -8282,7 +8294,7 @@ async function vSpecialistPanel(){
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:10px;">
-          <button class="btn btn-cyan btn-sm" style="flex:1;font-size:11px;" onclick="specOpenProgram('${prog?.id||''}')">📋 Editar mi parte del programa</button>
+          <button class="btn btn-cyan btn-sm" style="flex:1;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:6px;" onclick="specOpenProgram('${prog?.id||''}')">${icon('clipboard',{size:13})}Editar mi parte del programa</button>
           <button class="btn btn-ghost btn-sm" style="font-size:11px;" onclick="openSpecialistAthlete('${ath?.id||''}','${a.id}')">Ver atleta</button>
         </div>
       </div>`;
@@ -9308,12 +9320,12 @@ function renderApptCard(a){
     <div style="display:flex;gap:8px;font-size:11px;color:var(--grey);margin-top:4px;flex-wrap:wrap;align-items:center;">
       <span>📆 ${fmtApptDate(a.date)} ${fmtDate(a.date)}</span>
       ${a.time?`<span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${fmtApptTime(a.time)}</span>`:`<span style="color:var(--amber);font-weight:700;">⏰ sin hora</span>`}
-      ${(()=>{ const m=a.modality||'presencial'; const lbl=m==='online'?'💻 Online':m==='video_call'?'🎥 Video':m==='phone'?'📞 Teléfono':'📍 Presencial'; return `<span style="color:var(--cyan);font-weight:600;">${lbl}</span>`; })()}
+      ${(()=>{ const m=a.modality||'presencial'; const ic=m==='online'?'monitor':m==='video_call'?'video':m==='phone'?'phone':'map-pin'; const lbl=m==='online'?'Online':m==='video_call'?'Video':m==='phone'?'Teléfono':'Presencial'; return `<span style="color:var(--cyan);font-weight:600;display:inline-flex;align-items:center;gap:4px;">${icon(ic,{size:12})}${lbl}</span>`; })()}
       ${a.location?`<span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ${esc(a.location)}</span>`:''}
       ${confChip}
     </div>
     ${a.meeting_url ? `<div style="margin-top:8px;" onclick="event.stopPropagation();">
-      <a href="${esc(a.meeting_url)}" target="_blank" rel="noopener" class="btn btn-xs btn-cyan" style="font-size:11px;padding:6px 10px;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">🎥 Unirse a la reunión</a>
+      <a href="${esc(a.meeting_url)}" target="_blank" rel="noopener" class="btn btn-xs btn-cyan" style="font-size:11px;padding:6px 10px;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">${icon('video',{size:13})}Unirse a la reunión${icon('external-link',{size:11})}</a>
     </div>`:''}
     ${isProposal && isCoach ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation();">
       <button class="btn btn-xs btn-cyan" style="font-size:11px;padding:6px 10px;font-weight:700;" onclick="quickConfirmAppt('${a.id}')">✓ Confirmar día/hora</button>
@@ -9419,9 +9431,10 @@ function openApptForm(existAppt=null, prefAthleteId=null){
       <label class="inp-label" style="margin-top:10px;">Modalidad</label>
       <div class="chips" id="ap-modality-chips">
         ${['presencial','online','video_call','phone'].map(m=>{
-          const label = m==='presencial'?'📍 Presencial':m==='online'?'💻 Online':m==='video_call'?'🎥 Video llamada':'📞 Teléfono';
+          const ic = m==='presencial'?'map-pin':m==='online'?'monitor':m==='video_call'?'video':'phone';
+          const lbl = m==='presencial'?'Presencial':m==='online'?'Online':m==='video_call'?'Video llamada':'Teléfono';
           const active = (existAppt?.modality||'presencial')===m;
-          return `<span class="chip ${active?'':'off'}" data-modality="${m}" onclick="selectApptModality('${m}')">${label}</span>`;
+          return `<span class="chip ${active?'':'off'}" data-modality="${m}" onclick="selectApptModality('${m}')" style="display:inline-flex;align-items:center;gap:6px;">${icon(ic,{size:14})}${lbl}</span>`;
         }).join('')}
       </div>
       <input type="hidden" id="ap-modality" value="${existAppt?.modality||'presencial'}">
@@ -11608,11 +11621,11 @@ function openAddUserModal(initialRole){
     </div>
     <label class="inp-label">Tipo de usuario</label>
     <select class="inp" id="newUserRole" onchange="renderAddUserStanceField()">
-      <option value="athlete"${role==='athlete'?' selected':''}>🏄 Atleta</option>
-      <option value="acoach"${role==='acoach'?' selected':''}>📋 Coach Asistente</option>
-      <option value="coach"${role==='coach'?' selected':''}>🏆 Head Coach</option>
-      <option value="specialist_mental"${role==='specialist_mental'?' selected':''}>🧠 Psicólogo Deportivo</option>
-      <option value="specialist_physical"${role==='specialist_physical'?' selected':''}>💪 Preparador Físico</option>
+      <option value="athlete"${role==='athlete'?' selected':''}>Atleta</option>
+      <option value="acoach"${role==='acoach'?' selected':''}>Coach Asistente</option>
+      <option value="coach"${role==='coach'?' selected':''}>Head Coach</option>
+      <option value="specialist_mental"${role==='specialist_mental'?' selected':''}>Psicólogo Deportivo</option>
+      <option value="specialist_physical"${role==='specialist_physical'?' selected':''}>Preparador Físico</option>
     </select>
     <label class="inp-label" style="margin-top:14px;">Nombre completo</label>
     <input type="text" class="inp" id="newAthName" placeholder="Ej: Daniel Monterrosa">
