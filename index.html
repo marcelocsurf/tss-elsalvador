@@ -3255,14 +3255,16 @@ async function materializeProgramAssignment(assignmentId){
         date: localDateStr(d),
         time_start: p.time_start || null,
         duration_min: p.duration_min || 90,
-        location: p.location || null,
+        location: ['video_call','online'].includes(p.modality) ? null : (p.location || null),
         pilar: p.pilar || null,
         sub_pilar: p.sub_pilar || null,
         mission: p.mission || null,
         notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')}] Por confirmar día/hora con el coach.${p.notes?' '+p.notes:''}`,
         athlete_ids: a.athlete_id,
         created_by: a.created_by || S.user?.id || null,
-        status: 'propuesta'
+        status: 'propuesta',
+        modality: p.modality || 'presencial',
+        meeting_url: ['video_call','online'].includes(p.modality) ? (p.meeting_url || null) : null
       });
     }
   }
@@ -3296,12 +3298,14 @@ async function materializeProgramAssignment(assignmentId){
         date: localDateStr(d),
         time: p.time || null,
         duration_min: p.duration_min || 45,
-        location: p.location || null,
+        location: ['video_call','online','phone'].includes(p.modality) ? null : (p.location || null),
         provider_name: p.provider_name || null,
         notes: `[Programa: ${a.program?.name||''} · M${String(micro.week).padStart(2,'0')} · ${p.type||'Cita'}] Por confirmar día/hora con el coach.${p.notes?' '+p.notes:''}`,
         status: 'propuesta',
         created_by: a.created_by || S.user?.id || null,
-        batch_id: assignmentId
+        batch_id: assignmentId,
+        modality: p.modality || 'presencial',
+        meeting_url: ['video_call','online'].includes(p.modality) ? (p.meeting_url || null) : null
       });
     }
   }
@@ -4230,11 +4234,21 @@ function renderPresencialPlanner(microIdx){
               <input type="number" min="15" max="480" value="${p.duration_min||90}" onchange="updatePresencial(${microIdx},${idx},'duration_min',parseInt(this.value))" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
             </div>
             <div>
-              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Lugar</label>
-              <input type="text" value="${escAttr(p.location||'')}" oninput="updatePresencial(${microIdx},${idx},'location',this.value)" placeholder="ej. Punta Roca" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">${['video_call','online'].includes(p.modality||'presencial')?'Link videollamada':'Lugar'}</label>
+              ${['video_call','online'].includes(p.modality||'presencial')
+                ? `<input type="url" value="${escAttr(p.meeting_url||'')}" oninput="updatePresencial(${microIdx},${idx},'meeting_url',this.value)" placeholder="https://meet.google.com/..." style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">`
+                : `<input type="text" value="${escAttr(p.location||'')}" oninput="updatePresencial(${microIdx},${idx},'location',this.value)" placeholder="ej. Punta Roca" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">`}
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">
+            <div>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Modalidad</label>
+              <select onchange="updatePresencial(${microIdx},${idx},'modality',this.value);refreshMatrixCellsForMicro(${microIdx});" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+                <option value="presencial" ${(p.modality||'presencial')==='presencial'?'selected':''}>📍 Presencial</option>
+                <option value="video_call" ${p.modality==='video_call'?'selected':''}>🎥 Video</option>
+                <option value="online" ${p.modality==='online'?'selected':''}>💻 Online</option>
+              </select>
+            </div>
             <div>
               <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Pilar</label>
               <select onchange="updatePresencial(${microIdx},${idx},'pilar',this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
@@ -4243,7 +4257,7 @@ function renderPresencialPlanner(microIdx){
               </select>
             </div>
             <div>
-              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Título cambiar</label>
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Título</label>
               <input type="text" value="${escAttr(p.title||'')}" oninput="updatePresencial(${microIdx},${idx},'title',this.value)" placeholder="ej. PS Jueves" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
             </div>
           </div>
@@ -4267,7 +4281,8 @@ function addPresencial(microIdx){
   m.presencials = m.presencials || [];
   m.presencials.push({
     title: 'Presencial', dow: 4, time_start: '17:00', duration_min: 90,
-    location: '', pilar: '', mission: '', notes: '', target_athletes: []
+    location: '', pilar: '', mission: '', notes: '', target_athletes: [],
+    modality: 'presencial', meeting_url: ''
   });
   renderPresencialPlanner(microIdx);
   refreshMatrixCellsForMicro(microIdx);
@@ -4354,8 +4369,20 @@ function renderAppointmentPlanner(microIdx){
                 <input type="text" value="${escAttr(p.provider_name||'')}" oninput="updateAppointment(${microIdx},${idx},'provider_name',this.value)" placeholder="ej. Dr. García" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
               </div>
             </div>
-            <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Lugar</label>
-            <input type="text" value="${escAttr(p.location||'')}" oninput="updateAppointment(${microIdx},${idx},'location',this.value)" placeholder="ej. Hospital Diagnóstico, sala 4" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;">Modalidad</label>
+            <select onchange="updateAppointment(${microIdx},${idx},'modality',this.value);renderAppointmentPlanner(${microIdx});" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+              <option value="presencial" ${(p.modality||'presencial')==='presencial'?'selected':''}>📍 Presencial</option>
+              <option value="video_call" ${p.modality==='video_call'?'selected':''}>🎥 Video llamada</option>
+              <option value="online" ${p.modality==='online'?'selected':''}>💻 Online</option>
+              <option value="phone" ${p.modality==='phone'?'selected':''}>📞 Teléfono</option>
+            </select>
+            ${['video_call','online'].includes(p.modality||'presencial') ? `
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Link de la reunión</label>
+              <input type="url" value="${escAttr(p.meeting_url||'')}" oninput="updateAppointment(${microIdx},${idx},'meeting_url',this.value)" placeholder="https://meet.google.com/..." style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            ` : (p.modality||'presencial')==='presencial' ? `
+              <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Lugar</label>
+              <input type="text" value="${escAttr(p.location||'')}" oninput="updateAppointment(${microIdx},${idx},'location',this.value)" placeholder="ej. Hospital Diagnóstico, sala 4" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;">
+            ` : ''}
             <label style="font-size:9px;color:var(--text-soft);text-transform:uppercase;font-weight:700;margin-top:6px;display:block;">Notas</label>
             <textarea oninput="updateAppointment(${microIdx},${idx},'notes',this.value)" placeholder="opcional" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--white);padding:5px 7px;font-size:11px;min-height:30px;resize:vertical;font-family:inherit;">${esc(p.notes||'')}</textarea>
             ${renderTargetAthletesRow(microIdx, idx, p.target_athletes, 'appointments')}
@@ -4375,7 +4402,8 @@ function addAppointment(microIdx){
   m.appointments = m.appointments || [];
   m.appointments.push({
     type: 'Medical', dow: 2, time: '10:00', duration_min: 45,
-    location: '', provider_name: '', notes: '', target_athletes: []
+    location: '', provider_name: '', notes: '', target_athletes: [],
+    modality: 'presencial', meeting_url: ''
   });
   renderAppointmentPlanner(microIdx);
   refreshMatrixCellsForMicro(microIdx);
@@ -9130,9 +9158,13 @@ function renderApptCard(a){
     <div style="display:flex;gap:8px;font-size:11px;color:var(--grey);margin-top:4px;flex-wrap:wrap;align-items:center;">
       <span>📆 ${fmtApptDate(a.date)} ${fmtDate(a.date)}</span>
       ${a.time?`<span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${fmtApptTime(a.time)}</span>`:`<span style="color:var(--amber);font-weight:700;">⏰ sin hora</span>`}
+      ${(()=>{ const m=a.modality||'presencial'; const lbl=m==='online'?'💻 Online':m==='video_call'?'🎥 Video':m==='phone'?'📞 Teléfono':'📍 Presencial'; return `<span style="color:var(--cyan);font-weight:600;">${lbl}</span>`; })()}
       ${a.location?`<span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ${esc(a.location)}</span>`:''}
       ${confChip}
     </div>
+    ${a.meeting_url ? `<div style="margin-top:8px;" onclick="event.stopPropagation();">
+      <a href="${esc(a.meeting_url)}" target="_blank" rel="noopener" class="btn btn-xs btn-cyan" style="font-size:11px;padding:6px 10px;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">🎥 Unirse a la reunión</a>
+    </div>`:''}
     ${isProposal && isCoach ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation();">
       <button class="btn btn-xs btn-cyan" style="font-size:11px;padding:6px 10px;font-weight:700;" onclick="quickConfirmAppt('${a.id}')">✓ Confirmar día/hora</button>
       <button class="btn btn-xs btn-ghost" style="font-size:10px;padding:6px 10px;" onclick="openApptDetail('${a.id}')">Ver detalle</button>
@@ -9159,6 +9191,17 @@ async function quickConfirmAppt(apptId){
       if(statusSel) statusSel.value = 'programada';
     }, 80);
   } catch(e){ toast('Error: '+e.message,'error'); console.error(e); }
+}
+
+function selectApptModality(m){
+  document.getElementById('ap-modality').value = m;
+  document.querySelectorAll('#ap-modality-chips .chip').forEach(c=>{
+    c.classList.toggle('off', c.dataset.modality !== m);
+  });
+  const isRemote = ['video_call','online'].includes(m);
+  const isPhone = m === 'phone';
+  const locRow = document.getElementById('ap-loc-row'); if(locRow) locRow.style.display = (isRemote || isPhone) ? 'none' : 'block';
+  const urlRow = document.getElementById('ap-url-row'); if(urlRow) urlRow.style.display = isRemote ? 'block' : 'none';
 }
 
 function openApptForm(existAppt=null, prefAthleteId=null){
@@ -9222,8 +9265,26 @@ function openApptForm(existAppt=null, prefAthleteId=null){
       </div>
       <label class="inp-label" style="margin-top:10px;">Duración (min)</label>
       <input type="number" class="inp" id="ap-dur" value="${existAppt?.duration_min||60}" min="5" max="480">
-      <label class="inp-label" style="margin-top:10px;">Lugar</label>
-      <input type="text" class="inp" id="ap-loc" value="${escAttr(existAppt?.location||'')}" placeholder="Ej: Hospital de Diagnóstico, Clínica X...">
+
+      <label class="inp-label" style="margin-top:10px;">Modalidad</label>
+      <div class="chips" id="ap-modality-chips">
+        ${['presencial','online','video_call','phone'].map(m=>{
+          const label = m==='presencial'?'📍 Presencial':m==='online'?'💻 Online':m==='video_call'?'🎥 Video llamada':'📞 Teléfono';
+          const active = (existAppt?.modality||'presencial')===m;
+          return `<span class="chip ${active?'':'off'}" data-modality="${m}" onclick="selectApptModality('${m}')">${label}</span>`;
+        }).join('')}
+      </div>
+      <input type="hidden" id="ap-modality" value="${existAppt?.modality||'presencial'}">
+
+      <div id="ap-loc-row" style="display:${(existAppt?.modality||'presencial')==='phone'||['video_call','online'].includes(existAppt?.modality)?'none':'block'};">
+        <label class="inp-label" style="margin-top:10px;">Lugar</label>
+        <input type="text" class="inp" id="ap-loc" value="${escAttr(existAppt?.location||'')}" placeholder="Ej: Hospital de Diagnóstico, Clínica X...">
+      </div>
+      <div id="ap-url-row" style="display:${['video_call','online'].includes(existAppt?.modality)?'block':'none'};">
+        <label class="inp-label" style="margin-top:10px;">Link de la reunión</label>
+        <input type="url" class="inp" id="ap-url" value="${escAttr(existAppt?.meeting_url||'')}" placeholder="https://meet.google.com/... o https://zoom.us/...">
+      </div>
+
       <label class="inp-label" style="margin-top:10px;">Profesional / Médico</label>
       <input type="text" class="inp" id="ap-prov" value="${escAttr(existAppt?.provider_name||'')}" placeholder="Ej: Dr. Mendoza">
       <label class="inp-label" style="margin-top:10px;">Notas</label>
@@ -9283,13 +9344,18 @@ async function saveAppt(existId, prefAthleteId){
 
   if(!athleteIds[0]){ toast('Selecciona un atleta','error'); return; }
 
+  const modality = gv('ap-modality') || 'presencial';
+  const meetingUrl = ['video_call','online'].includes(modality) ? (gv('ap-url')||null) : null;
+  const location = ['video_call','online','phone'].includes(modality) ? null : (gv('ap-loc')||null);
   const basePayload = {
     type, date,
     time: gv('ap-time')||null,
     duration_min: parseInt(gv('ap-dur'))||60,
-    location: gv('ap-loc')||null,
+    location,
     provider_name: gv('ap-prov')||null,
     notes: gv('ap-notes')||null,
+    modality,
+    meeting_url: meetingUrl,
     created_by: S.user.id,
   };
 
