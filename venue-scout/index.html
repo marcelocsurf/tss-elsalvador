@@ -83,7 +83,7 @@ input,textarea,select{font-family:inherit;}
 .cat-otra .cat-lbl,.cat-otra .cat-num{color:var(--bronze-text);}
 
 /* ---------- Toolbar ---------- */
-.toolbar{display:grid; grid-template-columns:repeat(4,1fr); gap:5px;}
+.toolbar{display:grid; grid-template-columns:repeat(5,1fr); gap:5px;}
 .tool{padding:9px 4px; border-radius:8px; text-align:center; font-size:10px; font-weight:700; border:1px solid var(--border2); color:var(--text-soft); cursor:pointer; user-select:none; letter-spacing:.4px; transition:all .12s; line-height:1.1;}
 .tool:active{transform:scale(.96);}
 .tool svg{display:block; margin:0 auto 3px; width:16px; height:16px;}
@@ -246,7 +246,7 @@ const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P'
 let state = {
   screen: 'setup',
   config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20 },
-  map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[] },
+  map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[], entryPoint:null, exitPoint:null },
   waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
   activeMode: 'mejor',  // mejor | media | otra | line-out | line-in | line-ori | ref | erase | draw
@@ -265,6 +265,14 @@ function fmtClock(d){ d=new Date(d); return String(d.getHours()).padStart(2,'0')
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function colToLetter(c){ /* placeholder, columnas siguen siendo numéricas */ return c; }
 function rowToLetter(r){ return ROW_LETTERS[r-1] || '?'; }
+function pointToCell(pt){
+  if(!pt) return null;
+  const cellW = MAP_W / GRID_COLS;
+  const cellH = MAP_H / GRID_ROWS;
+  const col = Math.max(1, Math.min(GRID_COLS, Math.floor(pt.x / cellW) + 1));
+  const row = Math.max(1, Math.min(GRID_ROWS, Math.floor(pt.y / cellH) + 1));
+  return rowToLetter(row) + col;
+}
 function coordLbl(w){ return rowToLetter(w.gridRow)+w.gridCol; }
 
 function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){ console.warn(e); } }
@@ -624,6 +632,14 @@ function renderObserve(){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
           +REF
         </div>
+        <div class="tool entry ${state.activeMode==='entry'?'on':''}" style="color:#34D399;" onclick="setMode('entry')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          ENTRA
+        </div>
+        <div class="tool exit ${state.activeMode==='exit'?'on':''}" style="color:#FCA5A5;" onclick="setMode('exit')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          SALE
+        </div>
         <div class="tool misma" onclick="plantSameAsLast()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M3.5 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           +MISMA
@@ -673,6 +689,8 @@ function modeHint(mode){
     case 'erase': return 'tap un pin para borrarlo';
     case 'draw': return 'dibujá con el dedo sobre la cuadrícula (esbozá orilla, banco, lineup...)';
     case 'predict': return '🎯 tap la celda donde predecís que sale la PRÓXIMA mejor';
+    case 'entry': return 'tap el punto por donde el atleta ENTRA al agua (canal, orilla, etc.)';
+    case 'exit': return 'tap el punto por donde el atleta SALE del agua después de la ola';
   }
   return '';
 }
@@ -830,6 +848,27 @@ function renderMapSVG(){
     refLines += `<circle cx="${p.x}" cy="${p.y}" r="8" fill="${c}" stroke="#fff" stroke-width="2"/>`;
   }
 
+  // Entry / Exit points (verde para entrada, coral para salida)
+  let entryExit = '';
+  if(state.map.entryPoint){
+    const ep = state.map.entryPoint;
+    entryExit += `<g class="entry-pin" data-kind="entry" style="cursor:pointer;">
+      <circle cx="${ep.x}" cy="${ep.y}" r="16" fill="rgba(52,211,153,0.25)" stroke="#34D399" stroke-width="3"/>
+      <path d="M ${ep.x-6} ${ep.y} L ${ep.x+6} ${ep.y} M ${ep.x+2} ${ep.y-4} L ${ep.x+6} ${ep.y} L ${ep.x+2} ${ep.y+4}" stroke="#34D399" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="${ep.x-24}" y="${ep.y+18}" width="48" height="16" rx="4" fill="rgba(0,0,0,0.75)"/>
+      <text x="${ep.x}" y="${ep.y+30}" text-anchor="middle" font-size="11" fill="#34D399" font-weight="700">ENTRADA</text>
+    </g>`;
+  }
+  if(state.map.exitPoint){
+    const xp = state.map.exitPoint;
+    entryExit += `<g class="exit-pin" data-kind="exit" style="cursor:pointer;">
+      <circle cx="${xp.x}" cy="${xp.y}" r="16" fill="rgba(252,165,165,0.25)" stroke="#FCA5A5" stroke-width="3"/>
+      <path d="M ${xp.x-6} ${xp.y} L ${xp.x+6} ${xp.y} M ${xp.x+2} ${xp.y-4} L ${xp.x+6} ${xp.y} L ${xp.x+2} ${xp.y+4}" stroke="#FCA5A5" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="${xp.x-20}" y="${xp.y+18}" width="40" height="16" rx="4" fill="rgba(0,0,0,0.75)"/>
+      <text x="${xp.x}" y="${xp.y+30}" text-anchor="middle" font-size="11" fill="#FCA5A5" font-weight="700">SALIDA</text>
+    </g>`;
+  }
+
   // Referencias en tierra
   let refs = '';
   state.map.refs.forEach(r=>{
@@ -891,7 +930,7 @@ function renderMapSVG(){
     </g>`;
   }
   return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${refs}${pins}${predictionPin}
+    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${entryExit}${refs}${pins}${predictionPin}
   </svg>`;
 }
 function renderLine(line, color, label){
@@ -1055,7 +1094,32 @@ function handleMapTap(e){
     return;
   }
 
+  if(mode==='entry'){
+    state.map.entryPoint = { x, y };
+    state.activeMode = 'mejor';
+    save(); render();
+    toast('Punto de ENTRADA marcado');
+    return;
+  }
+
+  if(mode==='exit'){
+    state.map.exitPoint = { x, y };
+    state.activeMode = 'mejor';
+    save(); render();
+    toast('Punto de SALIDA marcado');
+    return;
+  }
+
   if(mode==='erase'){
+    // Tap sobre entry/exit pin → borrar
+    if(e.target.closest('.entry-pin')){
+      if(confirm('¿Borrar punto de ENTRADA?')){ state.map.entryPoint = null; save(); render(); }
+      return;
+    }
+    if(e.target.closest('.exit-pin')){
+      if(confirm('¿Borrar punto de SALIDA?')){ state.map.exitPoint = null; save(); render(); }
+      return;
+    }
     // Tap sobre trazo libre → borrar ese trazo
     if(e.target.classList && e.target.classList.contains('freehand-path')){
       const idx = parseInt(e.target.dataset.fh);
@@ -1359,6 +1423,16 @@ function renderNarrativeSummary(stats, cl){
     const intervalLine = m.avgInterval ? `, cada <strong>${fmtMMSS(m.avgInterval)}</strong>` : '';
     const setsLine = m.setsDetected ? ` Vienen en sets de <strong>${m.avgPerSet}</strong> olas cada <strong>${fmtMMSS(m.avgBetweenSets)}</strong>.` : '';
     lines.push(`Las <strong>mejores</strong> rompen ${refLine}${dirLine}${intervalLine}.${setsLine}`);
+  }
+
+  // Entrada / salida al agua
+  const entryCell = state.map.entryPoint ? pointToCell(state.map.entryPoint) : null;
+  const exitCell = state.map.exitPoint ? pointToCell(state.map.exitPoint) : null;
+  if(entryCell || exitCell){
+    const parts = [];
+    if(entryCell) parts.push(`entrás por <strong style="color:#34D399;">${entryCell}</strong>`);
+    if(exitCell) parts.push(`salís por <strong style="color:#FCA5A5;">${exitCell}</strong>`);
+    lines.push(`Al agua ${parts.join(', ')}.`);
   }
 
   // Frase táctica final
@@ -1765,8 +1839,18 @@ function renderReplayMapEmpty(){
   state.map.refs.forEach(r=>{
     refs += `<g><circle cx="${r.x}" cy="${r.y}" r="10" fill="#00D2FF" stroke="#fff" stroke-width="2"/><text x="${r.x}" y="${r.y+3}" text-anchor="middle" font-size="11" font-weight="700" fill="#0A1628">${esc(r.label.charAt(0).toUpperCase())}</text></g>`;
   });
+  // Entry/exit points en el replay también
+  let replayEE = '';
+  if(state.map.entryPoint){
+    const ep = state.map.entryPoint;
+    replayEE += `<g><circle cx="${ep.x}" cy="${ep.y}" r="12" fill="rgba(52,211,153,0.3)" stroke="#34D399" stroke-width="2.5"/><text x="${ep.x}" y="${ep.y+4}" text-anchor="middle" font-size="10" font-weight="700" fill="#34D399">IN</text></g>`;
+  }
+  if(state.map.exitPoint){
+    const xp = state.map.exitPoint;
+    replayEE += `<g><circle cx="${xp.x}" cy="${xp.y}" r="12" fill="rgba(252,165,165,0.3)" stroke="#FCA5A5" stroke-width="2.5"/><text x="${xp.x}" y="${xp.y+4}" text-anchor="middle" font-size="10" font-weight="700" fill="#FCA5A5">OUT</text></g>`;
+  }
   return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;">
-    ${bg}${grid}${refLines}${refs}<g id="replayPins"></g>
+    ${bg}${grid}${refLines}${replayEE}${refs}<g id="replayPins"></g>
   </svg>`;
 }
 function closeReplay(){
