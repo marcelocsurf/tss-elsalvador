@@ -12740,6 +12740,20 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
     const focusVals = cis.filter(c=>c.focus_level>0).map(c=>c.focus_level);
     const avgFocus = focusVals.length ? (focusVals.reduce((a,b)=>a+b,0)/focusVals.length) : 0;
     const goalsYes = cis.filter(c=>c.goal_achieved==='Si').length;
+    const goalsPartial = cis.filter(c=>c.goal_achieved==='Parcial').length;
+    const goalsNo = cis.filter(c=>c.goal_achieved==='No').length;
+    const sleepVals = cis.filter(c=>c.sleep_hours>0).map(c=>parseFloat(c.sleep_hours));
+    const avgSleep = sleepVals.length ? (sleepVals.reduce((a,b)=>a+b,0)/sleepVals.length) : 0;
+    const maxSleep = sleepVals.length ? Math.max(...sleepVals) : 0;
+    const minSleep = sleepVals.length ? Math.min(...sleepVals) : 0;
+    const waterVals = cis.filter(c=>c.water_glasses>0).map(c=>c.water_glasses);
+    const avgWater = waterVals.length ? (waterVals.reduce((a,b)=>a+b,0)/waterVals.length) : 0;
+    const maxWater = waterVals.length ? Math.max(...waterVals) : 0;
+    const minWater = waterVals.length ? Math.min(...waterVals) : 0;
+    const nutritionOk = cis.filter(c=>c.nutrition==='Si').length;
+    const nutritionMid = cis.filter(c=>c.nutrition==='Medio').length;
+    const nutritionAny = cis.filter(c=>c.nutrition).length;
+    const nutritionPct = nutritionAny ? Math.round((nutritionOk/nutritionAny)*100) : 0;
 
     // Pillar averages (4 pilares puros)
     const pillarAvg = key => {
@@ -12770,9 +12784,10 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
     const setText = c => doc.setTextColor(...c);
     const rect = (x,y,w,h,c,r=2) => { setFill(c); doc.roundedRect(x,y,w,h,r,r,'F'); };
     const stroke = (x,y,w,h,c,r=2,lw=0.4) => { setStroke(c); doc.setLineWidth(lw); doc.roundedRect(x,y,w,h,r,r,'S'); };
+    const stripSvg = s => String(s).replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '').replace(/\s+/g, ' ').trim();
     const txt = (text,x,y,size,color,style='normal',align='left') => {
       setText(color); doc.setFontSize(size); doc.setFont('helvetica',style);
-      doc.text(String(text), x, y, {align});
+      doc.text(stripSvg(text), x, y, {align});
     };
     const line = (x1,y1,x2,y2,c=BORDER,lw=0.3) => { setStroke(c); doc.setLineWidth(lw); doc.line(x1,y1,x2,y2); };
 
@@ -12804,7 +12819,7 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
     if(belt){
       const beltColor = {white:[232,232,232],yellow:[245,197,24],blue:[30,111,191],purple:[123,79,190],brown:[125,78,39],black:[17,17,17]}[ath.current_belt];
       const txtColor = (ath.current_belt==='white'||ath.current_belt==='yellow') ? TEXT_DARK : [255,255,255];
-      const beltLabel = '<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>CINTA ' + belt.name.toUpperCase();
+      const beltLabel = 'CINTA ' + belt.name.toUpperCase();
       const beltW = doc.getTextWidth(beltLabel) + 10;
       rect(M, y-2, beltW, 7, beltColor, 1.5);
       txt(beltLabel, M+5, y+3, 8, txtColor, 'bold');
@@ -12885,23 +12900,40 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
     txt(idxGlobal>0?idxGlobal.toFixed(1)+'/5':'—', M+CW-12, y+49, 9, [255,255,255], 'bold', 'right');
     y += 60;
 
-    // ── WELLNESS QUICK ────────────────────────
+    // ── BIENESTAR DIARIO (5 cards + resumen) ──
     if(cis.length){
-      txt('BIENESTAR PROMEDIO', M, y, 9, TEXT_GREY, 'bold'); y+=5;
+      txt('BIENESTAR DIARIO', M, y, 9, TEXT_GREY, 'bold');
+      txt(checkinDays + ' check-ins · ' + cis.length + ' días', W-M, y, 7, TEXT_LIGHT, 'normal', 'right');
+      y+=5;
+      const rangeStr = (mn,mx,unit) => (mn===mx?mn.toFixed(unit==='h'?1:0):mn.toFixed(unit==='h'?1:0)+'–'+mx.toFixed(unit==='h'?1:0))+unit;
       const wItems = [
-        {l:'Energía',  v:avgEnergy>0?avgEnergy.toFixed(1)+'/5':'—', c:AMBER},
-        {l:'Enfoque',  v:avgFocus>0?avgFocus.toFixed(1)+'/5':'—',  c:CYAN},
-        {l:'Logros',   v:goalsYes + '/' + cis.length, c:GREEN},
+        {l:'SUEÑO',     v:avgSleep>0?avgSleep.toFixed(1)+'h':'—',   sub:sleepVals.length?rangeStr(minSleep,maxSleep,'h'):'sin data', c:CYAN},
+        {l:'HIDRATAC.', v:avgWater>0?avgWater.toFixed(1)+' v':'—',  sub:waterVals.length?rangeStr(minWater,maxWater,'v'):'sin data', c:CYAN},
+        {l:'ENERGÍA',   v:avgEnergy>0?avgEnergy.toFixed(1)+'/5':'—', sub:energyVals.length+' registros', c:AMBER},
+        {l:'ENFOQUE',   v:avgFocus>0?avgFocus.toFixed(1)+'/5':'—',  sub:focusVals.length+' registros', c:PURPLE},
+        {l:'NUTRICIÓN', v:nutritionAny?nutritionPct+'%':'—',        sub:nutritionAny?nutritionOk+'/'+nutritionAny+' ok':'sin data', c:GREEN},
       ];
-      const ww = (CW-6)/3;
+      const ww = (CW-12)/5;
       wItems.forEach((wi,i)=>{
         const wx = M+i*(ww+3);
-        rect(wx, y, ww, 16, BG_CARD, 2);
-        stroke(wx, y, ww, 16, BORDER, 2);
-        txt(wi.l, wx+ww/2, y+5, 7, TEXT_LIGHT, 'bold', 'center');
-        txt(wi.v, wx+ww/2, y+12, 11, wi.c, 'bold', 'center');
+        rect(wx, y, ww, 20, BG_CARD, 2);
+        stroke(wx, y, ww, 20, BORDER, 2);
+        rect(wx, y, ww, 2, wi.c, 0);
+        txt(wi.l, wx+ww/2, y+6, 6, TEXT_GREY, 'bold', 'center');
+        txt(wi.v, wx+ww/2, y+13, 11, NAVY, 'bold', 'center');
+        txt(wi.sub, wx+ww/2, y+17.5, 5.5, TEXT_LIGHT, 'normal', 'center');
       });
-      y+=20;
+      y+=24;
+      // Línea inferior: meta diaria alcanzada
+      if(goalsYes+goalsPartial+goalsNo > 0){
+        rect(M, y, CW, 8, BG_CARD, 1.5);
+        stroke(M, y, CW, 8, BORDER, 1.5);
+        txt('META DIARIA', M+3, y+5, 6, TEXT_GREY, 'bold');
+        const gTot = goalsYes+goalsPartial+goalsNo;
+        const gStr = goalsYes+' Sí  ·  '+goalsPartial+' Parcial  ·  '+goalsNo+' No  ·  ('+Math.round(goalsYes/gTot*100)+'% cumplida)';
+        txt(gStr, W-M-3, y+5, 7, NAVY, 'bold', 'right');
+        y+=10;
+      }
     }
 
     drawPageFooter();
