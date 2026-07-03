@@ -12717,7 +12717,7 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
 
   try {
     // Fetch data en el rango seleccionado
-    const [{data:checkins},{data:evals},{data:compEvals},{data:sessions},{data:profile},{data:competitions},{data:appts},{data:evalsFull}] = await Promise.all([
+    const [{data:checkins},{data:evals},{data:compEvals},{data:sessions},{data:profile},{data:competitions},{data:appts},{data:evalsFull},{data:presFbks}] = await Promise.all([
       db.from('tss_daily_checkins').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:true}),
       db.from('tss_evaluations').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
       db.from('tss_comp_evaluations').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
@@ -12726,9 +12726,14 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
       db.from('tss_competitions').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
       db.from('tss_appointments').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date'),
       db.from('tss_evaluations_full').select('*').eq('athlete_id',athleteId).gte('date',fromDate).lte('date',toDate).order('date',{ascending:false}),
+      db.from('tss_presencial_feedbacks').select('*, tss_presencial_sessions(title,date,pilar)').eq('athlete_id',athleteId).order('created_at',{ascending:false}),
     ]);
     const cis = checkins||[], evs = evals||[], comps = compEvals||[], ath = profile||{};
     const compList = competitions||[], apList = appts||[], efList = evalsFull||[];
+    const pFbks = (presFbks||[]).filter(f=>{
+      const d = f.tss_presencial_sessions?.date;
+      return d && d>=fromDate && d<=toDate;
+    });
     const attended = (sessions||[]).filter(s=>{ try{ const ids=Array.isArray(s.athlete_ids)?s.athlete_ids:JSON.parse(s.athlete_ids||'[]'); return ids.includes(athleteId); }catch(e){return false;} });
 
     // ── Stats ────────────────────────────────
@@ -12788,6 +12793,11 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
     const txt = (text,x,y,size,color,style='normal',align='left') => {
       setText(color); doc.setFontSize(size); doc.setFont('helvetica',style);
       doc.text(stripSvg(text), x, y, {align});
+    };
+    const wrapEstimate = (text, size, maxW) => {
+      doc.setFontSize(size); doc.setFont('helvetica','normal');
+      const lines = doc.splitTextToSize(stripSvg(text), maxW);
+      return lines.length * (size*0.4+0.2) + 2;
     };
     const line = (x1,y1,x2,y2,c=BORDER,lw=0.3) => { setStroke(c); doc.setLineWidth(lw); doc.line(x1,y1,x2,y2); };
 
@@ -13071,7 +13081,107 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
 
     drawPageFooter();
 
-    // ═══ PÁGINA 3 · EVALUACIONES + COMPETENCIAS ═══════
+    // ═══ PÁGINA 3 · VOZ DEL ATLETA ═══════════════════
+    const athNotes = cis.filter(c=>c.notes && String(c.notes).trim()).map(c=>({date:c.date, text:String(c.notes).trim()}));
+    const compNotes = compList.filter(c=>c.athlete_final_notes && String(c.athlete_final_notes).trim())
+      .map(c=>({date:c.date, event:c.name||'Competencia', place:c.place, text:String(c.athlete_final_notes).trim()}));
+    const sessNotes = pFbks.filter(f=>(f.coach_note && String(f.coach_note).trim()) || f.focus_rating || f.frustration_rating)
+      .map(f=>({
+        date:f.tss_presencial_sessions?.date||f.created_at?.slice(0,10),
+        title:f.tss_presencial_sessions?.title||'Sesión',
+        pilar:f.tss_presencial_sessions?.pilar,
+        focus:f.focus_rating, frust:f.frustration_rating, achieved:f.achieved,
+        text:f.coach_note?String(f.coach_note).trim():''
+      }));
+
+    if(athNotes.length || compNotes.length || sessNotes.length){
+      doc.addPage();
+      drawPageHeader('VOZ DEL ATLETA');
+      y = 22;
+      const total = athNotes.length + compNotes.length + sessNotes.length;
+      txt(total + ' entradas del período', M, y, 8, TEXT_LIGHT); y+=6;
+
+      const wrapAndDraw = (text, x, startY, maxW, size, color) => {
+        doc.setFontSize(size); doc.setFont('helvetica','normal');
+        const lines = doc.splitTextToSize(stripSvg(text), maxW);
+        lines.forEach((ln,i)=>{ txt(ln, x, startY+i*(size*0.4+0.2), size, color); });
+        return lines.length * (size*0.4+0.2);
+      };
+      const ensurePage = (needed) => {
+        if(y + needed > 275){
+          drawPageFooter();
+          doc.addPage();
+          drawPageHeader('VOZ DEL ATLETA (cont.)');
+          y = 22;
+        }
+      };
+
+      // ── CHECK-IN DIARIO ──────────────────────
+      if(athNotes.length){
+        ensurePage(14);
+        rect(M, y, CW, 8, CYAN, 1.5);
+        txt('CHECK-IN DIARIO  ·  ' + athNotes.length + ' entradas', M+3, y+5.5, 8, [255,255,255], 'bold');
+        y+=11;
+        athNotes.forEach(n=>{
+          const est = 5 + wrapEstimate(n.text, 8, CW-14);
+          ensurePage(est);
+          rect(M, y, 22, est, BG_CARD, 1);
+          txt(fmtDateShort(n.date), M+2, y+4, 7, TEXT_GREY, 'bold');
+          const used = wrapAndDraw('"' + n.text + '"', M+26, y+4, CW-30, 8, TEXT_DARK);
+          y += Math.max(est, used+3) + 2;
+        });
+        y+=4;
+      }
+
+      // ── POST-COMPETENCIA ─────────────────────
+      if(compNotes.length){
+        ensurePage(14);
+        rect(M, y, CW, 8, AMBER, 1.5);
+        txt('POST-COMPETENCIA  ·  ' + compNotes.length + ' entradas', M+3, y+5.5, 8, [255,255,255], 'bold');
+        y+=11;
+        compNotes.forEach(n=>{
+          const header = n.event + (n.place?' · '+n.place:'');
+          const est = 9 + wrapEstimate(n.text, 8, CW-14);
+          ensurePage(est);
+          rect(M, y, CW, est, BG_CARD, 1); stroke(M, y, CW, est, BORDER, 1);
+          txt(fmtDateShort(n.date), M+3, y+4, 7, TEXT_GREY, 'bold');
+          txt(header, M+22, y+4, 8, NAVY, 'bold');
+          const used = wrapAndDraw('"' + n.text + '"', M+3, y+9, CW-6, 8, TEXT_DARK);
+          y += Math.max(est, 9+used) + 3;
+        });
+        y+=4;
+      }
+
+      // ── POST-SESIÓN PRESENCIAL ───────────────
+      if(sessNotes.length){
+        ensurePage(14);
+        rect(M, y, CW, 8, PURPLE, 1.5);
+        txt('POST-SESIÓN PRESENCIAL  ·  ' + sessNotes.length + ' entradas', M+3, y+5.5, 8, [255,255,255], 'bold');
+        y+=11;
+        sessNotes.forEach(n=>{
+          const meta = [];
+          if(n.focus) meta.push('Focus '+n.focus+'/5');
+          if(n.frust) meta.push('Frust. '+n.frust+'/5');
+          if(n.achieved) meta.push('Meta: '+n.achieved);
+          const est = (n.text?9:6) + (n.text?wrapEstimate(n.text, 8, CW-14):0);
+          ensurePage(est);
+          rect(M, y, CW, est, BG_CARD, 1); stroke(M, y, CW, est, BORDER, 1);
+          txt(fmtDateShort(n.date), M+3, y+4, 7, TEXT_GREY, 'bold');
+          txt((n.title||'Sesión') + (n.pilar?' · '+n.pilar:''), M+22, y+4, 8, NAVY, 'bold');
+          if(meta.length) txt(meta.join('  ·  '), W-M-3, y+4, 7, TEXT_LIGHT, 'normal', 'right');
+          if(n.text){
+            const used = wrapAndDraw('Coach: "' + n.text + '"', M+3, y+9, CW-6, 8, TEXT_DARK);
+            y += Math.max(est, 9+used) + 3;
+          } else {
+            y += est + 3;
+          }
+        });
+      }
+
+      drawPageFooter();
+    }
+
+    // ═══ PÁGINA 4 · EVALUACIONES + COMPETENCIAS ═══════
     doc.addPage();
     drawPageHeader('EVALUACIONES Y COMPETENCIAS');
     y = 22;
