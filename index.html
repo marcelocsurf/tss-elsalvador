@@ -13181,13 +13181,11 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
       drawPageFooter();
     }
 
-    // ═══ PÁGINA 4 · EVALUACIONES + COMPETENCIAS ═══════
-    doc.addPage();
-    drawPageHeader('EVALUACIONES Y COMPETENCIAS');
-    y = 22;
-
-    // Evals generales (rápidas)
+    // ═══ PÁGINA · EVALUACIONES GENERALES (solo si hay data) ═══
     if(evs.length){
+      doc.addPage();
+      drawPageHeader('EVALUACIONES Y COMPETENCIAS');
+      y = 22;
       txt('EVALUACIONES GENERALES (' + evs.length + ')', M, y+4, 9, TEXT_GREY, 'bold'); y+=8;
       // Table header
       rect(M, y, CW, 7, NAVY, 1);
@@ -13215,6 +13213,7 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
         y+=6;
       });
       y+=5;
+      drawPageFooter();
     }
 
     // Evals completas — detalle expandido por evaluación
@@ -13513,9 +13512,7 @@ async function genAnalyticsPDFv2(athleteId, athleteName, fromDate, toDate){
       drawPageFooter();
     }
 
-    drawPageFooter();
-
-    // ═══ PÁGINA 4 · INFO DEL ATLETA ════════════
+    // ═══ PÁGINA · INFO DEL ATLETA (solo si hay data) ═══
     const hasPersonalInfo = ath.email||ath.phone||ath.address||ath.blood_type||ath.emergency_name||ath.goal_short_term||ath.goal_mid_term||ath.goal_long_term||ath.medical_conditions||ath.allergies||ath.medications;
     if(hasPersonalInfo){
       doc.addPage();
