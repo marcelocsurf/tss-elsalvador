@@ -264,9 +264,13 @@ const HAZARDS = [
 ];
 const HAZARD_MAP = Object.fromEntries(HAZARDS.map(h => [h.id, h]));
 
+const SESSION_GOALS = ['aprender / progresar', 'practicar maniobra', 'sesión relajada', 'desafío grande', 'foto / video', 'evaluación'];
+const SESSION_LEVELS = ['principiante', 'intermedio', 'avanzado'];
+const SESSION_CONCERNS = ['piedras', 'crowd', 'corrientes', 'fondo agresivo', 'olas grandes', 'localismo'];
+
 let state = {
   screen: 'setup',
-  config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20 },
+  config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20, mode: 'comp', surferProfile: { name:'', level:'intermedio', goal:'sesión relajada', concerns:[] } },
   map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[], entryPoint:null, exitPoint:null, hazards:[] },
   waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
@@ -325,6 +329,12 @@ function load(){
     }
     // Migración v1.4 → v1.5: agregar map.hazards si no existe
     if(parsed.map && !Array.isArray(parsed.map.hazards)) parsed.map.hazards = [];
+    // Migración v1.5 → v1.6: modo de análisis + perfil del surfista
+    if(parsed.config){
+      if(!parsed.config.mode) parsed.config.mode = 'comp';
+      if(!parsed.config.surferProfile) parsed.config.surferProfile = { name:'', level:'intermedio', goal:'sesión relajada', concerns:[] };
+      if(!Array.isArray(parsed.config.surferProfile.concerns)) parsed.config.surferProfile.concerns = [];
+    }
     state = parsed;
   } catch(e){ console.warn('load() failed', e); }
 }
@@ -424,7 +434,54 @@ function tideLabel(level, dir){
 
 function renderSetup(){
   const c = state.config;
+  const mode = c.mode || 'comp';
+  const sp = c.surferProfile || { name:'', level:'intermedio', goal:'sesión relajada', concerns:[] };
   return `<main class="screen setup">
+    <section class="section">
+      <div class="section-h"><div class="section-t">Tipo de análisis</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button onclick="setAnalysisMode('comp')" style="padding:14px 10px;border-radius:12px;border:2px solid ${mode==='comp'?'var(--cyan)':'var(--border)'};background:${mode==='comp'?'rgba(0,210,255,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${mode==='comp'?'#00D2FF':'#B8CCDF'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            <div style="font-weight:700;font-size:13px;color:${mode==='comp'?'var(--cyan)':'var(--text)'};">COMPETENCIA</div>
+          </div>
+          <div style="font-size:11px;color:var(--text-soft);line-height:1.35;">Scoring 1-10 · plan táctico del heat · categorías mejor/media/otra · replay</div>
+        </button>
+        <button onclick="setAnalysisMode('free')" style="padding:14px 10px;border-radius:12px;border:2px solid ${mode==='free'?'var(--foam)':'var(--border)'};background:${mode==='free'?'rgba(52,211,153,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${mode==='free'?'#34D399':'#B8CCDF'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
+            <div style="font-weight:700;font-size:13px;color:${mode==='free'?'var(--foam)':'var(--text)'};">SESIÓN LIBRE</div>
+          </div>
+          <div style="font-size:11px;color:var(--text-soft);line-height:1.35;">Sin puntajes · buscamos zona segura o zona deseada para el surfista</div>
+        </button>
+      </div>
+    </section>
+
+    ${mode==='free' ? `
+    <section class="section">
+      <div class="section-h"><div class="section-t">Perfil del surfista</div></div>
+      <input type="text" class="inp" value="${esc(sp.name)}" placeholder="Nombre del surfista (opcional)" oninput="state.config.surferProfile.name=this.value;save();" autocomplete="off">
+      <div style="margin-top:12px;">
+        <div class="label">Nivel</div>
+        <div class="chips">
+          ${SESSION_LEVELS.map(l=>`<span class="chip ${sp.level===l?'':'off'}" onclick="state.config.surferProfile.level='${l}';save();render();">${l}</span>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="label">Objetivo de la sesión</div>
+        <div class="chips">
+          ${SESSION_GOALS.map(g=>`<span class="chip ${sp.goal===g?'':'off'}" onclick="state.config.surferProfile.goal='${g}';save();render();">${g}</span>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="label">Preocupaciones (opcional · multi-select)</div>
+        <div class="chips">
+          ${SESSION_CONCERNS.map(k=>`<span class="chip ${sp.concerns.includes(k)?'':'off'}" onclick="toggleConcern('${k}')">${k}</span>`).join('')}
+        </div>
+      </div>
+    </section>
+    ` : ''}
+
     <section class="section">
       <div class="section-h"><div class="section-t">Spot</div></div>
       <input type="text" class="inp" id="spotName" value="${esc(c.spotName)}" placeholder="ej. Punta Mango · El Sunzal · Las Flores" oninput="state.config.spotName=this.value;save();" autocomplete="off">
@@ -607,6 +664,7 @@ function startTimerLoop(){
 
 function renderObserve(){
   const counts = countByCategory();
+  const isFree = (state.config.mode === 'free');
   return `<main class="screen observe">
     <section class="section" style="padding:12px 14px;">
       <div class="timer-bar">
@@ -617,6 +675,17 @@ function renderObserve(){
         <button class="timer-stop" onclick="finishNow()">■ Finalizar</button>
       </div>
 
+      ${isFree ? `
+      <div style="margin-top:14px;">
+        <div class="cat cat-mejor ${state.activeMode==='ola'?'on':''}" style="background:rgba(52,211,153,.14);border:2px solid ${state.activeMode==='ola'?'#34D399':'transparent'};padding:12px;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('ola')">
+          <div>
+            <div class="cat-lbl" style="color:#34D399;">OLA BUENA</div>
+            <div style="font-size:10px;color:var(--grey);margin-top:2px;">Tap donde viste una ola aprovechable</div>
+          </div>
+          <div class="cat-num" style="color:#34D399;">${counts.ola||0}</div>
+        </div>
+      </div>
+      ` : `
       <div class="cat-row" style="margin-top:14px;">
         <div class="cat cat-mejor ${state.activeMode==='mejor'?'on':''}" onclick="setMode('mejor')">
           <div class="cat-lbl">MEJOR</div><div class="cat-num">${counts.mejor}</div>
@@ -628,6 +697,7 @@ function renderObserve(){
           <div class="cat-lbl">OTRA</div><div class="cat-num">${counts.otra}</div>
         </div>
       </div>
+      `}
 
       <div class="dir-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
         <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FBBF24':'var(--border2)'};color:${state.activeDirection==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('R')" title="La ola va hacia tu izquierda visual = ola DERECHA del surfista">← DER</button>
@@ -817,7 +887,7 @@ function renderRecentItem(w){
 }
 
 function countByCategory(){
-  const c = {mejor:0,media:0,otra:0};
+  const c = {mejor:0,media:0,otra:0,ola:0};
   state.waves.forEach(w=>{ if(c[w.category]!==undefined) c[w.category]++; });
   return c;
 }
@@ -929,9 +999,9 @@ function renderMapSVG(){
   Object.values(grouped).forEach(g=>{
     const cx = (g.col - 0.5) * cellW;
     const cy = (g.row - 0.5) * cellH;
-    const colors = { mejor:'#F59E0B', media:'#9CA3AF', otra:'#B45309' };
+    const colors = { mejor:'#F59E0B', media:'#9CA3AF', otra:'#B45309', ola:'#34D399' };
     const c = colors[g.category];
-    const baseR = g.category==='mejor' ? 16 : g.category==='media' ? 14 : 12;
+    const baseR = g.category==='mejor' ? 16 : g.category==='media' ? 14 : g.category==='ola' ? 15 : 12;
     const r = baseR + Math.min(8, (g.count-1) * 2);
     // Dirección dominante del grupo (solo si ≥70% de las olas marcadas tienen una dirección)
     const dirCounts = { L:0, R:0, none:0 };
@@ -1144,6 +1214,24 @@ function handleMapTap(e){
     return;
   }
 
+  // Modo SESIÓN LIBRE: un solo pin genérico 'ola'
+  if(mode==='ola'){
+    const cellW = MAP_W / GRID_COLS;
+    const cellH = MAP_H / GRID_ROWS;
+    const hitPin = e.target.closest('.wave-pin');
+    let col, row;
+    if(hitPin){
+      const [c,r] = hitPin.dataset.cell.split('-');
+      col = parseInt(c); row = parseInt(r);
+    } else {
+      col = Math.floor(x / cellW) + 1;
+      row = Math.floor(y / cellH) + 1;
+      if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
+    }
+    plantWave(col, row, 'ola');
+    return;
+  }
+
   if(mode==='predict'){
     const cellW = MAP_W / GRID_COLS;
     const cellH = MAP_H / GRID_ROWS;
@@ -1260,6 +1348,27 @@ function toggleRapidMode(btn){
   toast(state.rapidMode ? '⚡ Modo rápido ON · tap primero, clasificás después' : '⚡ Modo rápido OFF');
   const m = btn?.closest('.modal-overlay'); if(m) m.remove();
   render();
+}
+
+function setAnalysisMode(mode){
+  if(mode !== 'comp' && mode !== 'free') return;
+  state.config.mode = mode;
+  // En modo free, arrancamos con activeMode='ola' (pin genérico). En comp, mantiene el default.
+  if(mode === 'free' && !String(state.activeMode||'').match(/^(ola|line-|ref|hazard-|entry|exit|erase|draw)$/)) {
+    state.activeMode = 'ola';
+  } else if(mode === 'comp' && state.activeMode === 'ola'){
+    state.activeMode = 'mejor';
+  }
+  save(); render();
+}
+
+function toggleConcern(k){
+  const sp = state.config.surferProfile;
+  if(!sp) return;
+  if(!Array.isArray(sp.concerns)) sp.concerns = [];
+  const idx = sp.concerns.indexOf(k);
+  if(idx>=0) sp.concerns.splice(idx,1); else sp.concerns.push(k);
+  save(); render();
 }
 
 function openHazardModal(){
@@ -1570,7 +1679,169 @@ function goToReport(){
 /* ════════════════════════════════════════════════════════════════════
    3. REPORT
    ════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   REPORT FREE MODE · recomienda zona ideal + zonas a evitar
+   ════════════════════════════════════════════════════════════════════ */
+function renderReportFree(){
+  const sp = state.config.surferProfile || { name:'', level:'intermedio', goal:'sesión relajada', concerns:[] };
+  const waves = state.waves.filter(w => w.category === 'ola');
+  const hazards = state.map.hazards || [];
+  const totalMs = state.timer.durationMs || (state.config.durationMin*60*1000);
+  const totalMin = Math.round(totalMs/60000);
+
+  // Agrupar olas por celda para hallar cluster más denso
+  const cellW = MAP_W / GRID_COLS;
+  const cellH = MAP_H / GRID_ROWS;
+  const clusters = {};
+  waves.forEach(w=>{
+    const k = w.gridCol+'-'+w.gridRow;
+    if(!clusters[k]) clusters[k] = { col:w.gridCol, row:w.gridRow, count:0, x:(w.gridCol-0.5)*cellW, y:(w.gridRow-0.5)*cellH };
+    clusters[k].count++;
+  });
+  const sortedClusters = Object.values(clusters).sort((a,b)=>b.count-a.count);
+
+  // Distancia a hazard más cercano por cluster
+  const distToNearestHazard = (cx, cy) => {
+    if(!hazards.length) return Infinity;
+    let min = Infinity;
+    hazards.forEach(h=>{ const d = Math.hypot(h.x-cx, h.y-cy); if(d<min) min = d; });
+    return min;
+  };
+
+  // Zona ideal = cluster con más olas, alejado ≥60px del hazard más cercano
+  const SAFE_DIST = 60;
+  const idealZone = sortedClusters.find(c => distToNearestHazard(c.x, c.y) >= SAFE_DIST) || sortedClusters[0] || null;
+
+  // Zonas a evitar = hazards con label
+  const hazardsList = hazards.map(h => {
+    const meta = HAZARD_MAP[h.type];
+    if(!meta) return null;
+    const col = Math.max(1, Math.min(GRID_COLS, Math.floor(h.x / cellW) + 1));
+    const row = Math.max(1, Math.min(GRID_ROWS, Math.floor(h.y / cellH) + 1));
+    return { label: meta.label, color: meta.color, cell: rowToLetter(row)+col };
+  }).filter(Boolean);
+
+  // Refs cercanas a la zona ideal
+  const idealRefs = idealZone ? nearestRefs(idealZone.col, idealZone.row) : [];
+  const idealCell = idealZone ? rowToLetter(idealZone.row)+idealZone.col : null;
+
+  // Entry / exit
+  const ep = state.map.entryPoint;
+  const xp = state.map.exitPoint;
+  const epCell = ep ? pointToCell(ep) : null;
+  const xpCell = xp ? pointToCell(xp) : null;
+
+  // Checklist adaptado al nivel
+  const checklist = [];
+  checklist.push('5 min de calentamiento (rotaciones + respiración)');
+  if(sp.level === 'principiante') checklist.push('Empezá en zona interior sin remar directo al pico');
+  if(sp.concerns.includes('piedras')) checklist.push('Chequeá visualmente las piedras marcadas antes de entrar');
+  if(sp.concerns.includes('corrientes')) checklist.push('Identificá la corriente y usála para posicionarte, no para pelearla');
+  if(sp.concerns.includes('crowd')) checklist.push('Respetá turnos · esperá tu ola aunque tarde');
+  if(sp.goal === 'foto / video' && idealCell) checklist.push('Coordiná con el fotógrafo dónde va a posicionarse');
+  if(sp.goal === 'practicar maniobra') checklist.push('Elegí olas parejas para repetir la maniobra sin distracciones');
+  checklist.push('Salí antes de que se te acabe la energía · nunca al 100%');
+
+  return `<main class="screen report">
+    <section class="section">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">
+        <div>
+          <h2 class="serif" style="font-size:30px;color:var(--white);line-height:1.05;">${esc(state.config.spotName||'Spot')}</h2>
+          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'DM Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${totalMin} MIN · ${waves.length} OLAS OBSERVADAS · SESIÓN LIBRE</div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="goBackToObserve()">← Seguir marcando</button>
+      </div>
+      <div class="chips" style="margin-top:8px;">
+        <span class="chip">${sizeLabel(state.config.conditions.sizeFt)}</span>
+        <span class="chip">${tideLabel(state.config.conditions.tideLevel, state.config.conditions.tideDir)}</span>
+        <span class="chip">${state.config.conditions.wind}</span>
+        <span class="chip">${state.config.conditions.period}</span>
+      </div>
+    </section>
+
+    <section class="section" style="background:rgba(52,211,153,.08);border:1.5px solid rgba(52,211,153,.35);">
+      <div style="font-size:11px;color:var(--foam);font-weight:700;letter-spacing:.6px;margin-bottom:8px;">RECOMENDACIÓN ${sp.name?'PARA '+esc(sp.name).toUpperCase():''}</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.55;">
+        ${sp.name?'<strong>'+esc(sp.name)+'</strong> · ':''}<span style="color:var(--text-soft);">nivel <strong style="color:var(--text);">${esc(sp.level)}</strong> · buscando <strong style="color:var(--text);">${esc(sp.goal)}</strong></span>
+      </div>
+      ${sp.concerns.length ? `<div style="margin-top:8px;font-size:12px;color:var(--text-soft);">
+        Preocupaciones: ${sp.concerns.map(k=>`<span style="color:#F59E0B;">${esc(k)}</span>`).join(' · ')}
+      </div>` : ''}
+    </section>
+
+    ${idealZone ? `
+    <section class="section" style="border:2px solid var(--foam);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <div style="font-size:11px;color:var(--foam);font-weight:700;letter-spacing:.6px;">ZONA IDEAL</div>
+      </div>
+      <div style="font-size:22px;color:var(--white);font-weight:800;font-family:'DM Mono',monospace;letter-spacing:1px;">${idealCell}</div>
+      <div style="font-size:13px;color:var(--text-soft);margin-top:6px;line-height:1.5;">
+        ${idealRefs.length ? 'Entre <strong style="color:var(--text);">'+idealRefs.map(r=>esc(r.label)).join('</strong> y <strong style="color:var(--text);">')+'</strong>' : 'Zona con más actividad de olas'}
+        · <strong style="color:var(--foam);">${idealZone.count}</strong> ola${idealZone.count===1?'':'s'} observada${idealZone.count===1?'':'s'} en ${totalMin} min
+        ${distToNearestHazard(idealZone.x, idealZone.y) < Infinity && distToNearestHazard(idealZone.x, idealZone.y) >= SAFE_DIST ? ' · lejos de hazards marcados' : ''}
+      </div>
+    </section>
+    ` : `
+    <section class="section" style="border:1.5px dashed var(--amber);background:rgba(245,158,11,.05);">
+      <div style="font-size:13px;color:var(--amber);text-align:center;">Marcá al menos una ola en el mapa para que el sistema recomiende una zona.</div>
+    </section>
+    `}
+
+    ${hazardsList.length ? `
+    <section class="section">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div style="font-size:11px;color:var(--amber);font-weight:700;letter-spacing:.6px;">EVITAR / TENER EN CUENTA</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        ${hazardsList.map(h=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:8px;">
+          <span style="color:${h.color};font-weight:600;">${esc(h.label)}</span>
+          <span class="mono" style="color:var(--text-soft);">${h.cell}</span>
+        </div>`).join('')}
+      </div>
+    </section>
+    ` : ''}
+
+    ${(epCell || xpCell) ? `
+    <section class="section" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      ${epCell ? `<div style="padding:10px;background:rgba(52,211,153,.08);border-radius:10px;border:1px solid rgba(52,211,153,.3);">
+        <div style="font-size:10px;color:var(--foam);font-weight:700;letter-spacing:.5px;">ENTRADA</div>
+        <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'DM Mono',monospace;margin-top:2px;">${epCell}</div>
+      </div>` : ''}
+      ${xpCell ? `<div style="padding:10px;background:rgba(252,165,165,.08);border-radius:10px;border:1px solid rgba(252,165,165,.3);">
+        <div style="font-size:10px;color:var(--coral);font-weight:700;letter-spacing:.5px;">SALIDA</div>
+        <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'DM Mono',monospace;margin-top:2px;">${xpCell}</div>
+      </div>` : ''}
+    </section>
+    ` : ''}
+
+    <section class="section">
+      <div style="font-size:11px;color:var(--text-soft);font-weight:700;letter-spacing:.6px;margin-bottom:10px;">CHECKLIST ANTES DE ENTRAR</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${checklist.map(c=>`<div style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text);line-height:1.4;">
+          <span style="width:14px;height:14px;border-radius:4px;border:1.5px solid var(--text-soft);flex-shrink:0;margin-top:2px;"></span>
+          <span>${esc(c)}</span>
+        </div>`).join('')}
+      </div>
+    </section>
+
+    <section class="section">
+      <div style="font-size:11px;color:var(--text-soft);font-weight:700;letter-spacing:.6px;margin-bottom:10px;">MAPA DEL SPOT</div>
+      <div style="border-radius:12px;overflow:hidden;background:var(--bg2);">
+        ${renderMapSVG()}
+      </div>
+    </section>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <button class="btn btn-ghost btn-block" onclick="window.print()">Imprimir / PDF</button>
+      <button class="btn btn-cyan btn-block" onclick="openAppMenu()">Opciones</button>
+    </div>
+  </main>`;
+}
+
 function renderReport(){
+  if((state.config.mode||'comp') === 'free') return renderReportFree();
   const stats = computeStats();
   const cl = state.closing;
   return `<main class="screen report">
