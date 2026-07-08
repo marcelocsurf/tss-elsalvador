@@ -243,10 +243,31 @@ const GRID_ROWS = 17;
 const GRID_COLS = 15;
 const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P','Q','R'].slice(0, GRID_ROWS);
 
+/* Catálogo de hazards. Cada uno tiene: id (persistente), label, svg (paths Lucide-style
+   dentro de un viewBox 24×24), color, cat (agrupación en el modal). El svg se renderiza
+   escalado dentro de un círculo del color en el mapa. */
+const HAZARDS = [
+  { id:'rip',      label:'Corriente',    cat:'Peligros físicos',   color:'#00D2FF', svg:'<path d="M2 6c.5-1 1.5-1.5 3-1.5s2 1 3.5 1S10 4.5 11.5 4.5s2 1 3.5 1 2.5-1.5 3-1.5c1.5 0 2.5.5 3 1.5"/><path d="M2 12c.5-1 1.5-1.5 3-1.5s2 1 3.5 1S10 10.5 11.5 10.5s2 1 3.5 1 2.5-1.5 3-1.5c1.5 0 2.5.5 3 1.5"/><path d="M2 18c.5-1 1.5-1.5 3-1.5s2 1 3.5 1S10 16.5 11.5 16.5s2 1 3.5 1 2.5-1.5 3-1.5c1.5 0 2.5.5 3 1.5"/>' },
+  { id:'rocks',    label:'Piedras',      cat:'Peligros físicos',   color:'#B8CCDF', svg:'<path d="M3 20 L8 8 L14 14 L21 20 Z"/><path d="M10 20 L14 12 L18 20"/>' },
+  { id:'coral',    label:'Coral / fondo',cat:'Peligros físicos',   color:'#FCA5A5', svg:'<path d="M12 22V10"/><path d="M12 14c-2-2-4-2-5 0"/><path d="M12 14c2-2 4-2 5 0"/><path d="M12 18c-2-2-3.5-2-5 0"/><path d="M12 18c2-2 3.5-2 5 0"/><circle cx="12" cy="8" r="2"/>' },
+  { id:'danger',   label:'Peligro',      cat:'Peligros físicos',   color:'#F59E0B', svg:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
+  { id:'crowd',    label:'Crowd',        cat:'Otros humanos',      color:'#A855F7', svg:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
+  { id:'judges',   label:'Jueces',       cat:'Otros humanos',      color:'#00D2FF', svg:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>' },
+  { id:'buoy',     label:'Boya',         cat:'Otros humanos',      color:'#E8F0F5', svg:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>' },
+  { id:'camera',   label:'Cámara',       cat:'Otros humanos',      color:'#6B7E8F', svg:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>' },
+  { id:'marine',   label:'Vida marina',  cat:'Naturaleza y agua',  color:'#34D399', svg:'<path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/>' },
+  { id:'freshwater',label:'Agua dulce',  cat:'Naturaleza y agua',  color:'#00D2FF', svg:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>' },
+  { id:'wind',     label:'Viento',       cat:'Naturaleza y agua',  color:'#B8CCDF', svg:'<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>' },
+  { id:'lifeguard',label:'Salvavidas',   cat:'Seguridad',          color:'#34D399', svg:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>' },
+  { id:'safeentry',label:'Entrada segura',cat:'Seguridad',         color:'#34D399', svg:'<path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/>' },
+  { id:'meeting',  label:'Punto reunión',cat:'Seguridad',          color:'#F59E0B', svg:'<circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="8" x2="12" y2="16"/>' },
+];
+const HAZARD_MAP = Object.fromEntries(HAZARDS.map(h => [h.id, h]));
+
 let state = {
   screen: 'setup',
   config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20 },
-  map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[], entryPoint:null, exitPoint:null },
+  map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[], entryPoint:null, exitPoint:null, hazards:[] },
   waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
   activeMode: 'mejor',  // mejor | media | otra | line-out | line-in | line-ori | ref | erase | draw
@@ -302,6 +323,8 @@ function load(){
       if(c.tideLevel === undefined) c.tideLevel = 60;
       if(c.tideDir === undefined) c.tideDir = 'bajando';
     }
+    // Migración v1.4 → v1.5: agregar map.hazards si no existe
+    if(parsed.map && !Array.isArray(parsed.map.hazards)) parsed.map.hazards = [];
     state = parsed;
   } catch(e){ console.warn('load() failed', e); }
 }
@@ -637,6 +660,10 @@ function renderObserve(){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
           +REF
         </div>
+        <div class="tool ${String(state.activeMode).startsWith('hazard')?'on':''}" style="color:#F59E0B;" onclick="openHazardModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          HAZARD
+        </div>
         <div class="tool entry ${state.activeMode==='entry'?'on':''}" style="color:#34D399;" onclick="setMode('entry')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
           ENTRA
@@ -703,6 +730,10 @@ function modeHint(mode){
     case 'predict': return '🎯 tap la celda donde predecís que sale la PRÓXIMA mejor';
     case 'entry': return 'tap el punto por donde el atleta ENTRA al agua (canal, orilla, etc.)';
     case 'exit': return 'tap el punto por donde el atleta SALE del agua después de la ola';
+  }
+  if(typeof mode === 'string' && mode.startsWith('hazard-')){
+    const h = HAZARD_MAP[mode.slice(7)];
+    return h ? `tap el mapa donde va: ${h.label}` : '';
   }
   return '';
 }
@@ -952,8 +983,21 @@ function renderMapSVG(){
       <text x="${pcx}" y="${pcy+4}" text-anchor="middle" font-size="14" font-weight="700" fill="#22D3EE">🎯</text>
     </g>`;
   }
+  // Hazards (corrientes, piedras, crowd, etc)
+  let hazards = '';
+  (state.map.hazards||[]).forEach(h => {
+    const meta = HAZARD_MAP[h.type];
+    if(!meta) return;
+    // Círculo relleno translúcido + icono SVG line-art centrado. Radio 15, icono 20×20.
+    hazards += `<g class="hazard-pin" data-id="${h.id}" style="cursor:pointer;pointer-events:all;">
+      <circle cx="${h.x}" cy="${h.y}" r="15" fill="${meta.color}22" stroke="${meta.color}" stroke-width="2"/>
+      <g transform="translate(${h.x-10} ${h.y-10})">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${meta.color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;">${meta.svg}</svg>
+      </g>
+    </g>`;
+  });
   return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${entryExit}${refs}${pins}${pendingPins}${predictionPin}
+    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${entryExit}${refs}${hazards}${pins}${pendingPins}${predictionPin}
   </svg>`;
 }
 function renderLine(line, color, label){
@@ -1147,6 +1191,12 @@ function handleMapTap(e){
     return;
   }
 
+  if(typeof mode === 'string' && mode.startsWith('hazard-')){
+    const hazardId = mode.slice(7);
+    plantHazard(hazardId, x, y);
+    return;
+  }
+
   if(mode==='erase'){
     // Tap sobre entry/exit pin → borrar
     if(e.target.closest('.entry-pin')){
@@ -1188,6 +1238,19 @@ function handleMapTap(e){
       }
       return;
     }
+    // Tap sobre hazard → borrar
+    if(e.target.closest('.hazard-pin')){
+      const id = e.target.closest('.hazard-pin').dataset.id;
+      const h = (state.map.hazards||[]).find(x=>x.id===id);
+      if(h){
+        const meta = HAZARD_MAP[h.type];
+        if(confirm(`¿Borrar hazard "${meta?meta.label:h.type}"?`)){
+          state.map.hazards = state.map.hazards.filter(x=>x.id!==id);
+          save(); render();
+        }
+      }
+      return;
+    }
   }
 }
 
@@ -1197,6 +1260,53 @@ function toggleRapidMode(btn){
   toast(state.rapidMode ? '⚡ Modo rápido ON · tap primero, clasificás después' : '⚡ Modo rápido OFF');
   const m = btn?.closest('.modal-overlay'); if(m) m.remove();
   render();
+}
+
+function openHazardModal(){
+  let m = document.querySelector('.modal-overlay'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay';
+  const cats = [...new Set(HAZARDS.map(h=>h.cat))];
+  const gridHTML = cats.map(cat => {
+    const items = HAZARDS.filter(h=>h.cat===cat).map(h => `
+      <button class="hazard-cell" onclick="pickHazard('${h.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);cursor:pointer;">
+        <span style="width:32px;height:32px;border-radius:50%;background:${h.color}22;border:1.5px solid ${h.color};display:inline-flex;align-items:center;justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${h.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${h.svg}</svg>
+        </span>
+        <span style="font-size:10px;color:var(--text);font-weight:600;text-align:center;line-height:1.15;">${esc(h.label)}</span>
+      </button>`).join('');
+    return `<div style="margin-bottom:14px;">
+      <div style="font-size:10px;letter-spacing:.6px;color:var(--grey);font-weight:700;text-transform:uppercase;margin-bottom:6px;">${esc(cat)}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">${items}</div>
+    </div>`;
+  }).join('');
+  m.innerHTML = `<div class="modal" style="max-width:420px;">
+    <div class="modal-h">
+      <div>
+        <div class="modal-t">Elegí un hazard</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;">Después tap en el mapa donde va</div>
+      </div>
+      <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
+    </div>
+    ${gridHTML}
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if(e.target===m) m.remove(); });
+}
+
+function pickHazard(hazardId){
+  if(!HAZARD_MAP[hazardId]) return;
+  document.querySelector('.modal-overlay')?.remove();
+  setMode('hazard-' + hazardId);
+  toast('Tap en el mapa para plantar: ' + HAZARD_MAP[hazardId].label);
+}
+
+function plantHazard(hazardId, x, y){
+  if(!HAZARD_MAP[hazardId]) return;
+  state.map.hazards = state.map.hazards || [];
+  state.map.hazards.push({ id: uid(), type: hazardId, x, y });
+  state.activeMode = 'mejor';
+  save(); render();
+  toast(HAZARD_MAP[hazardId].label + ' marcado');
 }
 
 function plantPendingWave(col, row){
@@ -2070,8 +2180,20 @@ function renderReplayMapEmpty(){
     const xp = state.map.exitPoint;
     replayEE += `<g><circle cx="${xp.x}" cy="${xp.y}" r="12" fill="rgba(252,165,165,0.3)" stroke="#FCA5A5" stroke-width="2.5"/><text x="${xp.x}" y="${xp.y+4}" text-anchor="middle" font-size="10" font-weight="700" fill="#FCA5A5">OUT</text></g>`;
   }
+  // Hazards también en el replay (contexto del análisis)
+  let hazards = '';
+  (state.map.hazards||[]).forEach(h => {
+    const meta = HAZARD_MAP[h.type];
+    if(!meta) return;
+    hazards += `<g style="pointer-events:none;opacity:0.85;">
+      <circle cx="${h.x}" cy="${h.y}" r="13" fill="${meta.color}22" stroke="${meta.color}" stroke-width="1.8"/>
+      <g transform="translate(${h.x-9} ${h.y-9})">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${meta.color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${meta.svg}</svg>
+      </g>
+    </g>`;
+  });
   return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;">
-    ${bg}${grid}${refLines}${replayEE}${refs}<g id="replayPins"></g>
+    ${bg}${grid}${refLines}${replayEE}${refs}${hazards}<g id="replayPins"></g>
   </svg>`;
 }
 function closeReplay(){
