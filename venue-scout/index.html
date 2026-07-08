@@ -264,13 +264,15 @@ const HAZARDS = [
 ];
 const HAZARD_MAP = Object.fromEntries(HAZARDS.map(h => [h.id, h]));
 
-const SESSION_GOALS = ['aprender / progresar', 'practicar maniobra', 'sesión relajada', 'desafío grande', 'foto / video', 'evaluación'];
 const SESSION_LEVELS = ['principiante', 'intermedio', 'avanzado'];
-const SESSION_CONCERNS = ['piedras', 'crowd', 'corrientes', 'fondo agresivo', 'olas grandes', 'localismo'];
+const FREE_INTENTIONS = ['diversión', 'desestresarse', 'ejercicio', 'jugar con el mar', 'fluir', 'lo que salga'];
+const TRAINING_GOALS = ['practicar maniobra', 'ganar volumen de olas', 'mejorar timing', 'prep competencia', 'evaluación técnica', 'foto / video'];
+const CONDITION_MATCH = ['ideales para mi nivel', 'desafiantes / al límite', 'por debajo de mi nivel'];
+const SESSION_HAZARDS = ['piedras', 'crowd', 'corrientes', 'fondo agresivo', 'olas grandes', 'localismo'];
 
 let state = {
   screen: 'setup',
-  config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20, mode: 'comp', surferProfile: { name:'', level:'intermedio', goal:'sesión relajada', concerns:[] } },
+  config: { spotName: '', date: todayStr(), conditions: { sizeFt:5, tideLevel:60, tideDir:'bajando', wind:'offshore suave', period:'14s' }, durationMin: 20, mode: 'comp', surferProfile: { name:'', level:'intermedio', focus:'free-surf', intention:'diversión', goal:'practicar maniobra', conditionsMatch:'ideales para mi nivel', hazards:[] } },
   map: { lines: { outside:null, inside:null, orilla:null }, refs: [], photoDataUrl:null, photoOpacity:0.7, freehand:[], entryPoint:null, exitPoint:null, hazards:[] },
   waves: [],   // { id, gridCol(1-12), gridRow(1-N), category('mejor'|'media'|'otra'), ts(ms desde inicio), absTime }
   timer: { startedAt:null, durationMs:null, paused:false, finished:false },
@@ -332,8 +334,15 @@ function load(){
     // Migración v1.5 → v1.6: modo de análisis + perfil del surfista
     if(parsed.config){
       if(!parsed.config.mode) parsed.config.mode = 'comp';
-      if(!parsed.config.surferProfile) parsed.config.surferProfile = { name:'', level:'intermedio', goal:'sesión relajada', concerns:[] };
-      if(!Array.isArray(parsed.config.surferProfile.concerns)) parsed.config.surferProfile.concerns = [];
+      if(!parsed.config.surferProfile) parsed.config.surferProfile = { name:'', level:'intermedio', focus:'free-surf', intention:'diversión', goal:'practicar maniobra', conditionsMatch:'ideales para mi nivel', hazards:[] };
+      const sp = parsed.config.surferProfile;
+      // Migración v1.6 → v1.7: focus/intention/conditionsMatch + rename concerns → hazards
+      if(!sp.focus) sp.focus = 'free-surf';
+      if(!sp.intention) sp.intention = 'diversión';
+      if(!sp.conditionsMatch) sp.conditionsMatch = 'ideales para mi nivel';
+      if(!sp.goal) sp.goal = 'practicar maniobra';
+      if(Array.isArray(sp.concerns) && !Array.isArray(sp.hazards)) { sp.hazards = sp.concerns; delete sp.concerns; }
+      if(!Array.isArray(sp.hazards)) sp.hazards = [];
     }
     state = parsed;
   } catch(e){ console.warn('load() failed', e); }
@@ -467,16 +476,40 @@ function renderSetup(){
           ${SESSION_LEVELS.map(l=>`<span class="chip ${sp.level===l?'':'off'}" onclick="state.config.surferProfile.level='${l}';save();render();">${l}</span>`).join('')}
         </div>
       </div>
-      <div style="margin-top:12px;">
-        <div class="label">Objetivo de la sesión</div>
+      <div style="margin-top:14px;">
+        <div class="label">¿Las condiciones son buenas para tu nivel?</div>
         <div class="chips">
-          ${SESSION_GOALS.map(g=>`<span class="chip ${sp.goal===g?'':'off'}" onclick="state.config.surferProfile.goal='${g}';save();render();">${g}</span>`).join('')}
+          ${CONDITION_MATCH.map(cm=>`<span class="chip ${sp.conditionsMatch===cm?'':'off'}" onclick="state.config.surferProfile.conditionsMatch='${cm}';save();render();">${cm}</span>`).join('')}
         </div>
       </div>
-      <div style="margin-top:12px;">
-        <div class="label">Preocupaciones (opcional · multi-select)</div>
+      <div style="margin-top:14px;">
+        <div class="label">Enfoque de la sesión</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button onclick="setSessionFocus('free-surf')" style="padding:12px 8px;border-radius:10px;border:2px solid ${sp.focus==='free-surf'?'#34D399':'var(--border)'};background:${sp.focus==='free-surf'?'rgba(52,211,153,.08)':'rgba(255,255,255,.02)'};color:${sp.focus==='free-surf'?'#34D399':'var(--text)'};font-weight:700;font-size:12px;cursor:pointer;">FREE SURF</button>
+          <button onclick="setSessionFocus('training')" style="padding:12px 8px;border-radius:10px;border:2px solid ${sp.focus==='training'?'#A855F7':'var(--border)'};background:${sp.focus==='training'?'rgba(168,85,247,.08)':'rgba(255,255,255,.02)'};color:${sp.focus==='training'?'#A855F7':'var(--text)'};font-weight:700;font-size:12px;cursor:pointer;">TRAINING SESSION</button>
+        </div>
+      </div>
+      ${sp.focus==='training' ? `
+      <div style="margin-top:14px;">
+        <div class="label">Objetivo del entrenamiento</div>
         <div class="chips">
-          ${SESSION_CONCERNS.map(k=>`<span class="chip ${sp.concerns.includes(k)?'':'off'}" onclick="toggleConcern('${k}')">${k}</span>`).join('')}
+          ${TRAINING_GOALS.map(g=>`<span class="chip ${sp.goal===g?'':'off'}" onclick="state.config.surferProfile.goal='${g}';save();render();">${g}</span>`).join('')}
+        </div>
+        <input type="text" class="inp" style="margin-top:8px;font-size:12px;" value="${sp.focus==='training' && !TRAINING_GOALS.includes(sp.goal) ? esc(sp.goal) : ''}" placeholder="O escribí tu propio objetivo..." oninput="state.config.surferProfile.goal=this.value;save();">
+      </div>
+      ` : `
+      <div style="margin-top:14px;">
+        <div class="label">Intención de la sesión</div>
+        <div class="chips">
+          ${FREE_INTENTIONS.map(i=>`<span class="chip ${sp.intention===i?'':'off'}" onclick="state.config.surferProfile.intention='${i}';save();render();">${i}</span>`).join('')}
+        </div>
+        <input type="text" class="inp" style="margin-top:8px;font-size:12px;" value="${sp.focus==='free-surf' && !FREE_INTENTIONS.includes(sp.intention) ? esc(sp.intention) : ''}" placeholder="O escribí tu propia intención..." oninput="state.config.surferProfile.intention=this.value;save();">
+      </div>
+      `}
+      <div style="margin-top:14px;">
+        <div class="label">Peligros / hazards a considerar (opcional · multi-select)</div>
+        <div class="chips">
+          ${SESSION_HAZARDS.map(k=>`<span class="chip ${sp.hazards.includes(k)?'':'off'}" onclick="toggleHazard('${k}')">${k}</span>`).join('')}
         </div>
       </div>
     </section>
@@ -1362,12 +1395,19 @@ function setAnalysisMode(mode){
   save(); render();
 }
 
-function toggleConcern(k){
+function setSessionFocus(focus){
   const sp = state.config.surferProfile;
   if(!sp) return;
-  if(!Array.isArray(sp.concerns)) sp.concerns = [];
-  const idx = sp.concerns.indexOf(k);
-  if(idx>=0) sp.concerns.splice(idx,1); else sp.concerns.push(k);
+  sp.focus = focus;
+  save(); render();
+}
+
+function toggleHazard(k){
+  const sp = state.config.surferProfile;
+  if(!sp) return;
+  if(!Array.isArray(sp.hazards)) sp.hazards = [];
+  const idx = sp.hazards.indexOf(k);
+  if(idx>=0) sp.hazards.splice(idx,1); else sp.hazards.push(k);
   save(); render();
 }
 
@@ -1683,7 +1723,10 @@ function goToReport(){
    REPORT FREE MODE · recomienda zona ideal + zonas a evitar
    ════════════════════════════════════════════════════════════════════ */
 function renderReportFree(){
-  const sp = state.config.surferProfile || { name:'', level:'intermedio', goal:'sesión relajada', concerns:[] };
+  const sp = state.config.surferProfile || { name:'', level:'intermedio', focus:'free-surf', intention:'diversión', goal:'practicar maniobra', conditionsMatch:'ideales para mi nivel', hazards:[] };
+  // Compat con perfiles viejos que aún tengan concerns
+  if(Array.isArray(sp.concerns) && !Array.isArray(sp.hazards)) sp.hazards = sp.concerns;
+  if(!Array.isArray(sp.hazards)) sp.hazards = [];
   const waves = state.waves.filter(w => w.category === 'ola');
   const hazards = state.map.hazards || [];
   const totalMs = state.timer.durationMs || (state.config.durationMin*60*1000);
@@ -1731,15 +1774,33 @@ function renderReportFree(){
   const epCell = ep ? pointToCell(ep) : null;
   const xpCell = xp ? pointToCell(xp) : null;
 
-  // Checklist adaptado al nivel
+  // Checklist adaptado al nivel, enfoque y hazards
   const checklist = [];
   checklist.push('5 min de calentamiento (rotaciones + respiración)');
   if(sp.level === 'principiante') checklist.push('Empezá en zona interior sin remar directo al pico');
-  if(sp.concerns.includes('piedras')) checklist.push('Chequeá visualmente las piedras marcadas antes de entrar');
-  if(sp.concerns.includes('corrientes')) checklist.push('Identificá la corriente y usála para posicionarte, no para pelearla');
-  if(sp.concerns.includes('crowd')) checklist.push('Respetá turnos · esperá tu ola aunque tarde');
-  if(sp.goal === 'foto / video' && idealCell) checklist.push('Coordiná con el fotógrafo dónde va a posicionarse');
-  if(sp.goal === 'practicar maniobra') checklist.push('Elegí olas parejas para repetir la maniobra sin distracciones');
+  if(sp.conditionsMatch === 'desafiantes / al límite') checklist.push('Las condiciones te desafían · marcá un límite claro de tiempo o intentos');
+  if(sp.conditionsMatch === 'por debajo de mi nivel') checklist.push('Aprovechá para trabajar técnica fina en vez de buscar el volumen');
+  if(sp.hazards.includes('piedras')) checklist.push('Chequeá visualmente las piedras marcadas antes de entrar');
+  if(sp.hazards.includes('corrientes')) checklist.push('Identificá la corriente y usála para posicionarte, no para pelearla');
+  if(sp.hazards.includes('crowd')) checklist.push('Respetá turnos · esperá tu ola aunque tarde');
+  if(sp.hazards.includes('fondo agresivo')) checklist.push('Caídas suaves · no te tires de cabeza en la parte más shallow');
+  if(sp.hazards.includes('olas grandes')) checklist.push('Estrategia de duck-dive y respiración clara antes de entrar');
+  if(sp.hazards.includes('localismo')) checklist.push('Sé respetuoso con los locales · saludá y no forces prioridad');
+  if(sp.focus === 'training'){
+    const g = String(sp.goal||'').toLowerCase();
+    if(g.includes('maniobra')) checklist.push('Elegí olas parejas para repetir la maniobra sin distracciones');
+    if(g.includes('volumen')) checklist.push('Prioridad al conteo · no dejes pasar olas medias esperando la perfecta');
+    if(g.includes('timing')) checklist.push('Contá segundos entre sets · buscá el patrón antes de posicionarte');
+    if(g.includes('foto') || g.includes('video')) checklist.push('Coordiná con el fotógrafo dónde va a posicionarse');
+    if(g.includes('competencia')) checklist.push('Simulá heat: cronometrá 20 min y contá tus mejores 2 olas');
+    if(g.includes('evaluación')) checklist.push('El coach observa · ejecutá tu sesión normal, sin buscar impresionar');
+  } else {
+    // Free surf: enfoque en la intención
+    const i = String(sp.intention||'').toLowerCase();
+    if(i.includes('desestres') || i.includes('fluir')) checklist.push('Nada de agenda técnica · dejate llevar por lo que el mar proponga');
+    if(i.includes('ejercicio')) checklist.push('Priorizá volumen de remada · seguí remando aunque falle la ola');
+    if(i.includes('jugar')) checklist.push('Probá cosas nuevas · maniobras raras, olas cerradas, lo que sea');
+  }
   checklist.push('Salí antes de que se te acabe la energía · nunca al 100%');
 
   return `<main class="screen report">
@@ -1762,10 +1823,18 @@ function renderReportFree(){
     <section class="section" style="background:rgba(52,211,153,.08);border:1.5px solid rgba(52,211,153,.35);">
       <div style="font-size:11px;color:var(--foam);font-weight:700;letter-spacing:.6px;margin-bottom:8px;">RECOMENDACIÓN ${sp.name?'PARA '+esc(sp.name).toUpperCase():''}</div>
       <div style="font-size:14px;color:var(--text);line-height:1.55;">
-        ${sp.name?'<strong>'+esc(sp.name)+'</strong> · ':''}<span style="color:var(--text-soft);">nivel <strong style="color:var(--text);">${esc(sp.level)}</strong> · buscando <strong style="color:var(--text);">${esc(sp.goal)}</strong></span>
+        ${sp.name?'<strong>'+esc(sp.name)+'</strong> · ':''}<span style="color:var(--text-soft);">nivel <strong style="color:var(--text);">${esc(sp.level)}</strong></span>
       </div>
-      ${sp.concerns.length ? `<div style="margin-top:8px;font-size:12px;color:var(--text-soft);">
-        Preocupaciones: ${sp.concerns.map(k=>`<span style="color:#F59E0B;">${esc(k)}</span>`).join(' · ')}
+      <div style="margin-top:6px;font-size:13px;color:var(--text);line-height:1.5;">
+        ${sp.focus==='training'
+          ? `<span style="color:#A855F7;font-weight:700;">TRAINING</span> · objetivo: <strong>${esc(sp.goal||'—')}</strong>`
+          : `<span style="color:#34D399;font-weight:700;">FREE SURF</span> · intención: <strong>${esc(sp.intention||'—')}</strong>`}
+      </div>
+      <div style="margin-top:6px;font-size:12px;color:var(--text-soft);">
+        Condiciones hoy: <strong style="color:var(--text);">${esc(sp.conditionsMatch||'—')}</strong>
+      </div>
+      ${sp.hazards.length ? `<div style="margin-top:8px;font-size:12px;color:var(--text-soft);">
+        Peligros declarados: ${sp.hazards.map(k=>`<span style="color:#F59E0B;">${esc(k)}</span>`).join(' · ')}
       </div>` : ''}
     </section>
 
