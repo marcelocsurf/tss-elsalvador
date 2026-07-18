@@ -174,47 +174,42 @@ report    → renderReport()         — despacha a renderReportComp() o renderR
 | `attachMapHandlers()` | 982 | Handlers touch/mouse del mapa |
 | `handlePhotoUpload()` | 1039 | Cargar foto del lineup como fondo |
 | `handleMapTap()` | 1063 | Tap en el mapa → agrega pin/ola |
-| `scoreToCategory(score, scores)` | ~ | **CORE**: convierte score 1-10 → mejor/media/otra usando thresholds adaptativos |
-| `assignScore()` | ~ | Modo rápido: planta pin sin categoría, luego coach asigna score y auto-clasifica |
-| `computeHeatPlan(stats, cl)` | ~ | **CORE**: calcula plan táctico del heat (olas esperadas, combos factibles, objetivo) |
+| `scoreToCategory(score, scores)` | ~ | Convierte score 1-10 → mejor/media/otra (solo para COLOR de pins; el motor táctico no usa categorías) |
+| `assignScore()` | ~ | Asigna score a un pin pendiente (tap-first) |
+| `computeZonesV2()` | ~ | **CORE v2**: clustering de zonas por vecindad (Chebyshev ≤1) + stats por zona (ritmo, scores, dirección) |
+| `simulateStrategy(stints, target, trials)` | ~ | **CORE v2**: Monte Carlo de un heat — llegadas Poisson, scores bootstrap, top-2 |
+| `buildTacticalPlan(zones)` | ~ | **CORE v2**: genera estrategias (stay / split A→B al 33/50/66%), simula todas, elige la mejor |
+| `renderTacticalPlanCard(plan)` | ~ | Card ejecutiva del plan con pasos, pts esperados y probabilidad de objetivo |
+| `renderZoneRanking(zones, cl)` | ~ | Ranking de zonas ordenado por valor simulado en heat |
 
 Para hallazgos exactos:
 ```bash
 grep -n "^function nombreFuncion" venue-scout/index.html
 ```
 
-## Lógica del reporte final (imprescindible entender)
+## Motor táctico v2 (imprescindible entender)
 
-### `scoreToCategory(score, scores)`
+**Premisa**: en un heat contás tus 2 mejores olas, no el promedio. Por eso el motor NO compara zonas por score medio — **simula el heat completo (Monte Carlo, 1.200 trials por estrategia)** y elige la estrategia con más puntos esperados.
 
-Convierte el score 1-10 de una ola a categoría **usando thresholds adaptativos** basados en los scores potenciales que el coach declaró:
+### Captura (modo comp)
+Score-only, tap-first SIEMPRE: tap donde salió la ola → pin gris pendiente → asignás score 1-10 + dirección. No hay botones MEJOR/MEDIA/OTRA (removidos). `scoreToCategory` solo persiste para colorear pins.
 
+### `computeZonesV2()`
+Zonas = clusters de celdas ADYACENTES con olas (flood-fill, vecindad Chebyshev ≤1) — D7 y D8 son la misma zona si ambas tienen olas. Por zona: `ratePerMin` (n/minutos observados), `meanIntervalMs`, `scores[]` (reales; olas legacy sin score usan estimado por categoría), `topHalfAvg` ("potencial de sus mejores"), dirección dominante, refs cercanas.
+
+### `simulateStrategy(stints, target, trials)`
+Un trial = un heat simulado: en cada estancia las olas llegan como **proceso de Poisson** al ritmo medido (`-ln(1-U)/λ`); cada ola agarrada consume `WAVE_COST_MIN` (2.5 min) del reloj; su score se sortea de los anotados en esa zona (**bootstrap**). Puntaje del trial = suma de las 2 mejores. Devuelve `{expected, probTarget, p25, p75}`.
+
+### `buildTacticalPlan(zones)`
+Compite estrategias: quedarse en cada zona (top 4 con ≥2 olas) + splits A→B con cambio al 33/50/66% del heat, descontando remada (`moveCostMin` ≈ 0.5 min/celda de distancia). Gana la de mayor `expected`. `alt` = mejor estrategia con zona inicial o tipo distinto (Plan B). La regla de switch mostrada al user usa el percentil 70 de los scores de la zona A como umbral.
+
+### Constantes ajustables
 ```js
-midMejorMedia = (scores.mejor + scores.media) / 2   // ej. (8.5+6.5)/2 = 7.5
-midMediaOtra  = (scores.media + scores.otra)  / 2   // ej. (6.5+5.0)/2 = 5.75
-
-score >= 7.5 → 'mejor'
-score >= 5.75 → 'media'
-else → 'otra'
+WAVE_COST_MIN = 2.5      // min por ola surfeada (ride + remada de vuelta)
+MOVE_MIN_PER_CELL = 0.5  // min de remada por celda entre zonas
+MC_TRIALS = 1200         // simulaciones por estrategia
 ```
-
-Ventaja: si el spot es más flojo (scores.mejor=6, scores.media=4), los thresholds bajan y la clasificación sigue siendo relativa al spot.
-
-### `computeHeatPlan(stats, cl)`
-
-Calcula, en base a la observación (intervalo promedio entre olas por categoría) y a la duración del heat, cuántas olas de cada categoría se esperan:
-
-```
-olas_esperadas = duracion_heat_ms / intervalo_promedio_ms
-```
-
-Luego evalúa combos:
-- **2 MEJOR** = `scores.mejor × 2` (17 pts si mejor=8.5)
-- **1 MEJOR + 1 MEDIA** = mejor + media
-- **2 MEDIA** = media × 2
-- **1 MEDIA + 1 OTRA** = media + otra
-
-Un combo es `feasible` si `expected[cat] >= needs[cat]`. El plan táctico recomienda el combo factible con mayor puntaje que alcance el `heatObjective`.
+Supuesto declarado en el reporte: no se modela prioridad de rivales.
 
 ## Convenciones críticas
 
@@ -229,10 +224,10 @@ Un combo es `feasible` si `expected[cat] >= needs[cat]`. El plan táctico recomi
 - `touch-action: pan-y` en el mapa permite scroll vertical incluso cuando se dibuja (fix `e8599e7`).
 - El header y la botonera nunca se pintan sobre el mapa (dos zonas distintas).
 
-### Modo rápido (default ON)
-- Coach tap donde vio la ola → pin sin categoría.
-- Después asigna score 1-10 → `scoreToCategory` auto-clasifica.
-- Toggle en menú hamburguesa. Modo tradicional: elegís categoría antes del tap.
+### Captura tap-first (siempre, no es toggle)
+- Modo comp: tap donde salió la ola → pin gris pendiente → score 1-10 + dirección. `scoreToCategory` deriva la categoría SOLO para el color del pin.
+- Modo free: un solo pin "OLA BUENA" sin score.
+- El toggle rapidMode del menú quedó sin efecto en comp (siempre tap-first).
 
 ### Storage
 - Un solo key: `tss_venue_scout_v1`.

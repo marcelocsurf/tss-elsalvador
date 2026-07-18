@@ -693,15 +693,13 @@ function renderObserve(){
         </div>
       </div>
       ` : `
-      <div class="cat-row" style="margin-top:14px;">
-        <div class="cat cat-mejor ${state.activeMode==='mejor'?'on':''}" onclick="setMode('mejor')">
-          <div class="cat-lbl">MEJOR</div><div class="cat-num">${counts.mejor}</div>
-        </div>
-        <div class="cat cat-media ${state.activeMode==='media'?'on':''}" onclick="setMode('media')">
-          <div class="cat-lbl">MEDIA</div><div class="cat-num">${counts.media}</div>
-        </div>
-        <div class="cat cat-otra ${state.activeMode==='otra'?'on':''}" onclick="setMode('otra')">
-          <div class="cat-lbl">OTRA</div><div class="cat-num">${counts.otra}</div>
+      <div style="margin-top:14px;">
+        <div class="cat ${state.activeMode==='mejor'?'on':''}" style="background:rgba(0,210,255,.12);border:2px solid ${state.activeMode==='mejor'?'var(--cyan)':'transparent'};padding:12px;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('mejor')">
+          <div>
+            <div class="cat-lbl" style="color:var(--cyan);">OLA</div>
+            <div style="font-size:10px;color:var(--grey);margin-top:2px;">Tap donde salió · le asignás score 1-10 después</div>
+          </div>
+          <div class="cat-num" style="color:var(--cyan);">${state.waves.length}</div>
         </div>
       </div>
       `}
@@ -1248,12 +1246,8 @@ function handleMapTap(e){
       row = Math.floor(y / cellH) + 1;
       if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
     }
-    // Modo rápido: plantar pending sin categorizar
-    if(state.rapidMode && !hitPin){
-      plantPendingWave(col, row);
-      return;
-    }
-    plantWave(col, row, mode);
+    // Modo comp score-only: SIEMPRE tap-first · el score se asigna después y clasifica solo.
+    plantPendingWave(col, row);
     return;
   }
 
@@ -1924,16 +1918,168 @@ function renderReportFree(){
   </main>`;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   MOTOR TÁCTICO v2 · zonas por vecindad + simulación Monte Carlo
+   La premisa: en un heat contás tus 2 mejores olas, no el promedio.
+   Por eso no comparamos zonas por score medio — simulamos el heat
+   completo miles de veces por estrategia y elegimos la que más
+   puntos produce, con probabilidad real de alcanzar el objetivo.
+   ════════════════════════════════════════════════════════════════════ */
+const WAVE_COST_MIN = 2.5;      // min que consume cada ola surfeada (ride + remada de vuelta al pico)
+const MOVE_MIN_PER_CELL = 0.5;  // min de remada por celda de distancia entre zonas
+const MC_TRIALS = 1200;         // simulaciones por estrategia
+
+function obsMinutes(){
+  const ms = state.timer.finished
+    ? ((state.timer.endedAt||nowMs()) - state.timer.startedAt)
+    : (nowMs() - (state.timer.startedAt||nowMs()));
+  return Math.max(1, ms/60000);
+}
+
+function pctile(arr, p){
+  const s = [...arr].sort((a,b)=>a-b);
+  return s[Math.min(s.length-1, Math.floor(p*s.length))];
+}
+
+/* Zonas = clusters de celdas ADYACENTES con olas (vecindad Chebyshev ≤1).
+   D7 y D8 son la misma zona si ambas tienen olas — un pico real no respeta
+   los bordes de la grilla. */
+function computeZonesV2(){
+  const done = state.waves.filter(w => w.category !== 'pending');
+  if(!done.length) return [];
+  const sc = state.closing?.scores || {};
+  const estFor = w => w.category==='mejor' ? (sc.mejor||8) : w.category==='media' ? (sc.media||6.5) : (sc.otra||5);
+  const byCell = {};
+  done.forEach(w => { const k = w.gridCol+'-'+w.gridRow; (byCell[k]=byCell[k]||[]).push(w); });
+  const cells = Object.keys(byCell);
+  const seen = new Set();
+  const zones = [];
+  cells.forEach(start => {
+    if(seen.has(start)) return;
+    const comp = []; const stack = [start]; seen.add(start);
+    while(stack.length){
+      const c = stack.pop(); comp.push(c);
+      const [cc,cr] = c.split('-').map(Number);
+      cells.forEach(o => {
+        if(seen.has(o)) return;
+        const [oc,or] = o.split('-').map(Number);
+        if(Math.abs(oc-cc)<=1 && Math.abs(or-cr)<=1){ seen.add(o); stack.push(o); }
+      });
+    }
+    const zw = comp.flatMap(k=>byCell[k]).sort((a,b)=>a.ts-b.ts);
+    const top = comp.map(k=>({k, n:byCell[k].length})).sort((a,b)=>b.n-a.n)[0];
+    const [tc,tr] = top.k.split('-').map(Number);
+    // Score real si lo tiene · estimado por categoría si es ola vieja sin score
+    const scores = zw.map(w => (typeof w.score==='number' && w.score>0) ? w.score : estFor(w));
+    zones.push({ cells:comp, waves:zw, col:tc, row:tr, scores });
+  });
+  const tObs = obsMinutes();
+  zones.forEach(z => {
+    z.n = z.waves.length;
+    z.label = rowToLetter(z.row)+z.col;
+    z.refs = nearestRefs(z.col, z.row);
+    z.ratePerMin = z.n / tObs;
+    z.meanIntervalMs = 60000 * tObs / z.n;
+    z.avgScore = z.scores.reduce((s,x)=>s+x,0)/z.n;
+    z.bestScore = Math.max(...z.scores);
+    const desc = [...z.scores].sort((a,b)=>b-a);
+    const half = Math.max(1, Math.ceil(desc.length/2));
+    z.topHalfAvg = desc.slice(0, half).reduce((s,x)=>s+x,0)/half;  // "potencial de sus mejores"
+    const d = {L:0, R:0};
+    z.waves.forEach(w => { if(w.direction==='L') d.L++; else if(w.direction==='R') d.R++; });
+    const td = d.L + d.R;
+    z.dirDominant = td>0 ? (d.L/td>=0.7 ? 'L' : d.R/td>=0.7 ? 'R' : 'mixed') : null;
+  });
+  // Ranking preliminar: frecuencia × calidad-de-sus-mejores
+  zones.sort((a,b) => (b.ratePerMin*b.topHalfAvg) - (a.ratePerMin*a.topHalfAvg));
+  return zones;
+}
+
+/* Costo de remada entre dos zonas, en minutos, por distancia entre centros. */
+function moveCostMin(a, b){
+  const cellW = MAP_W/GRID_COLS, cellH = MAP_H/GRID_ROWS;
+  const distCells = Math.hypot((a.col-b.col)*cellW, (a.row-b.row)*cellH) / ((cellW+cellH)/2);
+  return Math.max(0.5, Math.round(distCells*MOVE_MIN_PER_CELL*2)/2);
+}
+
+/* Un heat simulado: las olas llegan a cada zona como proceso de Poisson con
+   el ritmo medido; cada ola agarrada consume WAVE_COST_MIN del reloj;
+   los scores se sortean de los que el coach anotó en esa zona (bootstrap).
+   El puntaje del heat = suma de las 2 mejores olas del trial. */
+function simulateStrategy(stints, target, trials){
+  let sum = 0, hit = 0;
+  const totals = new Array(trials);
+  for(let t=0; t<trials; t++){
+    const caught = [];
+    for(const st of stints){
+      if(st.minutes <= 0 || !st.zone.ratePerMin) continue;
+      const z = st.zone;
+      let clock = 0;
+      while(true){
+        clock += -Math.log(1-Math.random())/z.ratePerMin;   // llegada exponencial
+        if(clock > st.minutes) break;
+        caught.push(z.scores[(Math.random()*z.scores.length)|0]);
+        clock += WAVE_COST_MIN;
+      }
+    }
+    caught.sort((a,b)=>b-a);
+    const tot = (caught[0]||0) + (caught[1]||0);
+    totals[t] = tot; sum += tot; if(target>0 && tot>=target) hit++;
+  }
+  totals.sort((a,b)=>a-b);
+  return {
+    expected: sum/trials,
+    probTarget: target>0 ? hit/trials : null,
+    p25: totals[(trials*0.25)|0],
+    p75: totals[(trials*0.75)|0],
+  };
+}
+
+/* Genera y compite estrategias: quedarse en cada zona, o split A→B con el
+   cambio al 33% / 50% / 66% del heat (descontando la remada). */
+function buildTacticalPlan(zones){
+  const T = state.closing.heatDurationMin || 20;
+  const target = state.closing.heatObjective || 0;
+  const usable = zones.filter(z => z.n >= 2).slice(0, 4);
+  if(!usable.length) return null;
+  const strategies = [];
+  usable.forEach(z => {
+    const s = { type:'stay', zones:[z], stints:[{zone:z, minutes:T}] };
+    strategies.push(s);
+    z._stay = s;   // el ranking de zonas ordena por este valor simulado
+  });
+  for(let i=0; i<usable.length; i++) for(let j=0; j<usable.length; j++){
+    if(i===j) continue;
+    const A = usable[i], B = usable[j];
+    const mv = moveCostMin(A, B);
+    [0.33, 0.5, 0.66].forEach(f => {
+      const t1 = Math.round(T*f);
+      const t2 = T - t1 - mv;
+      if(t2 < 3) return;
+      strategies.push({ type:'split', zones:[A,B], t1, mv, stints:[{zone:A, minutes:t1},{zone:B, minutes:t2}] });
+    });
+  }
+  strategies.forEach(s => { s.sim = simulateStrategy(s.stints, target, MC_TRIALS); });
+  strategies.sort((a,b) => b.sim.expected - a.sim.expected);
+  const best = strategies[0];
+  const alt = strategies.find(s => s !== best && (s.zones[0] !== best.zones[0] || s.type !== best.type)) || null;
+  const totalWaves = usable.reduce((s,z)=>s+z.n, 0);
+  return { T, target, best, alt, usable, lowConfidence: totalWaves < 10 };
+}
+
 function renderReport(){
   if((state.config.mode||'comp') === 'free') return renderReportFree();
-  const stats = computeStats();
   const cl = state.closing;
+  const zones = computeZonesV2();
+  const plan = zones.length ? buildTacticalPlan(zones) : null;
+  const totalMin = Math.round(obsMinutes());
+  const pend = pendingWaves().length;
   return `<main class="screen report">
     <section class="section">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">
         <div>
           <h2 class="serif" style="font-size:30px;color:var(--white);line-height:1.05;">${esc(state.config.spotName||'Spot')}</h2>
-          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'DM Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${stats.totalMin} MIN · ${state.waves.length} OLAS</div>
+          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'DM Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${totalMin} MIN · ${state.waves.length} OLAS</div>
         </div>
         <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="goBackToObserve()">← Seguir marcando</button>
       </div>
@@ -1943,22 +2089,14 @@ function renderReport(){
         <span class="chip">${state.config.conditions.wind}</span>
         <span class="chip">${state.config.conditions.period}</span>
       </div>
+      ${pend ? `<div style="margin-top:10px;padding:8px 12px;border:1.5px dashed var(--amber);border-radius:10px;font-size:12px;color:var(--amber);">${pend} ola${pend===1?'':'s'} sin score no entran al análisis · <button style="color:var(--amber);font-weight:700;text-decoration:underline;" onclick="goBackToObserve()">volver y asignarles score</button></div>` : ''}
     </section>
 
     <section class="section">
-      <div class="section-h"><div class="section-t">¿Cómo se ve una buena hoy?</div></div>
-      <textarea class="ta" id="closingDesc" placeholder="Describí la ola ideal de hoy con tus palabras: forma, dónde rompe, qué referencia, qué señales mirar..." oninput="state.closing.description=this.value;save();">${esc(cl.description)}</textarea>
-    </section>
-
-    <section class="section">
-      <div class="section-h"><div class="section-t">Score que la ola hoy puede dar</div></div>
-      ${renderScoreSlider('mejor', cl.scores.mejor, 'var(--gold-text)', 'MEJOR')}
-      ${renderScoreSlider('media', cl.scores.media, 'var(--silver-text)', 'MEDIA')}
-      ${renderScoreSlider('otra',  cl.scores.otra,  'var(--bronze-text)', 'OTRA')}
-
-      <div style="margin-top:14px;display:grid;grid-template-columns:1fr 70px;gap:10px;align-items:center;">
-        <div class="label" style="margin:0;">Heat objetivo (puntaje total a batir)</div>
-        <input type="number" class="inp" value="${cl.heatObjective}" min="0" max="20" step="0.5" oninput="state.closing.heatObjective=parseFloat(this.value)||0;save();render();" style="text-align:center;font-weight:700;color:var(--text);">
+      <div class="section-h"><div class="section-t">Tu heat</div></div>
+      <div style="display:grid;grid-template-columns:1fr 70px;gap:10px;align-items:center;">
+        <div class="label" style="margin:0;">Puntaje objetivo (total a batir)</div>
+        <input type="number" class="inp" value="${cl.heatObjective}" min="0" max="20" step="0.5" oninput="state.closing.heatObjective=parseFloat(this.value)||0;save();" onchange="render();" style="text-align:center;font-weight:700;color:var(--text);">
       </div>
       <div style="margin-top:10px;">
         <div class="label" style="margin-bottom:6px;">Duración del heat</div>
@@ -1968,16 +2106,12 @@ function renderReport(){
       </div>
     </section>
 
-    ${renderNarrativeSummary(stats, cl)}
-    ${renderHeatPlanCard(stats, cl)}
+    ${renderTacticalPlanCard(plan)}
+    ${renderZoneRanking(zones, cl)}
 
     <section class="section">
-      <div class="section-h"><div class="section-t">Reporte automático</div></div>
-      ${renderReportBlock('mejor', stats.mejor, 'MEJOR', cl.scores.mejor)}
-      ${renderReportBlock('media', stats.media, 'MEDIA', cl.scores.media)}
-      ${renderReportBlock('otra',  stats.otra,  'OTRA',  cl.scores.otra)}
-
-      ${renderPlan(stats, cl)}
+      <div class="section-h"><div class="section-t">¿Cómo se ve una buena hoy?</div></div>
+      <textarea class="ta" id="closingDesc" placeholder="Describí la ola ideal de hoy con tus palabras: forma, dónde rompe, qué referencia, qué señales mirar..." oninput="state.closing.description=this.value;save();">${esc(cl.description)}</textarea>
     </section>
 
     <section class="section">
@@ -1994,421 +2128,107 @@ function renderReport(){
     </div>
   </main>`;
 }
-function renderNarrativeSummary(stats, cl){
-  if(stats.mejor.count === 0 && stats.media.count === 0 && stats.otra.count === 0){
-    return '';
-  }
-  const m = stats.mejor;
-  const sp = state.config.spotName || 'el spot';
-  const intro = `Hoy <strong>${esc(sp)}</strong> habló.`;
-  let lines = [intro];
 
-  if(m.count > 0){
-    const mainCoord = `${rowToLetter(m.topCell.row)}${m.topCell.col}`;
-    const refs = nearestRefs(m.topCell.col, m.topCell.row);
-    const refLine = refs.length
-      ? `alineadas con <strong>${refs.map(r=>r.label).join(' y ')}</strong>`
-      : `en zona <strong>${mainCoord}</strong>`;
-    const dirLine = m.dirDominant === 'L' ? ', casi siempre <strong>izquierdas</strong>'
-                  : m.dirDominant === 'R' ? ', casi siempre <strong>derechas</strong>'
-                  : m.dirDominant === 'mixed' ? ', mixtas izq/der'
-                  : '';
-    const intervalLine = m.avgInterval ? `, cada <strong>${fmtMMSS(m.avgInterval)}</strong>` : '';
-    const setsLine = m.setsDetected ? ` Vienen en sets de <strong>${m.avgPerSet}</strong> olas cada <strong>${fmtMMSS(m.avgBetweenSets)}</strong>.` : '';
-    lines.push(`Las <strong>mejores</strong> rompen ${refLine}${dirLine}${intervalLine}.${setsLine}`);
+/* Card ejecutiva del plan táctico: la estrategia ganadora del Monte Carlo,
+   en pasos que cualquiera entiende. */
+function renderTacticalPlanCard(plan){
+  if(!plan){
+    return `<section class="section" style="border:1.5px dashed var(--amber);background:rgba(245,158,11,.05);">
+      <div style="font-size:13px;color:var(--amber);text-align:center;line-height:1.5;">Marcá al menos 2 olas con score en una misma zona para generar el plan del heat.</div>
+    </section>`;
   }
-
-  // Entrada / salida al agua
-  const entryCell = state.map.entryPoint ? pointToCell(state.map.entryPoint) : null;
-  const exitCell = state.map.exitPoint ? pointToCell(state.map.exitPoint) : null;
-  if(entryCell || exitCell){
-    const parts = [];
-    if(entryCell) parts.push(`entrás por <strong style="color:#34D399;">${entryCell}</strong>`);
-    if(exitCell) parts.push(`salís por <strong style="color:#FCA5A5;">${exitCell}</strong>`);
-    lines.push(`Al agua ${parts.join(', ')}.`);
+  const b = plan.best;
+  const target = plan.target;
+  const prob = b.sim.probTarget;
+  const statusColor = prob===null ? 'var(--cyan)' : prob>=0.6 ? 'var(--foam)' : prob>=0.35 ? 'var(--amber)' : 'var(--coral)';
+  const refStr = z => z.refs && z.refs.length ? ` (${esc(z.refs[0].label)})` : '';
+  const steps = [];
+  if(b.type === 'stay'){
+    const z = b.zones[0];
+    const expectedWaves = Math.round(z.ratePerMin * plan.T);
+    steps.push(`Andá a <strong style="color:var(--cyan);">${z.label}</strong>${refStr(z)} y quedate todo el heat.`);
+    steps.push(`Ahí sale una ola cada <strong>${fmtMMSS(z.meanIntervalMs)}</strong> · esperás ~<strong>${expectedWaves}</strong> en ${plan.T} min.`);
+    steps.push(`Sé selectivo: esta zona da olas de <strong>${(Math.round(z.avgScore*2)/2).toFixed(1)}</strong> promedio — no la malgastes con menos.`);
+  } else {
+    const [A, B2] = b.zones;
+    const sStar = Math.round(pctile(A.scores, 0.7)*2)/2;
+    steps.push(`Arrancá en <strong style="color:var(--cyan);">${A.label}</strong>${refStr(A)}.`);
+    steps.push(`Si a los <strong>${b.t1} min</strong> no agarraste ola de <strong>${sStar}+</strong> → movete a <strong style="color:var(--cyan);">${B2.label}</strong>${refStr(B2)} (~${b.mv} min de remada).`);
+    steps.push(`Cerrá el heat en ${B2.label}: ahí sale una cada <strong>${fmtMMSS(B2.meanIntervalMs)}</strong>.`);
   }
-
-  // Frase táctica final
-  const obj = cl.heatObjective || 0;
-  if(obj && m.count > 0){
-    const score = (m.scoredCount >= 2 ? m.avgScore : cl.scores.mejor) || 0;
-    const scoreMed = stats.media.scoredCount >= 2 ? stats.media.avgScore : cl.scores.media || 0;
-    if(score + scoreMed >= obj){
-      lines.push(`Para batir el heat de <strong>${obj}</strong> alcanza con una mejor + una media. Tu trabajo es estar donde están.`);
-    } else if(stats.otra.count > 0){
-      lines.push(`El heat de <strong>${obj}</strong> está apretado hoy. Mejor combinar volumen: dos medias + una otra.`);
-    }
-  } else if(m.count > 0 && stats.media.count > 0){
-    lines.push(`Si la <strong>mejor</strong> no aparece, las <strong>medias</strong> en ${rowToLetter(stats.media.topCell.row)}${stats.media.topCell.col} salen seguido.`);
-  }
-
-  return `<section class="section" style="background:linear-gradient(135deg,rgba(0,210,255,.06),rgba(168,85,247,.04));border:1px solid rgba(0,210,255,.2);">
-    <div class="section-h"><div class="section-t" style="color:#22D3EE;">Lo que el spot habló hoy</div></div>
-    <div class="serif" style="font-size:18px;line-height:1.6;color:var(--text);font-style:italic;">
-      ${lines.join(' ')}
+  const probLine = prob===null ? '' :
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+      <span style="font-size:12px;color:var(--text-soft);">Probabilidad de llegar a ${target}:</span>
+      <span style="font-size:20px;font-weight:800;color:${statusColor};font-family:'DM Mono',monospace;">${Math.round(prob*100)}%</span>
+    </div>`;
+  const altLine = plan.alt ? (() => {
+    const a = plan.alt;
+    const desc = a.type==='stay'
+      ? `quedate en ${a.zones[0].label} todo el heat`
+      : `${a.zones[0].label} → ${a.zones[1].label} al min ${a.t1}`;
+    return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-soft);">Plan B: ${desc} · esperado <strong style="color:var(--text);">${a.sim.expected.toFixed(1)} pts</strong>${a.sim.probTarget!==null?` · ${Math.round(a.sim.probTarget*100)}%`:''}</div>`;
+  })() : '';
+  return `<section class="section" style="background:linear-gradient(135deg,rgba(0,210,255,.08),rgba(0,210,255,.02));border:1.5px solid ${statusColor};">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:${statusColor};">Plan para tu heat · ${plan.T} min</div>
+      <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.06);font-family:'DM Mono',monospace;">${b.sim.expected.toFixed(1)} pts esperados</div>
     </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${steps.map((s,i)=>`<div style="display:flex;gap:10px;align-items:baseline;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:${statusColor};flex-shrink:0;">${i+1}.</span>
+        <span style="font-size:14px;color:var(--text);line-height:1.55;">${s}</span>
+      </div>`).join('')}
+    </div>
+    ${probLine}
+    <div style="margin-top:8px;font-size:11px;color:var(--text-soft);font-family:'DM Mono',monospace;">Rango típico: ${b.sim.p25.toFixed(1)} – ${b.sim.p75.toFixed(1)} pts · heat simulado ${MC_TRIALS.toLocaleString()} veces por estrategia</div>
+    ${altLine}
+    ${plan.lowConfidence ? `<div style="margin-top:8px;font-size:11px;color:var(--amber);font-style:italic;">Confianza baja · menos de 10 olas observadas — el plan mejora con más datos</div>` : ''}
+    <div style="margin-top:8px;font-size:10px;color:var(--grey);line-height:1.4;">Supuestos: cada ola surfeada consume ~${WAVE_COST_MIN} min · remada ~${MOVE_MIN_PER_CELL} min/celda · no modela prioridad de rivales.</div>
   </section>`;
 }
 
-function renderScoreSlider(key, val, color, lbl){
-  return `<div class="score-row">
-    <span style="color:${color};font-weight:700;font-size:14px;">${lbl.charAt(0)}</span>
-    <input type="range" min="0" max="10" step="0.5" value="${val}" oninput="state.closing.scores.${key}=parseFloat(this.value);save();document.getElementById('sv_${key}').textContent=this.value;">
-    <span class="score-val" id="sv_${key}" style="color:${color};">${val}</span>
-  </div>`;
-}
-function renderReportBlock(cat, s, lbl, score){
-  const cls = cat==='mejor'?'':cat==='media'?'silver':'bronze';
-  if(!s.count) return `<div class="report-block ${cls}">
-    <div class="report-cat-banner"><span class="report-cat-lbl">${lbl}</span><span class="report-cat-meta">sin olas</span></div>
-    <div style="padding:14px;text-align:center;font-style:italic;color:var(--grey);font-size:12px;">No marcaste ninguna ola en esta categoría.</div>
-  </div>`;
-
-  // Zona principal con sus refs
-  const mainCoord = `${rowToLetter(s.topCell.row)}${s.topCell.col}`;
-  const refsForZone = nearestRefs(s.topCell.col, s.topCell.row);
-  const refsText = refsForZone.length
-    ? `entre <strong>${refsForZone.map(r=>r.label).join(' y ')}</strong>`
-    : `coordenada <strong>${mainCoord}</strong>`;
-
-  // Score real vs estimado
-  let realScorePill = '';
-  if(s.scoredCount > 0){
-    const real = s.avgScore.toFixed(1);
-    const diff = s.avgScore - score;
-    const cls2 = Math.abs(diff) < 0.3 ? 'foam' : diff > 0 ? 'amber' : 'coral';
-    const diffLbl = Math.abs(diff) < 0.3 ? '≈ coincide con estimado' : diff > 0 ? `+${diff.toFixed(1)} sobre estimado` : `${diff.toFixed(1)} bajo estimado`;
-    realScorePill = `<span class="report-pill ${cls2}"><strong>${real}/10</strong> real · ${diffLbl}</span>`;
-  }
-
-  // Ritmo / sets
-  let rhythmPill = '';
-  if(s.setsDetected){
-    rhythmPill = `<span class="report-pill"><strong>${s.setsDetected} set${s.setsDetected===1?'':'s'}</strong> · ${s.avgPerSet} olas/set · entre sets ${fmtMMSS(s.avgBetweenSets)}</span>`;
-  }
-
-  // Zonas alternativas (solo si hay 2+)
-  let altsBlock = '';
-  if(s.zones && s.zones.length >= 2){
-    const alts = s.zones.slice(1);  // saltamos la primera (ya está en hero)
-    altsBlock = `<div class="report-alt-section">
-      <div class="report-alt-title">🎯 OTRAS ${alts.length} ZONA${alts.length===1?'':'S'} POSIBLE${alts.length===1?'':'S'} · el atleta elige según sus tools</div>
-      ${alts.map((z,i)=>{
-        const zRefs = nearestRefs(z.col, z.row);
-        const zRefStr = zRefs.length ? zRefs.map(r=>r.label).join(', ') : 'sin referencia cerca';
-        const scoreStr = z.avgScore !== null ? `score ${z.avgScore.toFixed(1)}` : 'sin score';
-        const intStr = z.avgInterval ? `cada ${fmtMMSS(z.avgInterval)}` : 'ola única';
-        const dirStr = z.dirDom === 'L' ? ` · <span style="color:#22D3EE;font-weight:700;">IZQ→</span>`
-                      : z.dirDom === 'R' ? ` · <span style="color:#FBBF24;font-weight:700;">←DER</span>`
-                      : z.dirDom === 'mixed' ? ` · <span style="color:var(--text-soft);">mixta</span>`
-                      : '';
-        return `<div class="report-alt-row">
-          <span class="report-alt-num">${i+2}</span>
-          <span class="report-alt-coord">${rowToLetter(z.row)}${z.col}</span>
-          <span class="report-alt-refs">${esc(zRefStr)}</span>
-          <span class="report-alt-data">${z.count} ola${z.count===1?'':'s'} · ${scoreStr} · ${intStr}${dirStr}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  // Dirección dominante de la categoría
-  const dirLabel = s.dirDominant === 'L' ? 'OLAS IZQUIERDAS'
-                  : s.dirDominant === 'R' ? 'OLAS DERECHAS'
-                  : s.dirDominant === 'mixed' ? `Mixto (${s.dirCounts.L} izq · ${s.dirCounts.R} der)`
-                  : '';
-  const dirColor = s.dirDominant === 'L' ? '#22D3EE' : s.dirDominant === 'R' ? '#FBBF24' : 'var(--text-soft)';
-  const dirPill = s.dirDominant
-    ? `<span class="report-pill" style="background:${s.dirDominant==='L'?'rgba(34,211,238,.15)':s.dirDominant==='R'?'rgba(251,191,36,.15)':'rgba(255,255,255,.06)'};border-color:${dirColor};color:${dirColor};font-weight:700;">${s.dirDominant==='R'?'← ':''}${dirLabel}${s.dirDominant==='L'?' →':''}${s.dirDominant!=='mixed'?` · ${Math.round(s.dirRatio*100)}%`:''}</span>`
-    : '';
-
-  return `<div class="report-block ${cls}">
-    <div class="report-cat-banner">
-      <span class="report-cat-lbl">${lbl}</span>
-      <span class="report-cat-meta">${s.count} ola${s.count===1?'':'s'} · estimado ${score}/10</span>
-    </div>
-
-    <div class="report-hero">
-      <div class="report-hero-row">
-        <span class="report-hero-coord">${mainCoord}</span>
-        <span class="report-hero-arrow">→</span>
-        <span class="report-hero-time">cada ${fmtMMSS(s.avgInterval)}</span>
+/* Ranking de zonas: dónde salen los mejores puntos y cada cuánto. */
+function renderZoneRanking(zones, cl){
+  // Ordenar por lo que la SIMULACIÓN dice que vale la zona en un heat
+  // (no por frecuencia×calidad — una zona élite escasa puede valer más).
+  const ranked = [...zones]
+    .sort((a,b) => ((b._stay?.sim.expected)||0) - ((a._stay?.sim.expected)||0) || (b.ratePerMin*b.topHalfAvg)-(a.ratePerMin*a.topHalfAvg))
+    .slice(0, 3);
+  if(!ranked.length) return '';
+  const T = cl.heatDurationMin || 25;
+  const medals = ['#F5C518', '#B8CCDF', '#B45309'];
+  const rows = ranked.map((z, i) => {
+    const refStr = z.refs && z.refs.length ? ` · ${z.refs.map(r=>esc(r.label)).join(' y ')}` : '';
+    const dirStr = z.dirDominant==='L' ? ' · IZQUIERDAS' : z.dirDominant==='R' ? ' · DERECHAS' : z.dirDominant==='mixed' ? ' · mixtas' : '';
+    const expected = Math.round(z.ratePerMin * T);
+    return `<div style="display:flex;gap:12px;padding:12px 4px;border-top:1px solid var(--border);align-items:flex-start;">
+      <span style="width:26px;height:26px;border-radius:50%;border:2px solid ${medals[i]};color:${medals[i]};font-family:'DM Mono',monospace;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;">
+          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:800;color:var(--white);letter-spacing:1px;">${z.label}</span>
+          <span style="font-size:12px;color:${medals[i]};font-weight:700;">potencial ${(Math.round(z.topHalfAvg*10)/10).toFixed(1)}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-soft);margin-top:3px;line-height:1.5;">
+          ${z.n} ola${z.n===1?'':'s'} anotada${z.n===1?'':'s'}${refStr}${dirStr}<br>
+          Sale una cada <strong style="color:var(--text);">${fmtMMSS(z.meanIntervalMs)}</strong> · en ${T} min esperás ~<strong style="color:var(--text);">${expected}</strong> acá · la mejor que viste: <strong style="color:var(--text);">${z.bestScore}</strong>
+        </div>
       </div>
-      <div class="report-hero-sub">Aquí salen las ${lbl.toLowerCase()} · ${refsText}${s.dirDominant && s.dirDominant!=='mixed' ? ` · son <strong style="color:${dirColor};">${s.dirDominant==='L'?'OLAS IZQUIERDAS →':'← OLAS DERECHAS'}</strong>` : ''}</div>
-    </div>
-
-    ${(realScorePill || rhythmPill || dirPill) ? `<div class="report-strip">
-      ${dirPill}
-      ${realScorePill}
-      ${rhythmPill}
-    </div>` : ''}
-
-    ${altsBlock}
-  </div>`;
-}
-function renderPlan(stats, cl){
-  const obj = cl.heatObjective || 0;
-  if(!obj || stats.mejor.count + stats.media.count + stats.otra.count === 0){
-    return `<div class="plan-card"><div class="plan-h">🏁 Plan táctico</div><div class="report-stat">Definí un objetivo de heat para generar el plan.</div></div>`;
-  }
-  // Si hay suficientes scores reales (≥2 por categoría), usamos avg real en vez del estimado
-  const MIN_SCORED = 2;
-  const score = {
-    mejor: (stats.mejor.scoredCount >= MIN_SCORED) ? stats.mejor.avgScore : cl.scores.mejor,
-    media: (stats.media.scoredCount >= MIN_SCORED) ? stats.media.avgScore : cl.scores.media,
-    otra:  (stats.otra.scoredCount  >= MIN_SCORED) ? stats.otra.avgScore  : cl.scores.otra,
-  };
-  const usingReal = {
-    mejor: stats.mejor.scoredCount >= MIN_SCORED,
-    media: stats.media.scoredCount >= MIN_SCORED,
-    otra:  stats.otra.scoredCount  >= MIN_SCORED,
-  };
-  const realityChip = (cat) => usingReal[cat] ? `<span style="font-size:9px;background:rgba(52,211,153,.18);color:var(--foam);padding:1px 5px;border-radius:6px;font-weight:700;margin-left:3px;">REAL</span>` : '';
-  const combos = [
-    { name:`1 MEJOR${realityChip('mejor')} + 1 MEDIA${realityChip('media')}`, total: score.mejor + score.media, requires:{mejor:1,media:1} },
-    { name:`2 MEJOR${realityChip('mejor')}`, total: score.mejor*2, requires:{mejor:2} },
-    { name:`2 MEDIA${realityChip('media')} + 1 OTRA${realityChip('otra')}`, total: score.media*2 + score.otra, requires:{media:2,otra:1} },
-    { name:`1 MEJOR${realityChip('mejor')} + 1 OTRA${realityChip('otra')}`, total: score.mejor + score.otra, requires:{mejor:1,otra:1} },
-    { name:`3 OTRA${realityChip('otra')}`, total: score.otra*3, requires:{otra:3} },
-  ];
-  const validForData = combos.filter(c=>{
-    return (c.requires.mejor||0) <= stats.mejor.count
-        && (c.requires.media||0) <= stats.media.count
-        && (c.requires.otra||0)  <= stats.otra.count;
-  });
-  const sufficient = validForData.filter(c=>c.total >= obj);
-  if(!sufficient.length){
-    const best = validForData.sort((a,b)=>b.total-a.total)[0];
-    return `<div class="plan-card" style="border-color:rgba(252,165,165,.4);background:rgba(252,165,165,.06);">
-      <div class="plan-h" style="color:var(--coral);">⚠ HEAT OBJETIVO ${obj} · NO FACTIBLE HOY</div>
-      ${best?`<div class="plan-line">El mejor combo posible da <strong>${best.total.toFixed(1)}</strong> (faltan <strong>${(obj-best.total).toFixed(1)}</strong>).</div>`:''}
-      <div class="plan-line" style="color:var(--gold-text);">Subí el score potencial si la ola lo justifica, o ajustá el objetivo.</div>
     </div>`;
-  }
-  const primary = sufficient[0];
-  const backup = sufficient[1] || sufficient[0];
-  return `<div class="plan-card">
-    <div class="plan-h">🏁 PLAN PARA EL HEAT · OBJETIVO ${obj}</div>
-    <div class="plan-line win">✓ Plan A: <strong>${primary.name}</strong> = ${primary.total.toFixed(1)} · factible</div>
-    ${backup !== primary ? `<div class="plan-line">↺ Plan B: <strong>${backup.name}</strong> = ${backup.total.toFixed(1)}</div>` : ''}
-  </div>`;
+  }).join('');
+  return `<section class="section">
+    <div class="section-h"><div class="section-t">Dónde salen los puntos hoy</div></div>
+    ${rows}
+  </section>`;
 }
+
 
 /* ════════════════════════════════════════════════════════════════════
    STATS
    ════════════════════════════════════════════════════════════════════ */
 /* Plan ejecutivo simple: dónde pararse, cuándo cambiar, si alcanza el objetivo */
-function computeHeatPlan(stats, cl){
-  const duration = cl.heatDurationMin || 25;
-  const objective = cl.heatObjective || 0;
-  // Zona top por categoría (la 1ra ya viene rankeada por findHotZones)
-  const zTop = { mejor: stats.mejor.zones?.[0], media: stats.media.zones?.[0], otra: stats.otra.zones?.[0] };
-  const expected = { mejor:0, media:0, otra:0 };
-  ['mejor','media','otra'].forEach(k=>{
-    const z = zTop[k];
-    if(z && z.avgInterval > 0){
-      expected[k] = Math.floor((duration * 60000) / z.avgInterval);
-    } else if(z){
-      expected[k] = z.count;  // ola única · sin intervalo
-    }
-  });
-  // Score usado por combo (real si hay ≥2 scores en la zona · si no, el estimado)
-  const score = {
-    mejor: (stats.mejor.scoredCount >= 2) ? stats.mejor.avgScore : (cl.scores.mejor || 0),
-    media: (stats.media.scoredCount >= 2) ? stats.media.avgScore : (cl.scores.media || 0),
-    otra:  (stats.otra.scoredCount  >= 2) ? stats.otra.avgScore  : (cl.scores.otra  || 0),
-  };
-  // Combos posibles según lo que ESPERAMOS ver en el heat (surf usa top 2 waves)
-  const combos = [
-    { name:'2 MEJOR', total: score.mejor*2, needs:{mejor:2}, feasible: expected.mejor >= 2 },
-    { name:'1 MEJOR + 1 MEDIA', total: score.mejor + score.media, needs:{mejor:1,media:1}, feasible: expected.mejor >= 1 && expected.media >= 1 },
-    { name:'2 MEDIA', total: score.media*2, needs:{media:2}, feasible: expected.media >= 2 },
-    { name:'1 MEDIA + 1 OTRA', total: score.media + score.otra, needs:{media:1,otra:1}, feasible: expected.media >= 1 && expected.otra >= 1 },
-    { name:'2 OTRA', total: score.otra*2, needs:{otra:2}, feasible: expected.otra >= 2 },
-  ].filter(c => c.feasible);
-  // Rankear combos que ALCANCEN objetivo por total desc; si ninguno alcanza, ranquear por total desc
-  const sufficient = combos.filter(c => c.total >= objective).sort((a,b)=>b.total-a.total);
-  const bestFallback = combos.sort((a,b)=>b.total-a.total)[0];
-  const primary = sufficient[0] || bestFallback;
-  const backup = sufficient[1] || (bestFallback && primary !== bestFallback ? bestFallback : null);
-  // Tiempo espera razonable antes de cambiar de zona (si esperás MEJOR pero no cae, cuándo movete)
-  // Regla simple: si el intervalo promedio es X min, esperá hasta 1.5X min antes de cambiar
-  let waitBeforeSwitch = null;
-  if(zTop.mejor && zTop.mejor.avgInterval > 0){
-    waitBeforeSwitch = Math.round((zTop.mejor.avgInterval * 1.5) / 60000);  // en minutos
-  }
-  return {
-    duration, objective, zTop, expected, primary, backup, waitBeforeSwitch, sufficient, hasAnyPlan: !!primary,
-    status: !objective ? 'none' : (sufficient.length ? (primary.total > objective + 2 ? 'yes' : 'tight') : 'no'),
-    lowConfidence: (stats.mejor.count + stats.media.count + stats.otra.count) < 10
-  };
-}
 
-function renderHeatPlanCard(stats, cl){
-  const plan = computeHeatPlan(stats, cl);
-  if(!plan.hasAnyPlan) return '';
-  const statusColor = plan.status === 'yes' ? 'var(--foam)' : plan.status === 'tight' ? 'var(--gold-text)' : plan.status === 'no' ? 'var(--coral)' : 'var(--text-soft)';
-  const statusIcon = plan.status === 'yes' ? '✓' : plan.status === 'tight' ? '⚠' : plan.status === 'no' ? '✗' : '·';
-  const statusLbl = plan.status === 'yes' ? 'FACTIBLE' : plan.status === 'tight' ? 'APRETADO' : plan.status === 'no' ? 'NO ALCANZA' : '';
-  const zM = plan.zTop.mejor;
-  const zMed = plan.zTop.media;
-  const coordM = zM ? `${rowToLetter(zM.row)}${zM.col}` : null;
-  const coordMed = zMed ? `${rowToLetter(zMed.row)}${zMed.col}` : null;
-  const refsM = zM ? nearestRefs(zM.col, zM.row) : [];
-  const refsMedList = zMed ? nearestRefs(zMed.col, zMed.row) : [];
-  const refM = refsM.length ? refsM[0].label : null;
-  const refMed = refsMedList.length ? refsMedList[0].label : null;
-  const lines = [];
-  // Línea 1: dónde pararse
-  if(coordM && plan.expected.mejor >= 1){
-    const interval = zM.avgInterval ? fmtMMSS(zM.avgInterval) : '—';
-    lines.push(`Empezá en <strong style="color:var(--gold-text);">${coordM}</strong>${refM?` (${esc(refM)})`:''} · esperás <strong>~${plan.expected.mejor}</strong> MEJOR en ${plan.duration} min (${interval} c/u)`);
-  } else if(coordMed){
-    lines.push(`No hay MEJOR frecuente hoy. Andá directo a <strong style="color:var(--silver-text);">${coordMed}</strong>${refMed?` (${esc(refMed)})`:''} para MEDIA`);
-  }
-  // Línea 2: cuándo cambiar / backup
-  if(plan.waitBeforeSwitch && coordMed && plan.expected.mejor >= 1){
-    lines.push(`Si no cae MEJOR en <strong>${plan.waitBeforeSwitch} min</strong> → movete a <strong style="color:var(--silver-text);">${coordMed}</strong>${refMed?` (${esc(refMed)})`:''} para MEDIA`);
-  }
-  // Línea 3: score potencial
-  if(plan.primary){
-    lines.push(`<strong>${plan.primary.name}</strong> = <strong style="color:${statusColor};">${plan.primary.total.toFixed(1)} pts</strong> · objetivo ${plan.objective}`);
-  }
-  const bgGrad = plan.status === 'yes' ? 'linear-gradient(135deg,rgba(52,211,153,.12),rgba(52,211,153,.03))'
-              : plan.status === 'tight' ? 'linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.03))'
-              : plan.status === 'no' ? 'linear-gradient(135deg,rgba(252,165,165,.12),rgba(252,165,165,.03))'
-              : 'linear-gradient(135deg,rgba(0,210,255,.08),rgba(0,210,255,.02))';
-  return `<section class="section" style="background:${bgGrad};border:1.5px solid ${statusColor};margin-bottom:12px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:${statusColor};">🏁 Plan para tu heat · ${plan.duration} min</div>
-      <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.06);">${statusIcon} ${statusLbl}</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:6px;">
-      ${lines.map(l => `<div style="font-size:14px;color:var(--text);line-height:1.6;">${l}</div>`).join('')}
-    </div>
-    ${plan.lowConfidence ? `<div style="margin-top:8px;font-size:11px;color:var(--gold-text);font-style:italic;">⚠ Confianza baja · pocos datos observados (menos de 10 olas)</div>` : ''}
-  </section>`;
-}
 
-function computeStats(){
-  const totalMs = state.timer.finished
-    ? (state.timer.endedAt || nowMs()) - state.timer.startedAt
-    : nowMs() - (state.timer.startedAt || nowMs());
-  const totalMin = Math.max(1, Math.round(totalMs / 60000));
-  return {
-    totalMin,
-    totalMs,
-    mejor: statsForCategory('mejor'),
-    media: statsForCategory('media'),
-    otra:  statsForCategory('otra'),
-  };
-}
-function statsForCategory(category){
-  const waves = state.waves.filter(w=>w.category===category).sort((a,b)=>a.ts-b.ts);
-  if(!waves.length) return { count:0 };
-  // Top cell: la celda con más pins
-  const cellCount = {};
-  waves.forEach(w=>{
-    const k = `${w.gridCol}-${w.gridRow}`;
-    cellCount[k] = (cellCount[k]||0) + 1;
-  });
-  const topKey = Object.entries(cellCount).sort((a,b)=>b[1]-a[1])[0][0];
-  const [tc, tr] = topKey.split('-').map(Number);
-  // Hot zones: detecta hasta 3 zonas separadas por al menos 2 celdas
-  // Cada zona ranquea por (count × avgScore) para priorizar densidad + calidad
-  const zones = findHotZones(waves);
-  // Intervalo promedio
-  let avgInterval = 0;
-  if(waves.length > 1){
-    const intervals = [];
-    for(let i=1; i<waves.length; i++) intervals.push(waves[i].ts - waves[i-1].ts);
-    avgInterval = intervals.reduce((s,x)=>s+x,0) / intervals.length;
-  }
-  // Score promedio real (de las olas que tienen score asignado)
-  const scoredWaves = waves.filter(w => typeof w.score === 'number' && w.score > 0);
-  const scoredCount = scoredWaves.length;
-  const avgScore = scoredCount ? (scoredWaves.reduce((s,w)=>s+w.score, 0) / scoredCount) : null;
-  // Dirección dominante (L/R/mixed/none)
-  const dirCounts = { L:0, R:0, none:0 };
-  waves.forEach(w => {
-    if(w.direction === 'L') dirCounts.L++;
-    else if(w.direction === 'R') dirCounts.R++;
-    else dirCounts.none++;
-  });
-  const totalDir = dirCounts.L + dirCounts.R;
-  let dirDominant = null;
-  let dirRatio = 0;
-  if(totalDir > 0){
-    const lRatio = dirCounts.L / totalDir;
-    const rRatio = dirCounts.R / totalDir;
-    if(lRatio >= 0.7){ dirDominant = 'L'; dirRatio = lRatio; }
-    else if(rRatio >= 0.7){ dirDominant = 'R'; dirRatio = rRatio; }
-    else dirDominant = 'mixed';
-  }
-  // Detección de sets: 3+ olas en <2 min consecutivas
-  const SET_GAP = 120000;
-  const sets = [];
-  let cur = [waves[0]];
-  for(let i=1; i<waves.length; i++){
-    if(waves[i].ts - waves[i-1].ts <= SET_GAP){
-      cur.push(waves[i]);
-    } else {
-      if(cur.length >= 3) sets.push(cur);
-      cur = [waves[i]];
-    }
-  }
-  if(cur.length >= 3) sets.push(cur);
-  const setsDetected = sets.length;
-  const avgPerSet = setsDetected ? Math.round(sets.reduce((s,x)=>s+x.length,0) / setsDetected) : 0;
-  let avgBetweenSets = 0;
-  if(setsDetected > 1){
-    const gaps = [];
-    for(let i=1; i<sets.length; i++) gaps.push(sets[i][0].ts - sets[i-1][sets[i-1].length-1].ts);
-    avgBetweenSets = gaps.reduce((s,x)=>s+x,0) / gaps.length;
-  }
-  return { count: waves.length, topCell:{col:tc, row:tr}, avgInterval, setsDetected, avgPerSet, avgBetweenSets, scoredCount, avgScore, zones, dirCounts, dirDominant, dirRatio };
-}
 
-function findHotZones(waves){
-  // Agrupa por celda exacta
-  const byCell = {};
-  waves.forEach(w=>{
-    const k = `${w.gridCol}-${w.gridRow}`;
-    if(!byCell[k]) byCell[k] = { col:w.gridCol, row:w.gridRow, waves:[] };
-    byCell[k].waves.push(w);
-  });
-  // Por cada celda, calcula stats
-  const cells = Object.values(byCell).map(c=>{
-    const scored = c.waves.filter(w=>typeof w.score === 'number' && w.score > 0);
-    const avgScore = scored.length ? scored.reduce((s,w)=>s+w.score,0)/scored.length : null;
-    const sortedTs = c.waves.map(w=>w.ts).sort((a,b)=>a-b);
-    const intervals = [];
-    for(let i=1; i<sortedTs.length; i++) intervals.push(sortedTs[i]-sortedTs[i-1]);
-    const avgInterval = intervals.length ? intervals.reduce((s,x)=>s+x,0)/intervals.length : null;
-    // Dirección dominante de esta celda
-    let dL=0, dR=0;
-    c.waves.forEach(w => { if(w.direction==='L') dL++; else if(w.direction==='R') dR++; });
-    const tDir = dL + dR;
-    let dirDom = null;
-    if(tDir > 0){
-      if(dL/tDir >= 0.7) dirDom = 'L';
-      else if(dR/tDir >= 0.7) dirDom = 'R';
-      else if(dL>0 && dR>0) dirDom = 'mixed';
-    }
-    // Ranking: prioriza densidad × calidad (si hay score, ponderado; si no, solo count)
-    const rank = c.waves.length * (avgScore !== null ? avgScore : 5);
-    return { col:c.col, row:c.row, count:c.waves.length, avgScore, avgInterval, rank, dirDom, dirL:dL, dirR:dR };
-  });
-  cells.sort((a,b)=>b.rank - a.rank);
-  // Selecciona hasta 3 zonas separadas por al menos 2 celdas de distancia
-  const selected = [];
-  for(const c of cells){
-    if(selected.length >= 3) break;
-    const tooClose = selected.some(s => Math.abs(s.col-c.col) <= 1 && Math.abs(s.row-c.row) <= 1);
-    if(!tooClose) selected.push(c);
-  }
-  return selected;
-}
 function nearestRefs(col, row){
   if(!state.map.refs.length) return [];
   const cellW = MAP_W / GRID_COLS;
