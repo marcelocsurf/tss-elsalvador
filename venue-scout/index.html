@@ -1736,29 +1736,29 @@ function openEditWaveModal(waveId){
   const w = state.waves.find(x=>x.id===waveId); if(!w) return;
   let m = document.querySelector('.modal-overlay'); if(m) m.remove();
   m = document.createElement('div'); m.className='modal-overlay';
-  m.innerHTML = `<div class="modal">
+  const catChip = w.category && w.category!=='pending'
+    ? `<span style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;padding:2px 10px;border-radius:12px;background:rgba(255,255,255,.07);color:${w.category==='mejor'?'var(--gold-text)':w.category==='media'?'var(--silver-text)':'var(--bronze-text)'};">${w.category.toUpperCase()} · auto</span>`
+    : `<span style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;padding:2px 10px;border-radius:12px;background:rgba(255,255,255,.07);color:var(--grey);">SIN SCORE</span>`;
+  m.innerHTML = `<div class="modal" style="max-width:400px;">
     <div class="modal-h">
       <div>
-        <div class="modal-t">Ola · ${rowToLetter(w.gridRow)}${w.gridCol}</div>
+        <div class="modal-t">OLA ${waveSeq(w)} · ${rowToLetter(w.gridRow)}${w.gridCol} ${catChip}</div>
         <div style="font-size:12px;color:var(--grey);margin-top:2px;">+${fmtMMSS(w.ts)} desde inicio · ${fmtClock(w.absTime)}</div>
       </div>
       <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
     </div>
-    <div class="label">Categoría</div>
-    <div class="cat-row" style="margin-bottom:14px;">
-      <div class="cat cat-mejor ${w.category==='mejor'?'on':''}" onclick="updateWaveCategory('${w.id}','mejor')"><div class="cat-lbl">MEJOR</div></div>
-      <div class="cat cat-media ${w.category==='media'?'on':''}" onclick="updateWaveCategory('${w.id}','media')"><div class="cat-lbl">MEDIA</div></div>
-      <div class="cat cat-otra ${w.category==='otra'?'on':''}" onclick="updateWaveCategory('${w.id}','otra')"><div class="cat-lbl">OTRA</div></div>
+    <div style="font-size:11px;color:var(--text-soft);margin-bottom:10px;line-height:1.5;">
+      La categoría se calcula sola comparando el score con tus olas de HOY.
+    </div>
+    <div class="label">Score 1-10</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px;">
+      ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button onclick="updateWaveScore('${w.id}','${n}');render();" style="padding:12px 4px;background:${w.score===n?'rgba(0,210,255,.2)':'rgba(255,255,255,.05)'};border:2px solid ${w.score===n?'var(--cyan)':'var(--border2)'};border-radius:12px;color:${w.score===n?'var(--cyan)':'var(--text)'};font-weight:800;font-size:15px;font-family:'IBM Plex Mono',monospace;">${n}</button>`).join('')}
     </div>
     <div class="label">Dirección · vista desde la playa</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
-      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='R'?'#FBBF24':'var(--border2)'};color:${w.direction==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','R')" title="Va hacia tu izquierda visual = DERECHA del surfista">← DER</button>
-      <button style="padding:10px 4px;border-radius:9px;background:${w.direction===null||w.direction===undefined?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction===null||w.direction===undefined?'var(--text-soft)':'var(--border2)'};color:${w.direction===null||w.direction===undefined?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;" onclick="updateWaveDir('${w.id}',null)">SIN DIR</button>
-      <button style="padding:10px 4px;border-radius:9px;background:${w.direction==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='L'?'#22D3EE':'var(--border2)'};color:${w.direction==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;" onclick="updateWaveDir('${w.id}','L')" title="Va hacia tu derecha visual = IZQUIERDA del surfista">IZQ →</button>
-    </div>
-    <div class="label">Potencial de puntos (opcional)</div>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;">
-      ${['','1','2','3','4','5','6','7','8','9','10'].map(s=>`<span class="chip ${String(w.score||'')===s?'':'off'}" style="font-size:12px;padding:6px 10px;" onclick="updateWaveScore('${w.id}','${s}')">${s===''?'—':s}</span>`).join('')}
+      <button style="padding:10px 4px;border-radius:12px;background:${w.direction==='R'?'rgba(255,209,102,.18)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='R'?'var(--gold-text)':'var(--border2)'};color:${w.direction==='R'?'var(--gold-text)':'var(--text-soft)'};font-weight:700;font-size:12px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}','R')">← DER</button>
+      <button style="padding:10px 4px;border-radius:12px;background:${w.direction==null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==null?'var(--text-soft)':'var(--border2)'};color:${w.direction==null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}',null)">SIN DIR</button>
+      <button style="padding:10px 4px;border-radius:12px;background:${w.direction==='L'?'rgba(0,210,255,.16)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='L'?'var(--cyan)':'var(--border2)'};color:${w.direction==='L'?'var(--cyan)':'var(--text-soft)'};font-weight:700;font-size:12px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}','L')">IZQ →</button>
     </div>
     <button class="btn btn-coral btn-block" onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();">× Borrar esta ola</button>
   </div>`;
