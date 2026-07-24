@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;500;700&family=Work+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0A1628; --bg2:#0E1F3D; --bg3:#1a2842;
+  --bg:#061C2B; --bg2:#0A2438; --bg3:#123049;
   --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
   --text:#E8F0F5; --text-soft:#B8CCDF; --grey:#6B7E8F;
   --cyan:#00D2FF; --purple:#A855F7; --amber:#FFD166; --foam:#06D6A0; --coral:#FF6B6B;
@@ -46,21 +46,21 @@ input,textarea,select{font-family:inherit;}
 .screen{padding:16px; flex:1; display:flex; flex-direction:column; gap:14px;}
 
 /* ---------- Inputs ---------- */
-.label{font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:var(--cyan); font-weight:600; margin-bottom:6px;}
+.label{font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--cyan); font-weight:500; margin-bottom:6px;}
 .inp,.sel,.ta{width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border2); border-radius:10px; padding:11px 14px; color:var(--text); font-size:14px;}
 .inp:focus,.sel:focus,.ta:focus{outline:none; border-color:var(--cyan); background:rgba(0,210,255,.04);}
 .ta{resize:vertical; min-height:64px; font-family:inherit;}
 
 /* ---------- Chips ---------- */
 .chips{display:flex; gap:6px; flex-wrap:wrap;}
-.chip{font-size:13px; padding:7px 14px; border-radius:18px; background:rgba(0,210,255,.1); border:1px solid rgba(0,210,255,.3); color:var(--cyan); font-weight:600; cursor:pointer; user-select:none; transition:all .12s;}
+.chip{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.04em; padding:8px 16px; border-radius:999px; background:rgba(0,210,255,.1); border:1.5px solid rgba(0,210,255,.3); color:var(--cyan); font-weight:500; cursor:pointer; user-select:none; transition:all .12s;}
 .chip:active{transform:scale(.96);}
 .chip.off{background:transparent; border:1px solid var(--border2); color:var(--grey);}
 .chip.amber{background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.4); color:var(--gold-text);}
 .chip.purple{background:rgba(168,85,247,.12); border-color:rgba(168,85,247,.4); color:#C9B9E8;}
 
 /* ---------- Buttons ---------- */
-.btn{padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600; transition:all .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
+.btn{padding:13px 18px; border-radius:999px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; transition:all .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
 .btn:active{transform:scale(.97);}
 .btn-cyan{background:var(--cyan); color:var(--bg);}
 .btn-ghost{background:transparent; border:1px solid var(--border2); color:var(--text-soft);}
@@ -111,7 +111,7 @@ input,textarea,select{font-family:inherit;}
 }
 
 /* ---------- Section ---------- */
-.section{background:rgba(255,255,255,.025); border:1px solid var(--border); border-radius:14px; padding:14px 14px;}
+.section{background:rgba(247,249,250,.03); border:1px solid var(--border); border-radius:20px; padding:16px;}
 .section-h{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
 .section-t{font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.16em; font-weight:500; font-size:10px; color:var(--cyan); margin-bottom:10px;}
 
@@ -123,9 +123,9 @@ input,textarea,select{font-family:inherit;}
 
 /* ---------- Modal ---------- */
 .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.78); display:flex; align-items:center; justify-content:center; z-index:200; backdrop-filter:blur(8px); padding:20px;}
-.modal{background:var(--bg2); border:1px solid var(--border2); border-radius:16px; padding:18px 18px 20px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto;}
+.modal{background:var(--bg2); border:1px solid rgba(0,210,255,.2); border-radius:24px; padding:20px 20px 22px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto;}
 .modal-h{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px;}
-.modal-t{font-size:16px; font-weight:700;}
+.modal-t{font-family:'Archivo',sans-serif; font-stretch:125%; text-transform:uppercase; font-size:17px; font-weight:800;}
 .modal-x{font-size:22px; color:var(--grey); padding:0 6px;}
 
 /* ---------- Report ---------- */
