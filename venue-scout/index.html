@@ -231,6 +231,13 @@ input,textarea,select{font-family:inherit;}
 </style>
 </head>
 <body>
+<div id="brandSplash" style="position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at 50% 32%, #0a3a5c 0%, #061C2B 62%, #02101d 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;animation:splashOut .5s ease 1.9s forwards;pointer-events:none;">
+  <img src="tss-wave.png?v=1" alt="" style="width:190px;height:auto;filter:drop-shadow(0 0 34px rgba(0,210,255,.4));">
+  <div style="font-family:'Archivo',sans-serif;font-stretch:125%;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;font-size:34px;line-height:1.04;color:#F7F9FA;text-align:center;margin-top:26px;">The Surf<br>Sequence</div>
+  <div style="font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.2em;font-size:11px;color:#00D2FF;margin-top:14px;">Venue Scout</div>
+  <div style="font-family:'Lora',serif;font-style:italic;font-size:14px;color:rgba(0,210,255,.7);margin-top:24px;">Evolve through play</div>
+</div>
+<style>@keyframes splashOut{to{opacity:0;visibility:hidden;}}</style>
 <div class="app" id="app"></div><div class="breath-tagline">Evolve through play</div>
 
 <script>
@@ -398,9 +405,11 @@ function render(){
     : '';
   const topbar = `<header class="topbar">
     <div class="brand-block">
-      <img src="tss-logo-white-h.png?v=2" alt="The Surf Sequence" class="brand-logo" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='inline');"><span style="display:none;font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;color:var(--cyan);letter-spacing:.5px;">TSS</span>
-      <div class="brand-divider"></div>
-      <span class="brand-tool">Venue <strong>Scout</strong></span>
+      <img src="tss-wave.png?v=1" alt="The Surf Sequence" style="height:40px;width:auto;">
+      <div>
+        <div style="font-family:'Archivo',sans-serif;font-stretch:125%;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;font-size:16px;line-height:1;color:var(--text);">The Surf Sequence</div>
+        <div style="font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.18em;font-size:9px;color:var(--cyan);margin-top:4px;">Venue Scout · análisis táctico</div>
+      </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
       ${ctx}
@@ -587,7 +596,7 @@ function showBreathingScreen(){
   scr.id = 'breathScreen';
   scr.className = 'breath-screen';
   scr.innerHTML = `
-    <img src="tss-logo-white-h.png?v=2" alt="The Surf Sequence" class="breath-logo"><div class="breath-intro">Es hora de conectar con el aquí y ahora · sentí el océano antes de leerlo</div>
+    <img src="tss-wave.png?v=1" alt="The Surf Sequence" class="breath-logo" style="height:64px;filter:drop-shadow(0 0 24px rgba(0,210,255,.35));"><div class="breath-intro">Es hora de conectar con el aquí y ahora · sentí el océano antes de leerlo</div>
     <div class="breath-circle-wrap">
       <div class="breath-circle" id="breathCircle"></div>
       <div class="breath-phase" id="breathPhase">Listo</div>
