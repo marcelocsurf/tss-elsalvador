@@ -2547,10 +2547,32 @@ if(state.screen === 'observe' && state.timer.startedAt && !state.timer.finished)
 // Print styles
 const printStyle = document.createElement('style');
 printStyle.textContent = `@media print {
-  .topbar, .timer-stop, .toolbar, .cat, button { display: none !important; }
-  body { background: white; color: black; }
-  .section { border: 1px solid #ddd; background: white; page-break-inside: avoid; }
-  .report-block, .plan-card { background: white; }
+  /* Manual v10 · impresión = mundo PAPER: ink sobre claro, cyan #00A8CC
+     para acentos pequeños (regla 3.4 — cyan for small text on light). */
+  :root {
+    --bg:#FFFFFF; --bg2:#FFFFFF; --bg3:#F2F5F7;
+    --text:#061C2B; --text-soft:#37474F; --grey:#55666E;
+    --cyan:#00A8CC; --foam:#047857; --coral:#C0392B; --amber:#8a6d1c;
+    --gold:#8a6d1c; --gold-text:#7a5d0e; --silver:#55666E; --silver-text:#444C52;
+    --bronze:#7a4a12; --bronze-text:#6b3f0e;
+    --border:rgba(6,28,43,.22); --border2:rgba(6,28,43,.35);
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none !important; text-shadow: none !important; }
+  .topbar, .timer-stop, .toolbar, .cat, button, #brandSplash { display: none !important; }
+  body { background: #FFFFFF !important; color: #061C2B !important; }
+  h1,h2,h3,.modal-t { color:#061C2B !important; }
+  .section { border: 1.5px solid rgba(6,28,43,.25) !important; background: #FFFFFF !important; page-break-inside: avoid; border-radius: 12px; }
+  .section-t, .label { color:#00A8CC !important; }
+  .report-block, .plan-card { background: #FFFFFF !important; color:#061C2B !important; border-color: rgba(6,28,43,.25) !important; }
+  .report-stat, .mono, p, li, td, span, div { color: inherit; }
+  .chip { background:#F2F5F7 !important; color:#061C2B !important; border-color:rgba(6,28,43,.3) !important; }
+  /* Membrete: la marca arriba de la primera página */
+  main::before {
+    content: "THE SURF SEQUENCE® · VENUE SCOUT";
+    display:block; font-family:'IBM Plex Mono',monospace; letter-spacing:.2em;
+    font-size:10px; color:#00A8CC; border-bottom:2px solid #061C2B;
+    padding-bottom:8px; margin-bottom:16px;
+  }
 }`;
 document.head.appendChild(printStyle);
 </script>
