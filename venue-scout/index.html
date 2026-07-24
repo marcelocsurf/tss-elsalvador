@@ -757,7 +757,18 @@ function renderObserve(){
         </div>
       </div>
       <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this)">
-      ${state.map.photoDataUrl ? `<div style="display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:12px;font-size:11px;">
+      ${state.map.photoDataUrl ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:12px;font-size:11px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="mono" style="color:var(--grey);font-size:10px;">ZOOM</span>
+          <input type="range" min="100" max="260" step="10" value="${Math.round((state.map.photoScale||1)*100)}" oninput="state.map.photoScale=parseInt(this.value)/100;save();render();" style="flex:1;">
+          <span style="display:flex;gap:4px;">
+            <button onclick="nudgePhoto(0,-1)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">▲</button>
+            <button onclick="nudgePhoto(0,1)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">▼</button>
+            <button onclick="nudgePhoto(-1,0)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">◀</button>
+            <button onclick="nudgePhoto(1,0)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">▶</button>
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
         <span style="color:var(--grey);font-weight:600;">Foto:</span>
         <input type="range" min="20" max="100" step="5" value="${Math.round((state.map.photoOpacity||0.7)*100)}" oninput="state.map.photoOpacity=parseInt(this.value)/100;save();updatePhotoOpacity();" style="flex:1;">
         <span class="mono" id="photoPct" style="color:var(--text);font-weight:700;min-width:32px;text-align:right;">${Math.round((state.map.photoOpacity||0.7)*100)}%</span>
@@ -786,8 +797,9 @@ function renderObserve(){
         ${state.waves.length?`<button class="btn btn-ghost" style="padding:4px 10px;font-size:10px;" onclick="openAllWavesModal()">Ver todas</button>`:''}
       </div>
       <div class="recent">
-        ${state.waves.slice(-7).reverse().map(w=>renderRecentItem(w)).join('') || '<div class="empty" style="padding:20px;font-size:12px;">Tap una celda con MEJOR/MEDIA/OTRA activa para plantar la primera ola.</div>'}
+        ${state.waves.slice(-7).reverse().map(w=>renderRecentItem(w)).join('') || '<div class="empty" style="padding:20px;font-size:12px;">Tap el mapa donde salió la ola.</div>'}
       </div>
+      ${renderSetInsightChip()}
     </section>
   </main>`;
 }
@@ -888,7 +900,8 @@ function renderRecentItem(w){
     ? `<span style="font-size:10px;color:#FBBF24;font-weight:700;">←DER</span>`
     : '';
   return `<div class="recent-item" onclick="openEditWaveModal('${w.id}')" style="cursor:pointer;">
-    <span style="color:${c};font-weight:700;">● ${w.category.toUpperCase()}</span>
+    <span class="mono" style="color:var(--grey);font-size:10px;min-width:26px;">#${waveSeq(w)}</span>
+    <span style="color:${c};font-weight:700;">● ${w.category==='pending'?'SIN SCORE':w.category.toUpperCase()}</span>
     <span class="recent-coord">${coordLbl(w)}</span>
     ${dirChip}
     ${w.score?`<span style="font-size:10px;background:rgba(255,255,255,.08);color:var(--text);padding:1px 6px;border-radius:12px;font-weight:700;">${w.score}/10</span>`:''}
@@ -907,6 +920,14 @@ function countByCategory(){
    MAP RENDER (SVG)
    ════════════════════════════════════════════════════════════════════ */
 const MAP_W = 600, MAP_H = 600;
+// Top-2 zonas por potencial (proxy: promedio de scores × cantidad) → A y B
+function waitSpots(){
+  const zs = computeZonesV2();
+  if(!zs.length) return [];
+  const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+  return zs.slice().sort((a,b)=> (avg(b.scores)*b.waves.length) - (avg(a.scores)*a.waves.length))
+    .slice(0,2).map((z,i)=>({ col:z.col, row:z.row, label: i===0?'A':'B' }));
+}
 function renderMapSVG(opts){
   // 600x600 SVG (responsive via viewBox). Grid uniform.
   const cellW = MAP_W / GRID_COLS;
@@ -914,6 +935,21 @@ function renderMapSVG(opts){
 
   // Background: foto si hay, o gradient Ocean Tropical
   const hasPhoto = !!state.map.photoDataUrl;
+  let spotsLayer = '';
+  if(opts && opts.waitSpots){
+    const cw = MAP_W / GRID_COLS, ch = MAP_H / GRID_ROWS;
+    waitSpots().forEach(sp => {
+      const cx=(sp.col-0.5)*cw, cy=(sp.row-0.5)*ch;
+      const col = sp.label==='A' ? '#FFD166' : '#B8CCDF';
+      spotsLayer += `<g style="pointer-events:none;">
+        <line x1="0" y1="${cy}" x2="${cx-20}" y2="${cy}" stroke="${col}" stroke-width="1.4" stroke-dasharray="6 4" opacity=".85"/>
+        <line x1="${cx}" y1="${MAP_H}" x2="${cx}" y2="${cy+20}" stroke="${col}" stroke-width="1.4" stroke-dasharray="6 4" opacity=".85"/>
+        <circle cx="${cx}" cy="${cy}" r="17" fill="rgba(4,20,31,.85)" stroke="${col}" stroke-width="2.5"/>
+        <text x="${cx}" y="${cy+6}" text-anchor="middle" font-size="17" font-weight="800" fill="${col}" font-family="Archivo,sans-serif">${sp.label}</text>
+        <text x="${cx}" y="${cy-24}" text-anchor="middle" font-size="10" fill="${col}" font-family="IBM Plex Mono,monospace" letter-spacing="2">ESPERÁ ${rowToLetter(sp.row)}${sp.col}</text>
+      </g>`;
+    });
+  }
   const bg = `<defs>
     <linearGradient id="oc" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#0A1628"/>
@@ -923,7 +959,7 @@ function renderMapSVG(opts){
     </linearGradient>
   </defs>
   ${hasPhoto
-    ? `<rect width="${MAP_W}" height="${MAP_H}" fill="#021126"/><image id="mapPhoto" href="${state.map.photoDataUrl}" x="0" y="0" width="${MAP_W}" height="${MAP_H}" preserveAspectRatio="xMidYMid slice" opacity="${state.map.photoOpacity||0.7}"/>`
+    ? `<rect width="${MAP_W}" height="${MAP_H}" fill="#021126"/><image id="mapPhoto" href="${state.map.photoDataUrl}" x="0" y="0" width="${MAP_W}" height="${MAP_H}" preserveAspectRatio="xMidYMid slice" opacity="${state.map.photoOpacity||0.7}" ${photoTransform()}/>`
     : `<rect width="${MAP_W}" height="${MAP_H}" fill="url(#oc)"/>`}`;
 
   // Sin línea decorativa — fondo limpio
@@ -1054,8 +1090,8 @@ function renderMapSVG(opts){
   // Pins PENDING (modo rápido tap-first · gris con "?", clickeables para categorizar)
   let pendingPins = '';
   pendingWaves().forEach(w => {
-    const cx = (w.gridCol - 0.5) * cellW;
-    const cy = (w.gridRow - 0.5) * cellH;
+    const cx = (typeof w.px==='number') ? w.px : (w.gridCol - 0.5) * cellW;
+    const cy = (typeof w.py==='number') ? w.py : (w.gridRow - 0.5) * cellH;
     pendingPins += `<g class="pending-pin" data-wave-id="${w.id}" style="cursor:pointer;">
       <circle cx="${cx}" cy="${cy}" r="14" fill="rgba(180,180,180,0.35)" stroke="#B8CCDF" stroke-width="2" stroke-dasharray="3,2"/>
       <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">?</text>
@@ -1108,7 +1144,7 @@ function renderMapSVG(opts){
     </g>`;
   }
   return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${entryExit}${refs}${hazards}${pins}${pendingPins}${predictionPin}
+    ${bg}${wave}${grid}${labels}${refLines}${freehandPaths}${entryExit}${refs}${hazards}${pins}${pendingPins}${predictionPin}${spotsLayer}
   </svg>`;
 }
 function renderLine(line, color, label){
@@ -1209,6 +1245,18 @@ function handlePhotoUpload(input){
   reader.readAsDataURL(file);
   input.value = '';  // reset para poder re-subir la misma foto
 }
+function nudgePhoto(dx,dy){
+  state.map.photoX = (state.map.photoX||0) + dx*24;
+  state.map.photoY = (state.map.photoY||0) + dy*24;
+  save(); render();
+}
+// translate+scale centrado para que el zoom no "escape" la foto
+function photoTransform(){
+  const sc = state.map.photoScale||1, cx=MAP_W/2, cy=MAP_H/2;
+  const tx = (state.map.photoX||0) + cx*(1-sc);
+  const ty = (state.map.photoY||0) + cy*(1-sc);
+  return `transform="translate(${tx} ${ty}) scale(${sc})"`;
+}
 function updatePhotoOpacity(){
   const img = document.getElementById('mapPhoto');
   if(img) img.setAttribute('opacity', state.map.photoOpacity || 0.7);
@@ -1247,7 +1295,7 @@ function handleMapTap(e){
       if(col<1||col>GRID_COLS||row<1||row>GRID_ROWS) return;
     }
     // Modo comp score-only: SIEMPRE tap-first · el score se asigna después y clasifica solo.
-    plantPendingWave(col, row);
+    plantPendingWave(col, row, x, y);
     return;
   }
 
@@ -1474,10 +1522,15 @@ function plantHazard(hazardId, x, y, angle){
   toast(HAZARD_MAP[hazardId].label + ' marcado');
 }
 
-function plantPendingWave(col, row){
+function plantPendingWave(col, row, px, py){
   const ts = nowMs() - state.timer.startedAt;
-  state.waves.push({ id: uid(), gridCol: col, gridRow: row, category: 'pending', ts, absTime: nowMs(), direction: state.activeDirection || null });
+  state.waves.push({ id: uid(), gridCol: col, gridRow: row, px: px ?? null, py: py ?? null, category: 'pending', ts, absTime: nowMs(), direction: state.activeDirection || null });
   save(); render();
+  toast('OLA ' + state.waves.length + ' · asignale score');
+}
+// Número de orden de una ola (1 = primera anotada)
+function waveSeq(w){
+  return state.waves.slice().sort((a,b)=>a.ts-b.ts).findIndex(x=>x.id===w.id)+1;
 }
 
 /* Auto-clasifica una ola según su score y los scores potenciales del análisis.
@@ -1485,12 +1538,27 @@ function plantPendingWave(col, row){
    En días malos (MEJOR=5), bajan. La categoría se adapta al día. */
 function scoreToCategory(score, scores){
   if(!score || score <= 0) return null;
+  // RELATIVO AL DÍA: con 4+ olas puntuadas, los tercios de TUS scores de hoy
+  // definen mejor/media/otra. Un 4 puede ser MEJOR en un día flojo.
+  const todays = state.waves.filter(w=>typeof w.score==='number' && w.score>0).map(w=>w.score);
+  if(todays.length >= 4){
+    const sorted = todays.slice().sort((a,b)=>b-a);
+    const t1 = sorted[Math.max(0, Math.ceil(sorted.length/3)-1)];
+    const t2 = sorted[Math.max(0, Math.ceil(2*sorted.length/3)-1)];
+    if(score >= t1) return 'mejor';
+    if(score >= t2) return 'media';
+    return 'otra';
+  }
   scores = scores || (state.closing?.scores || { mejor:8.5, media:6.5, otra:5.0 });
-  const midMejorMedia = (scores.mejor + scores.media) / 2;  // ej: 7.5
-  const midMediaOtra  = (scores.media + scores.otra) / 2;   // ej: 5.75
+  const midMejorMedia = (scores.mejor + scores.media) / 2;
+  const midMediaOtra  = (scores.media + scores.otra) / 2;
   if(score >= midMejorMedia) return 'mejor';
   if(score >= midMediaOtra) return 'media';
   return 'otra';
+}
+// Re-clasifica TODAS las olas puntuadas (los percentiles cambian con cada score)
+function recomputeCategories(){
+  state.waves.forEach(w => { if(typeof w.score==='number' && w.score>0) w.category = scoreToCategory(w.score); });
 }
 
 function categorizePendingModal(waveId){
@@ -1510,14 +1578,21 @@ function categorizePendingModal(waveId){
   m.innerHTML = `<div class="modal" style="max-width:400px;">
     <div class="modal-h">
       <div>
-        <div class="modal-t">¿Qué score tenía esta ola?</div>
-        <div style="font-size:12px;color:var(--grey);margin-top:2px;">${rowToLetter(w.gridRow)}${w.gridCol} · +${fmtMMSS(w.ts)}</div>
+        <div class="modal-t">OLA ${waveSeq(w)} · ${rowToLetter(w.gridRow)}${w.gridCol}</div>
+        <div style="font-size:12px;color:var(--grey);margin-top:2px;">+${fmtMMSS(w.ts)}</div>
       </div>
       <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
     </div>
     <div style="font-size:11px;color:var(--text-soft);margin-bottom:10px;line-height:1.5;">
-      Se auto-clasifica según el score. Hoy: ≥${midMM} = <strong style="color:var(--gold-text);">MEJOR</strong> · ≥${midMO} = <strong style="color:var(--silver-text);">MEDIA</strong> · &lt;${midMO} = <strong style="color:var(--bronze-text);">OTRA</strong>
+      Se clasifica sola comparando con tus olas de HOY (tercio superior = MEJOR).
     </div>
+    ${(!w.direction && !state.activeDirection) ? `
+    <div class="section-t" style="margin-bottom:6px;">Dirección · vista desde la playa</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+      <button onclick="updateWaveDir('${w.id}','R');categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--border2);border-radius:12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;">← DER</button>
+      <button onclick="updateWaveDir('${w.id}',null);categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--cyan);border-radius:12px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;font-size:11px;">SIN DIR</button>
+      <button onclick="updateWaveDir('${w.id}','L');categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--border2);border-radius:12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;">IZQ →</button>
+    </div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
       ${[1,2,3,4,5,6,7,8,9,10].map(n => scoreBtn(n)).join('')}
     </div>
@@ -1531,7 +1606,7 @@ function assignScore(id, score){
   const w = state.waves.find(x=>x.id===id); if(!w) return;
   const scores = state.closing?.scores || { mejor:8.5, media:6.5, otra:5.0 };
   w.score = score;
-  w.category = scoreToCategory(score, scores);
+  recomputeCategories();
   save(); render();
   document.querySelector('.modal-overlay')?.remove();
   toast(`${score}/10 → ${w.category.toUpperCase()}`);
@@ -1543,6 +1618,49 @@ function quickCategorize(id, cat){
   save(); render();
   document.querySelector('.modal-overlay')?.remove();
   toast(`Marcada como ${cat.toUpperCase()}`);
+}
+
+// ── SETS · olas a <60s y ≤2 celdas se agrupan solas ──
+const SET_GAP_MS = 60000;
+function computeSets(){
+  const ws = state.waves.slice().sort((a,b)=>a.ts-b.ts);
+  const sets = []; let cur = [];
+  for(const w of ws){
+    if(!cur.length){ cur=[w]; continue; }
+    const last = cur[cur.length-1];
+    const near = Math.abs(w.gridCol-last.gridCol)<=2 && Math.abs(w.gridRow-last.gridRow)<=2;
+    if((w.ts-last.ts) <= SET_GAP_MS && near) cur.push(w);
+    else { if(cur.length>=2) sets.push(cur); cur=[w]; }
+  }
+  if(cur.length>=2) sets.push(cur);
+  return sets;
+}
+// Insight de patrón: solo habla cuando el patrón SE REPITE (≥2 sets)
+function setInsight(){
+  const sets = computeSets();
+  if(!sets.length) return null;
+  const typical = Math.round(sets.reduce((a,s)=>a+s.length,0)/sets.length);
+  const scored = sets.filter(st => st.filter(w=>w.score>0).length >= 2);
+  let best = null;
+  if(scored.length >= 2){
+    const counts = {};
+    scored.forEach(st => {
+      let bi=0, bs=-1;
+      st.forEach((w,i)=>{ const sc=w.score||0; if(sc>bs){bs=sc;bi=i;} });
+      counts[bi+1]=(counts[bi+1]||0)+1;
+    });
+    const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+    if(top && top[1] >= 2) best = { pos:+top[0], n:top[1], total:scored.length };
+  }
+  return { count: sets.length, typical, best };
+}
+function ordinal(n){ return n===1?'1ª':n===2?'2ª':n===3?'3ª':n+'ª'; }
+function renderSetInsightChip(){
+  const si = setInsight();
+  if(!si || si.count < 1) return '';
+  let txt = `🌀 ${si.count} set${si.count===1?'':'s'} detectado${si.count===1?'':'s'} · ~${si.typical} olas por set`;
+  if(si.best) txt += ` · la ${ordinal(si.best.pos)} suele ser la mejor (${si.best.n} de ${si.best.total} sets)`;
+  return `<div style="margin-top:8px;padding:9px 12px;background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:12px;font-size:11px;color:var(--text-soft);">${txt}</div>`;
 }
 
 function plantWave(col, row, category){
@@ -1654,10 +1772,7 @@ function updateWaveScore(id, score){
   const w = state.waves.find(x=>x.id===id); if(!w) return;
   w.score = score === '' ? null : parseInt(score);
   // Auto-reclasificar según score y los scores potenciales del día
-  if(w.score){
-    const scores = state.closing?.scores || { mejor:8.5, media:6.5, otra:5.0 };
-    w.category = scoreToCategory(w.score, scores);
-  }
+  if(w.score){ recomputeCategories(); }
   save();
   openEditWaveModal(id);
 }
@@ -2119,7 +2234,7 @@ function renderReport(){
         <div class="section-t">Mapa final</div>
         ${state.waves.length > 0 ? `<button class="btn btn-ghost" style="padding:6px 14px;font-size:11px;border:1px solid rgba(34,211,238,.4);color:#22D3EE;font-weight:700;" onclick="openReplay()">▶ Ver replay 30s</button>` : ''}
       </div>
-      ${renderMapSVG()}
+      ${renderMapSVG({ waitSpots: true })}
     </section>
 
     <div style="display:flex;gap:8px;">
@@ -2216,6 +2331,14 @@ function renderZoneRanking(zones, cl){
     </div>`;
   }).join('');
   return `<section class="section">
+    ${(()=>{ const si=setInsight(); if(!si||si.count<1) return ''; return `
+    <div class="section" style="margin-bottom:14px;">
+      <div class="section-t">Comportamiento de sets</div>
+      <div style="font-size:13px;color:var(--text-soft);line-height:1.6;">
+        🌀 ${si.count} set${si.count===1?'':'s'} · tamaño típico ~${si.typical} olas
+        ${si.best ? `<br><strong style="color:var(--gold-text);">La ${ordinal(si.best.pos)} ola del set suele traer el mejor score</strong> (visto en ${si.best.n} de ${si.best.total} sets) — dejá pasar las primeras.` : `<br><span style="color:var(--grey);">Aún sin patrón repetido de qué ola del set rinde más.</span>`}
+      </div>
+    </div>`; })()}
     <div class="section-h"><div class="section-t">Dónde salen los puntos hoy</div></div>
     ${rows}
   </section>`;
@@ -2331,7 +2454,7 @@ function renderReplayMapEmpty(){
     </linearGradient>
   </defs>
   ${hasPhoto
-    ? `<rect width="${MAP_W}" height="${MAP_H}" fill="#021126"/><image href="${state.map.photoDataUrl}" x="0" y="0" width="${MAP_W}" height="${MAP_H}" preserveAspectRatio="xMidYMid slice" opacity="${state.map.photoOpacity||0.7}"/>`
+    ? `<rect width="${MAP_W}" height="${MAP_H}" fill="#021126"/><image href="${state.map.photoDataUrl}" x="0" y="0" width="${MAP_W}" height="${MAP_H}" preserveAspectRatio="xMidYMid slice" opacity="${state.map.photoOpacity||0.7}" ${photoTransform()}/>`
     : `<rect width="${MAP_W}" height="${MAP_H}" fill="url(#ocReplay)"/>`}`;
   let grid = '<g stroke="rgba(236,72,153,0.45)" stroke-width="0.6">';
   for(let r=1; r<GRID_ROWS; r++) grid += `<line x1="0" y1="${r*cellH}" x2="${MAP_W}" y2="${r*cellH}"/>`;
