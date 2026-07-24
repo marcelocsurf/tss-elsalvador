@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="tss-logo-wave.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;500;700&family=Work+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500;700&family=Lora:ital@1&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#061C2B; --bg2:#0A2438; --bg3:#123049;
@@ -23,7 +23,7 @@
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Work Sans',system-ui,sans-serif; min-height:100vh; min-height:100dvh; overscroll-behavior:none; -webkit-font-smoothing:antialiased;}
-h1,h2,h3{font-family:'Archivo',sans-serif; font-stretch:125%; text-transform:uppercase; margin:0; font-weight:800;}
+h1,h2,h3{font-family:'Archivo',sans-serif; font-stretch:125%; text-transform:uppercase; letter-spacing:-0.02em; margin:0; font-weight:800;}
 .serif{font-family:'Archivo',sans-serif; font-stretch:110%; font-weight:600; letter-spacing:.01em;}
 button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
 input,textarea,select{font-family:inherit;}
@@ -33,7 +33,7 @@ input,textarea,select{font-family:inherit;}
 .app{max-width:100%; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;}
 .topbar{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(10,22,40,.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); z-index:10;}
 .brand-block{display:flex; align-items:center; gap:14px;}
-.brand-logo{height:44px; width:auto; opacity:1;}
+.brand-logo{height:48px; width:auto; opacity:1;}
 .brand-divider{width:1px; height:32px; background:var(--border2);}
 .brand-tool{font-family:'Archivo',sans-serif; font-stretch:125%; font-weight:700; font-size:13px; color:var(--text-soft); letter-spacing:.6px; text-transform:uppercase;}
 .brand-tool strong{color:var(--cyan); font-weight:700;}
@@ -215,21 +215,23 @@ input,textarea,select{font-family:inherit;}
 
 /* Box breathing screen */
 .breath-screen{position:fixed; inset:0; background:radial-gradient(ellipse at center, #0a3a5c 0%, #021126 70%, #000a18 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:900; padding:24px;}
-.breath-intro{font-family:'Instrument Serif',serif; font-style:italic; font-size:22px; color:var(--text); text-align:center; line-height:1.4; max-width:480px; margin-bottom:28px; opacity:.95;}
+.breath-intro{font-family:'Archivo',sans-serif; font-stretch:125%; font-weight:800; text-transform:uppercase; letter-spacing:-0.01em; font-size:24px; color:var(--text); text-align:center; line-height:1.15; max-width:520px; margin-bottom:10px;}
+.breath-tagline{font-family:'Lora',serif; font-style:italic; font-size:14px; color:rgba(0,210,255,.75); text-align:center; margin-bottom:26px;}
+.breath-logo{height:40px; width:auto; margin-bottom:22px; opacity:.95;}
 .breath-circle-wrap{position:relative; width:240px; height:240px; display:flex; align-items:center; justify-content:center;}
 .breath-circle{position:absolute; width:120px; height:120px; border-radius:50%; background:rgba(0,210,255,.12); border:2px solid rgba(0,210,255,.55); transition:transform 4s cubic-bezier(.5,.0,.5,1), background 4s ease, border-color 4s ease;}
 .breath-circle.in{transform:scale(1.9); background:rgba(34,211,238,.25); border-color:#22D3EE;}
 .breath-circle.hold{transform:scale(1.9); background:rgba(34,211,238,.18); border-color:#22D3EE;}
 .breath-circle.out{transform:scale(1); background:rgba(0,210,255,.12); border-color:rgba(0,210,255,.55);}
 .breath-circle.holdout{transform:scale(1); background:rgba(0,210,255,.08); border-color:rgba(0,210,255,.4);}
-.breath-phase{position:absolute; font-family:'Archivo',sans-serif; font-weight:300; font-size:24px; color:var(--text); letter-spacing:2px; text-transform:uppercase; pointer-events:none;}
+.breath-phase{position:absolute; font-family:'IBM Plex Mono',monospace; font-weight:500; letter-spacing:.2em; text-transform:uppercase; font-size:20px; color:var(--text); pointer-events:none;}
 .breath-meta{margin-top:32px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-soft); letter-spacing:1.5px;}
 .breath-skip{margin-top:24px; font-size:12px; color:var(--text-soft); padding:8px 18px; border:1px solid var(--border2); border-radius:20px; transition:all .15s;}
 .breath-skip:hover{color:var(--text); border-color:var(--text-soft);}
 </style>
 </head>
 <body>
-<div class="app" id="app"></div>
+<div class="app" id="app"></div><div class="breath-tagline">Evolve through play</div>
 
 <script>
 /* ════════════════════════════════════════════════════════════════════
@@ -585,7 +587,7 @@ function showBreathingScreen(){
   scr.id = 'breathScreen';
   scr.className = 'breath-screen';
   scr.innerHTML = `
-    <div class="breath-intro">Es hora de conectar con el aquí y ahora · sentí el océano antes de leerlo</div>
+    <img src="tss-logo-white-h.png?v=2" alt="The Surf Sequence" class="breath-logo"><div class="breath-intro">Es hora de conectar con el aquí y ahora · sentí el océano antes de leerlo</div>
     <div class="breath-circle-wrap">
       <div class="breath-circle" id="breathCircle"></div>
       <div class="breath-phase" id="breathPhase">Listo</div>
