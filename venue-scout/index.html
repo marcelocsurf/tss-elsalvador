@@ -11,23 +11,23 @@
 <link rel="apple-touch-icon" href="tss-logo-wave.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Work+Sans:wght@400;500;600&family=DM+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;500;700&family=Work+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0A1628; --bg2:#0E1F3D; --bg3:#1a2842;
   --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
   --text:#E8F0F5; --text-soft:#B8CCDF; --grey:#6B7E8F;
-  --cyan:#00D2FF; --purple:#A855F7; --amber:#F59E0B; --foam:#34D399; --coral:#FCA5A5;
+  --cyan:#00D2FF; --purple:#A855F7; --amber:#FFD166; --foam:#06D6A0; --coral:#FF6B6B;
   --gold:#F59E0B; --silver:#9CA3AF; --bronze:#B45309;
   --gold-text:#FCD34D; --silver-text:#D1D5DB; --bronze-text:#FBBF24;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Work Sans',system-ui,sans-serif; min-height:100vh; min-height:100dvh; overscroll-behavior:none; -webkit-font-smoothing:antialiased;}
-h1,h2,h3{font-family:'Outfit',sans-serif; margin:0; font-weight:700;}
+h1,h2,h3{font-family:'Archivo',sans-serif; font-stretch:125%; text-transform:uppercase; margin:0; font-weight:800;}
 .serif{font-family:'Instrument Serif',serif; font-weight:400; font-style:italic; letter-spacing:-.01em;}
 button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
 input,textarea,select{font-family:inherit;}
-.mono{font-family:'DM Mono',monospace;}
+.mono{font-family:'IBM Plex Mono',monospace;}
 
 /* ---------- Layout ---------- */
 .app{max-width:100%; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;}
@@ -35,7 +35,7 @@ input,textarea,select{font-family:inherit;}
 .brand-block{display:flex; align-items:center; gap:14px;}
 .brand-logo{height:22px; width:auto; opacity:.95;}
 .brand-divider{width:1px; height:18px; background:var(--border2);}
-.brand-tool{font-family:'Outfit',sans-serif; font-weight:500; font-size:12px; color:var(--text-soft); letter-spacing:.6px; text-transform:uppercase;}
+.brand-tool{font-family:'Archivo',sans-serif; font-weight:500; font-size:12px; color:var(--text-soft); letter-spacing:.6px; text-transform:uppercase;}
 .brand-tool strong{color:var(--cyan); font-weight:700;}
 .brand-ctx{font-family:'Work Sans',sans-serif; font-size:12px; color:var(--text-soft); display:none;}
 .brand-ctx strong{color:var(--text); font-weight:600;}
@@ -77,13 +77,13 @@ input,textarea,select{font-family:inherit;}
 .cat-media{background:rgba(156,163,175,.16); border-color:var(--silver);}
 .cat-otra{background:rgba(180,83,9,.18); border-color:var(--bronze);}
 .cat-lbl{font-size:11px; font-weight:700; letter-spacing:.8px;}
-.cat-num{font-size:22px; font-weight:700; font-family:'DM Mono',monospace; margin-top:4px; line-height:1;}
+.cat-num{font-size:22px; font-weight:700; font-family:'IBM Plex Mono',monospace; margin-top:4px; line-height:1;}
 .cat-mejor .cat-lbl,.cat-mejor .cat-num{color:var(--gold-text);}
 .cat-media .cat-lbl,.cat-media .cat-num{color:var(--silver-text);}
 .cat-otra .cat-lbl,.cat-otra .cat-num{color:var(--bronze-text);}
 
 /* ---------- Toolbar ---------- */
-.toolbar{display:grid; grid-template-columns:repeat(5,1fr); gap:5px;}
+.toolbar{display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px;} .toolbar>*{flex:0 0 auto; min-width:62px;}
 .tool{padding:9px 4px; border-radius:8px; text-align:center; font-size:10px; font-weight:700; border:1px solid var(--border2); color:var(--text-soft); cursor:pointer; user-select:none; letter-spacing:.4px; transition:all .12s; line-height:1.1;}
 .tool:active{transform:scale(.96);}
 .tool svg{display:block; margin:0 auto 3px; width:16px; height:16px;}
@@ -96,7 +96,7 @@ input,textarea,select{font-family:inherit;}
 
 /* ---------- Timer ---------- */
 .timer-bar{display:flex; justify-content:space-between; align-items:center; gap:12px;}
-.timer-big{font-size:28px; font-weight:700; color:var(--text); font-family:'DM Mono',monospace; line-height:1;}
+.timer-big{font-size:40px; font-weight:800; color:var(--text); font-family:'Archivo',sans-serif; font-stretch:125%; line-height:1;}
 .timer-sub{font-size:11px; color:var(--grey); margin-top:3px;}
 .timer-stop{font-size:13px; color:var(--coral); font-weight:600; padding:8px 14px; border:1px solid rgba(252,165,165,.4); border-radius:8px;}
 .timer-warn{color:var(--gold-text) !important;}
@@ -105,7 +105,7 @@ input,textarea,select{font-family:inherit;}
 .map-wrap{position:relative; background:#021126; border-radius:14px; overflow:hidden; touch-action:pan-y;}
 .map-wrap svg{display:block; width:100%; height:auto; touch-action:pan-y; max-height:52vh;}
 .map-wrap.drawing-mode, .map-wrap.drawing-mode svg{touch-action:none;}
-.map-meta{display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--grey); padding:4px 2px; font-family:'DM Mono',monospace;}
+.map-meta{display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--grey); padding:4px 2px; font-family:'IBM Plex Mono',monospace;}
 @media (min-width:1024px){
   .map-wrap svg{max-height:none;}
 }
@@ -118,7 +118,7 @@ input,textarea,select{font-family:inherit;}
 /* ---------- Recent waves list ---------- */
 .recent{max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;}
 .recent-item{display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(255,255,255,.04); border-radius:6px; font-size:12px;}
-.recent-coord{font-family:'DM Mono',monospace; font-weight:700;}
+.recent-coord{font-family:'IBM Plex Mono',monospace; font-weight:700;}
 .recent-time{color:var(--grey); font-size:11px;}
 
 /* ---------- Modal ---------- */
@@ -138,13 +138,13 @@ input,textarea,select{font-family:inherit;}
 .report-cat-lbl{font-size:11px; font-weight:700; letter-spacing:1px; color:var(--gold-text);}
 .report-block.silver .report-cat-lbl{color:var(--silver-text);}
 .report-block.bronze .report-cat-lbl{color:var(--bronze-text);}
-.report-cat-meta{font-size:11px; color:var(--text-soft); font-family:'DM Mono',monospace;}
+.report-cat-meta{font-size:11px; color:var(--text-soft); font-family:'IBM Plex Mono',monospace;}
 .report-hero{padding:18px 16px 14px; text-align:center;}
-.report-hero-coord{font-family:'DM Mono',monospace; font-size:44px; font-weight:700; color:var(--gold-text); line-height:.95; letter-spacing:-.02em;}
+.report-hero-coord{font-family:'IBM Plex Mono',monospace; font-size:44px; font-weight:700; color:var(--gold-text); line-height:.95; letter-spacing:-.02em;}
 .report-block.silver .report-hero-coord{color:var(--silver-text);}
 .report-block.bronze .report-hero-coord{color:var(--bronze-text);}
 .report-hero-arrow{color:var(--text-soft); font-size:22px; font-weight:300; margin:0 12px;}
-.report-hero-time{font-family:'DM Mono',monospace; font-size:24px; font-weight:600; color:var(--text);}
+.report-hero-time{font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:600; color:var(--text);}
 .report-hero-row{display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap;}
 .report-hero-sub{font-size:13px; color:var(--text-soft); margin-top:6px; line-height:1.4;}
 .report-hero-sub strong{color:var(--text); font-weight:500;}
@@ -158,10 +158,10 @@ input,textarea,select{font-family:inherit;}
 .report-alt-title{font-size:10px; font-weight:700; letter-spacing:1.2px; color:var(--cyan); margin-bottom:8px;}
 .report-alt-row{display:flex; align-items:center; gap:10px; padding:8px 0; font-size:12px; color:var(--text-soft);}
 .report-alt-row + .report-alt-row{border-top:1px dashed var(--border);}
-.report-alt-num{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background:rgba(0,210,255,.15); color:var(--cyan); border-radius:50%; font-family:'DM Mono',monospace; font-size:11px; font-weight:700; flex-shrink:0;}
-.report-alt-coord{font-family:'DM Mono',monospace; font-weight:700; color:var(--text); min-width:42px;}
+.report-alt-num{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background:rgba(0,210,255,.15); color:var(--cyan); border-radius:50%; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; flex-shrink:0;}
+.report-alt-coord{font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--text); min-width:42px;}
 .report-alt-refs{flex:1; min-width:0; color:var(--grey); font-size:11px;}
-.report-alt-data{font-family:'DM Mono',monospace; font-size:11px; color:var(--text-soft);}
+.report-alt-data{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-soft);}
 .plan-card{background:rgba(0,210,255,.08); border:1px solid rgba(0,210,255,.3); border-radius:12px; padding:14px 16px; margin-top:14px;}
 .plan-h{font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:1px; margin-bottom:8px;}
 .plan-line{font-size:13px; color:var(--text-soft); margin-top:5px; line-height:1.5;}
@@ -173,7 +173,7 @@ input,textarea,select{font-family:inherit;}
 .score-row input[type=range]{width:100%; -webkit-appearance:none; background:transparent;}
 .score-row input[type=range]::-webkit-slider-runnable-track{height:8px; background:rgba(255,255,255,.08); border-radius:4px;}
 .score-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--cyan); margin-top:-6px; box-shadow:0 0 0 3px rgba(0,210,255,.18);}
-.score-val{font-family:'DM Mono',monospace; font-weight:700; text-align:right; font-size:15px;}
+.score-val{font-family:'IBM Plex Mono',monospace; font-weight:700; text-align:right; font-size:15px;}
 
 /* ---------- Empty ---------- */
 .empty{text-align:center; padding:40px 20px; color:var(--grey);}
@@ -195,7 +195,7 @@ input,textarea,select{font-family:inherit;}
   .cat-num{font-size:28px; margin-top:6px;}
   .tool{padding:11px 4px; font-size:11px;}
   .tool svg{width:18px; height:18px;}
-  .timer-big{font-size:36px;}
+  .timer-big{font-size:52px;}
   .timer-stop{font-size:14px; padding:10px 18px;}
 }
 @media (min-width:1280px){
@@ -222,8 +222,8 @@ input,textarea,select{font-family:inherit;}
 .breath-circle.hold{transform:scale(1.9); background:rgba(34,211,238,.18); border-color:#22D3EE;}
 .breath-circle.out{transform:scale(1); background:rgba(0,210,255,.12); border-color:rgba(0,210,255,.55);}
 .breath-circle.holdout{transform:scale(1); background:rgba(0,210,255,.08); border-color:rgba(0,210,255,.4);}
-.breath-phase{position:absolute; font-family:'Outfit',sans-serif; font-weight:300; font-size:24px; color:var(--text); letter-spacing:2px; text-transform:uppercase; pointer-events:none;}
-.breath-meta{margin-top:32px; font-family:'DM Mono',monospace; font-size:12px; color:var(--text-soft); letter-spacing:1.5px;}
+.breath-phase{position:absolute; font-family:'Archivo',sans-serif; font-weight:300; font-size:24px; color:var(--text); letter-spacing:2px; text-transform:uppercase; pointer-events:none;}
+.breath-meta{margin-top:32px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-soft); letter-spacing:1.5px;}
 .breath-skip{margin-top:24px; font-size:12px; color:var(--text-soft); padding:8px 18px; border:1px solid var(--border2); border-radius:20px; transition:all .15s;}
 .breath-skip:hover{color:var(--text); border-color:var(--text-soft);}
 </style>
@@ -362,7 +362,7 @@ function openAppMenu(){
     <div class="modal-h">
       <div>
         <div class="modal-t">Opciones</div>
-        <div style="font-size:11px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;">v1.4</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;font-family:'IBM Plex Mono',monospace;">v1.4</div>
       </div>
       <button class="modal-x" onclick="this.closest('.modal-overlay').remove()">×</button>
     </div>
@@ -377,7 +377,7 @@ function openAppMenu(){
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:10px;color:var(--grey);text-align:center;letter-spacing:.5px;line-height:1.6;">
       The Surf Sequence®<br>
-      <span style="font-family:'DM Mono',monospace;font-size:9px;">venue scout · standalone</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;">venue scout · standalone</span>
     </div>
   </div>`;
   m.onclick = e => { if(e.target===m) m.remove(); };
@@ -396,7 +396,7 @@ function render(){
     : '';
   const topbar = `<header class="topbar">
     <div class="brand-block">
-      <img src="tss-logo-white-h.png?v=2" alt="The Surf Sequence" class="brand-logo" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='inline');"><span style="display:none;font-family:'Outfit',sans-serif;font-weight:800;font-size:14px;color:var(--cyan);letter-spacing:.5px;">TSS</span>
+      <img src="tss-logo-white-h.png?v=2" alt="The Surf Sequence" class="brand-logo" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='inline');"><span style="display:none;font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;color:var(--cyan);letter-spacing:.5px;">TSS</span>
       <div class="brand-divider"></div>
       <span class="brand-tool">Venue <strong>Scout</strong></span>
     </div>
@@ -513,7 +513,7 @@ function renderSetup(){
           <div class="mono" style="font-size:13px;font-weight:700;color:var(--text);" id="sizeLabel">${sizeLabel(c.conditions.sizeFt)}</div>
         </div>
         <input type="range" min="1" max="12" step="0.5" value="${c.conditions.sizeFt}" oninput="state.config.conditions.sizeFt=parseFloat(this.value);document.getElementById('sizeLabel').textContent=sizeLabel(this.value);save();" style="width:100%;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;"><span>1 ft</span><span>6 ft</span><span>12+ ft</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'IBM Plex Mono',monospace;"><span>1 ft</span><span>6 ft</span><span>12+ ft</span></div>
       </div>
 
       <div style="margin-bottom:16px;">
@@ -522,7 +522,7 @@ function renderSetup(){
           <div class="mono" style="font-size:13px;font-weight:700;color:var(--text);" id="tideLabel">${tideLabel(c.conditions.tideLevel, c.conditions.tideDir)}</div>
         </div>
         <input type="range" min="0" max="100" step="5" value="${c.conditions.tideLevel}" oninput="state.config.conditions.tideLevel=parseInt(this.value);document.getElementById('tideLabel').textContent=tideLabel(this.value, state.config.conditions.tideDir);save();" style="width:100%;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;"><span>baja</span><span>media</span><span>alta</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--grey);margin-top:2px;font-family:'IBM Plex Mono',monospace;"><span>baja</span><span>media</span><span>alta</span></div>
         <div style="display:flex;gap:6px;margin-top:10px;">
           <span class="chip ${c.conditions.tideDir==='subiendo'?'':'off'}" onclick="state.config.conditions.tideDir='subiendo';save();render();">↑ subiendo</span>
           <span class="chip ${c.conditions.tideDir==='parada'?'':'off'}" onclick="state.config.conditions.tideDir='parada';save();render();">— parada</span>
@@ -826,7 +826,7 @@ function renderPredictionWidget(){
   if(state.activePrediction){
     const p = state.activePrediction;
     return `<div style="margin-top:10px;padding:10px 12px;background:rgba(34,211,238,.1);border:1.5px dashed #22D3EE;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-      <div style="font-size:11px;color:#22D3EE;font-weight:700;line-height:1.4;">🎯 Predijiste <strong style="font-family:'DM Mono',monospace;font-size:13px;">${rowToLetter(p.row)}${p.col}</strong> · esperando próxima MEJOR...</div>
+      <div style="font-size:11px;color:#22D3EE;font-weight:700;line-height:1.4;">🎯 Predijiste <strong style="font-family:'IBM Plex Mono',monospace;font-size:13px;">${rowToLetter(p.row)}${p.col}</strong> · esperando próxima MEJOR...</div>
       <button onclick="cancelPrediction()" style="font-size:11px;color:var(--text-soft);padding:4px 10px;border:1px solid var(--border2);border-radius:6px;flex-shrink:0;">Cancelar</button>
     </div>`;
   }
@@ -840,7 +840,7 @@ function renderPredictionWidget(){
     <button onclick="startPrediction()" style="font-size:12px;color:#22D3EE;padding:8px 14px;border:1.5px solid rgba(34,211,238,.4);border-radius:9px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
       🎯 Predecir próxima MEJOR
     </button>
-    ${hasStats ? `<div style="font-size:11px;color:var(--text-soft);font-family:'DM Mono',monospace;">
+    ${hasStats ? `<div style="font-size:11px;color:var(--text-soft);font-family:'IBM Plex Mono',monospace;">
       ${ps.hit} aciertos · ${ps.near} cerca · ${ps.tried} intentos · <strong style="color:#22D3EE;">${accuracy}%</strong>
     </div>` : `<div style="font-size:11px;color:var(--grey);font-style:italic;">opt-in · entrenar lectura del mar</div>`}
   </div>`;
@@ -935,14 +935,14 @@ function renderMapSVG(opts){
   ).join('') + '<path id="drawPreview" d="" stroke="#00D2FF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.85" style="pointer-events:none;"/>';
 
   // Líneas de grilla en fucsia
-  let grid = '<g stroke="rgba(236,72,153,0.55)" stroke-width="0.7">';
+  let grid = '<g stroke="rgba(0,210,255,0.12)" stroke-width="0.7">';
   for(let r=1; r<GRID_ROWS; r++) grid += `<line x1="0" y1="${r*cellH}" x2="${MAP_W}" y2="${r*cellH}"/>`;
   for(let c=1; c<GRID_COLS; c++) grid += `<line x1="${c*cellW}" y1="0" x2="${c*cellW}" y2="${MAP_H}"/>`;
   grid += '</g>';
 
   // Labels en chips oscuros · letras cyan eléctrico · números amarillo eléctrico
   const chipBg = 'rgba(0,0,0,0.7)';
-  let labels = '<g font-family="DM Mono,monospace" font-weight="700">';
+  let labels = '<g font-family="IBM Plex Mono,monospace" font-weight="700">';
   // Letras (eje vertical, A-Q)
   for(let r=1; r<=GRID_ROWS; r++){
     const y = (r-0.5)*cellH;
@@ -1093,7 +1093,7 @@ function renderMapSVG(opts){
       </g>
       ${enumerate ? `<g style="pointer-events:none;">
         <circle cx="${h.x+13}" cy="${h.y-13}" r="9" fill="#0A1628" stroke="${meta.color}" stroke-width="2"/>
-        <text x="${h.x+13}" y="${h.y-10}" text-anchor="middle" font-size="11" font-weight="800" fill="${meta.color}" font-family="DM Mono,monospace">${idx+1}</text>
+        <text x="${h.x+13}" y="${h.y-10}" text-anchor="middle" font-size="11" font-weight="800" fill="${meta.color}" font-family="IBM Plex Mono,monospace">${idx+1}</text>
       </g>` : ''}
     </g>`;
   });
@@ -1505,7 +1505,7 @@ function categorizePendingModal(waveId){
     const bg = cat==='mejor' ? 'rgba(245,158,11,.22)' : cat==='media' ? 'rgba(156,163,175,.18)' : cat==='otra' ? 'rgba(180,83,9,.22)' : 'rgba(255,255,255,.06)';
     const border = cat==='mejor' ? 'var(--gold)' : cat==='media' ? 'var(--silver)' : cat==='otra' ? 'var(--bronze)' : 'var(--border2)';
     const col = cat==='mejor' ? 'var(--gold-text)' : cat==='media' ? 'var(--silver-text)' : cat==='otra' ? 'var(--bronze-text)' : 'var(--text)';
-    return `<button onclick="assignScore('${w.id}',${n})" style="padding:14px 4px;background:${bg};border:2px solid ${border};border-radius:10px;color:${col};font-weight:800;font-size:16px;font-family:'DM Mono',monospace;">${n}</button>`;
+    return `<button onclick="assignScore('${w.id}',${n})" style="padding:14px 4px;background:${bg};border:2px solid ${border};border-radius:10px;color:${col};font-weight:800;font-size:16px;font-family:'IBM Plex Mono',monospace;">${n}</button>`;
   };
   m.innerHTML = `<div class="modal" style="max-width:400px;">
     <div class="modal-h">
@@ -1821,7 +1821,7 @@ function renderReportFree(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">
         <div>
           <h2 class="serif" style="font-size:30px;color:var(--white);line-height:1.05;">${esc(state.config.spotName||'Spot')}</h2>
-          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'DM Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${totalMin} MIN · ${waves.length} OLAS OBSERVADAS · SESIÓN LIBRE</div>
+          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${totalMin} MIN · ${waves.length} OLAS OBSERVADAS · SESIÓN LIBRE</div>
         </div>
         <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="goBackToObserve()">← Seguir marcando</button>
       </div>
@@ -1849,7 +1849,7 @@ function renderReportFree(){
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         <div style="font-size:11px;color:var(--foam);font-weight:700;letter-spacing:.6px;">ZONA IDEAL</div>
       </div>
-      <div style="font-size:22px;color:var(--white);font-weight:800;font-family:'DM Mono',monospace;letter-spacing:1px;">${idealCell}</div>
+      <div style="font-size:22px;color:var(--white);font-weight:800;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;">${idealCell}</div>
       <div style="font-size:13px;color:var(--text-soft);margin-top:6px;line-height:1.5;">
         ${idealRefs.length ? 'Entre <strong style="color:var(--text);">'+idealRefs.map(r=>esc(r.label)).join('</strong> y <strong style="color:var(--text);">')+'</strong>' : 'Zona con más actividad de olas'}
         · <strong style="color:var(--foam);">${idealZone.count}</strong> ola${idealZone.count===1?'':'s'} observada${idealZone.count===1?'':'s'} en ${totalMin} min
@@ -1873,7 +1873,7 @@ function renderReportFree(){
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;">
         ${hazardsList.map((h,i)=>`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:8px;">
-          <span style="width:22px;height:22px;border-radius:50%;border:2px solid ${h.color};background:rgba(10,22,40,.8);color:${h.color};font-family:'DM Mono',monospace;font-weight:800;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
+          <span style="width:22px;height:22px;border-radius:50%;border:2px solid ${h.color};background:rgba(10,22,40,.8);color:${h.color};font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
           <span style="color:${h.color};font-weight:600;flex:1;">${esc(h.label)}</span>
           <span class="mono" style="color:var(--text-soft);">${h.cell}</span>
         </div>`).join('')}
@@ -1885,11 +1885,11 @@ function renderReportFree(){
     <section class="section" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       ${epCell ? `<div style="padding:10px;background:rgba(52,211,153,.08);border-radius:10px;border:1px solid rgba(52,211,153,.3);">
         <div style="font-size:10px;color:var(--foam);font-weight:700;letter-spacing:.5px;">ENTRADA</div>
-        <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'DM Mono',monospace;margin-top:2px;">${epCell}</div>
+        <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px;">${epCell}</div>
       </div>` : ''}
       ${xpCell ? `<div style="padding:10px;background:rgba(252,165,165,.08);border-radius:10px;border:1px solid rgba(252,165,165,.3);">
         <div style="font-size:10px;color:var(--coral);font-weight:700;letter-spacing:.5px;">SALIDA</div>
-        <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'DM Mono',monospace;margin-top:2px;">${xpCell}</div>
+        <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px;">${xpCell}</div>
       </div>` : ''}
     </section>
     ` : ''}
@@ -2079,7 +2079,7 @@ function renderReport(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">
         <div>
           <h2 class="serif" style="font-size:30px;color:var(--white);line-height:1.05;">${esc(state.config.spotName||'Spot')}</h2>
-          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'DM Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${totalMin} MIN · ${state.waves.length} OLAS</div>
+          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;">${state.config.date} · ${totalMin} MIN · ${state.waves.length} OLAS</div>
         </div>
         <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="goBackToObserve()">← Seguir marcando</button>
       </div>
@@ -2159,7 +2159,7 @@ function renderTacticalPlanCard(plan){
   const probLine = prob===null ? '' :
     `<div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
       <span style="font-size:12px;color:var(--text-soft);">Probabilidad de llegar a ${target}:</span>
-      <span style="font-size:20px;font-weight:800;color:${statusColor};font-family:'DM Mono',monospace;">${Math.round(prob*100)}%</span>
+      <span style="font-size:20px;font-weight:800;color:${statusColor};font-family:'IBM Plex Mono',monospace;">${Math.round(prob*100)}%</span>
     </div>`;
   const altLine = plan.alt ? (() => {
     const a = plan.alt;
@@ -2171,16 +2171,16 @@ function renderTacticalPlanCard(plan){
   return `<section class="section" style="background:linear-gradient(135deg,rgba(0,210,255,.08),rgba(0,210,255,.02));border:1.5px solid ${statusColor};">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:${statusColor};">Plan para tu heat · ${plan.T} min</div>
-      <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.06);font-family:'DM Mono',monospace;">${b.sim.expected.toFixed(1)} pts esperados</div>
+      <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.06);font-family:'IBM Plex Mono',monospace;">${b.sim.expected.toFixed(1)} pts esperados</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;">
       ${steps.map((s,i)=>`<div style="display:flex;gap:10px;align-items:baseline;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:${statusColor};flex-shrink:0;">${i+1}.</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:${statusColor};flex-shrink:0;">${i+1}.</span>
         <span style="font-size:14px;color:var(--text);line-height:1.55;">${s}</span>
       </div>`).join('')}
     </div>
     ${probLine}
-    <div style="margin-top:8px;font-size:11px;color:var(--text-soft);font-family:'DM Mono',monospace;">Rango típico: ${b.sim.p25.toFixed(1)} – ${b.sim.p75.toFixed(1)} pts · heat simulado ${MC_TRIALS.toLocaleString()} veces por estrategia</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-soft);font-family:'IBM Plex Mono',monospace;">Rango típico: ${b.sim.p25.toFixed(1)} – ${b.sim.p75.toFixed(1)} pts · heat simulado ${MC_TRIALS.toLocaleString()} veces por estrategia</div>
     ${altLine}
     ${plan.lowConfidence ? `<div style="margin-top:8px;font-size:11px;color:var(--amber);font-style:italic;">Confianza baja · menos de 10 olas observadas — el plan mejora con más datos</div>` : ''}
     <div style="margin-top:8px;font-size:10px;color:var(--grey);line-height:1.4;">Supuestos: cada ola surfeada consume ~${WAVE_COST_MIN} min · remada ~${MOVE_MIN_PER_CELL} min/celda · no modela prioridad de rivales.</div>
@@ -2202,10 +2202,10 @@ function renderZoneRanking(zones, cl){
     const dirStr = z.dirDominant==='L' ? ' · IZQUIERDAS' : z.dirDominant==='R' ? ' · DERECHAS' : z.dirDominant==='mixed' ? ' · mixtas' : '';
     const expected = Math.round(z.ratePerMin * T);
     return `<div style="display:flex;gap:12px;padding:12px 4px;border-top:1px solid var(--border);align-items:flex-start;">
-      <span style="width:26px;height:26px;border-radius:50%;border:2px solid ${medals[i]};color:${medals[i]};font-family:'DM Mono',monospace;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
+      <span style="width:26px;height:26px;border-radius:50%;border:2px solid ${medals[i]};color:${medals[i]};font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
       <div style="flex:1;min-width:0;">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;">
-          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:800;color:var(--white);letter-spacing:1px;">${z.label}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:800;color:var(--white);letter-spacing:1px;">${z.label}</span>
           <span style="font-size:12px;color:${medals[i]};font-weight:700;">potencial ${(Math.round(z.topHalfAvg*10)/10).toFixed(1)}</span>
         </div>
         <div style="font-size:12px;color:var(--text-soft);margin-top:3px;line-height:1.5;">
@@ -2256,14 +2256,14 @@ function openReplay(){
     <div class="modal-h">
       <div>
         <div class="modal-t">▶ Replay del análisis</div>
-        <div style="font-size:11px;color:var(--grey);margin-top:2px;font-family:'DM Mono',monospace;">${state.waves.length} olas en 30 seg · ${Math.round(maxTs/60000)} min reales</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:2px;font-family:'IBM Plex Mono',monospace;">${state.waves.length} olas en 30 seg · ${Math.round(maxTs/60000)} min reales</div>
       </div>
       <button class="modal-x" onclick="closeReplay()">×</button>
     </div>
     <div id="replayMapWrap" style="position:relative;background:#021126;border-radius:12px;overflow:hidden;">
       ${renderReplayMapEmpty()}
     </div>
-    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-family:'DM Mono',monospace;font-size:11px;">
+    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;">
       <span style="color:var(--text-soft);">Min reales: <strong id="replayMinReal" style="color:var(--text);font-size:14px;">0:00</strong></span>
       <span style="color:var(--text-soft);">Olas: <strong id="replayCount" style="color:var(--text);font-size:14px;">0 / ${state.waves.length}</strong></span>
     </div>
