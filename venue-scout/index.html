@@ -2576,5 +2576,43 @@ printStyle.textContent = `@media print {
 }`;
 document.head.appendChild(printStyle);
 </script>
+
+<script>
+/* ── LEAD GATE (M151) · pide nombre+email UNA vez por dispositivo.
+   Se salta cuando la herramienta se abre desde el portal (?src=portal). ── */
+(function(){
+  var KEY='tss-tool-lead', TOOL='venue-scout';
+  var API='https://app.thesurfsequence.com/api/tool-lead';
+  var q=new URLSearchParams(location.search);
+  if(q.get('src')==='portal'){ try{localStorage.setItem(KEY,'portal');}catch(e){} return; }
+  var saved=null; try{saved=localStorage.getItem(KEY);}catch(e){}
+  if(saved){
+    if(saved!=='portal'){ try{fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:saved,tool:TOOL,newDevice:false})}).catch(function(){});}catch(e){} }
+    return;
+  }
+  var g=document.createElement('div');
+  g.id='leadGate';
+  g.style.cssText='position:fixed;inset:0;z-index:99999;background:radial-gradient(ellipse at 50% 32%, #0a3a5c 0%, #061C2B 62%, #02101d 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;font-family:Archivo,sans-serif;';
+  g.innerHTML='<img src="tss-wave.png?v=1" alt="" style="width:130px;height:auto;filter:drop-shadow(0 0 26px rgba(0,210,255,.4));">'
+   +'<div style="font-stretch:125%;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;font-size:26px;line-height:1.05;color:#F7F9FA;text-align:center;margin-top:20px;">The Surf<br>Sequence</div>'
+   +'<div style="font-family:\'IBM Plex Mono\',monospace;text-transform:uppercase;letter-spacing:.2em;font-size:10px;color:#00D2FF;margin-top:10px;">Venue Scout</div>'
+   +'<div style="font-size:13px;color:rgba(247,249,250,.6);text-align:center;max-width:300px;margin-top:18px;line-height:1.5;">Dejanos tu nombre y correo para usar la herramienta gratis — solo esta vez.</div>'
+   +'<input id="lgName" placeholder="Tu nombre" style="margin-top:18px;width:100%;max-width:320px;padding:14px;border-radius:14px;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;font-family:Archivo;">'
+   +'<input id="lgEmail" type="email" placeholder="tu@email.com" style="margin-top:10px;width:100%;max-width:320px;padding:14px;border-radius:14px;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;font-family:Archivo;">'
+   +'<button id="lgGo" style="margin-top:16px;width:100%;max-width:320px;padding:15px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;font-family:\'IBM Plex Mono\',monospace;text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:600;cursor:pointer;">Empezar &rarr;</button>'
+   +'<div id="lgErr" style="font-size:12px;color:#FF6B6B;margin-top:10px;min-height:16px;"></div>'
+   +'<div style="font-family:Lora,serif;font-style:italic;font-size:13px;color:rgba(0,210,255,.6);margin-top:8px;">Evolve through play</div>';
+  document.body.appendChild(g);
+  document.getElementById('lgGo').onclick=function(){
+    var n=document.getElementById('lgName').value.trim();
+    var e=document.getElementById('lgEmail').value.trim().toLowerCase();
+    if(!n){document.getElementById('lgErr').textContent='Poné tu nombre';return;}
+    if(!e||e.indexOf('@')<1||e.indexOf('.')<0){document.getElementById('lgErr').textContent='Poné un correo válido';return;}
+    try{fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,email:e,tool:TOOL,newDevice:true})}).catch(function(){});}catch(err){}
+    try{localStorage.setItem(KEY,e);}catch(err){}
+    g.remove();
+  };
+})();
+</script>
 </body>
 </html>
