@@ -2715,47 +2715,40 @@ document.head.appendChild(printStyle);
 })();
 </script>
 <script>
-/* ═══════════ LINEUP GAME (M155) · standalone dentro del Venue Scout ═══════════
-   Juego de posicionamiento: el coach marca las olas reales; los atletas
-   eligen dónde sentarse en la grilla. Prioridad rotativa moderna: el heat
-   arranca sin prioridad; agarrar ola te manda a última. Acceso con código.
-   Vive AISLADO: solo corre con ?mode=game y usa su propio estado. */
+/* ═══════════ LINEUP GAME v2 (M155) · tablero de competencia real ═══════════
+   Tablero de prioridad como el de la playa (paneles de color + tiempo),
+   ranking live, y herramientas de mapeo (referencias, líneas, lápiz).
+   Prioridad rotativa moderna. Acceso con código. Aislado del análisis. */
 (function(){
   if(new URLSearchParams(location.search).get('mode') !== 'game') return;
-  // ocultar la app de análisis por completo
   document.addEventListener('DOMContentLoaded', boot);
-  const LSG='tss_lineup_game_v1', LSC='tss_lineup_code_ok';
+  const LSG='tss_lineup_game_v2', LSC='tss_lineup_code_ok';
   const COLS=15, ROWS=17, LETTERS=['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P','Q','R'];
-  const COLORS=['#00D2FF','#06D6A0','#FFD166','#FF6B6B','#A855F7','#F7F9FA'];
-  let G={ screen:'gate', players:[], caught:[], waves:[], pendingWave:null, placing:null, started:false };
-  try{ const p=JSON.parse(localStorage.getItem(LSG)||'null'); if(p&&p.players) G=p; }catch(e){}
+  const COLORS=['#FF3B30','#F7F9FA','#00D2FF','#FFD166','#06D6A0','#111111'];
+  const COLOR_NAMES=['ROJO','BLANCO','AZUL','AMARILLO','VERDE','NEGRO'];
+  let G={ screen:'gate', players:[], caught:[], waves:[], pendingWave:null, placing:null, tool:null,
+          heatMin:15, startedAt:null, map:{refs:[],outY:null,inY:null,strokes:[]} };
+  try{ const p=JSON.parse(localStorage.getItem(LSG)||'null'); if(p&&p.players) G=Object.assign(G,p); }catch(e){}
   if(G.screen!=='gate' && localStorage.getItem(LSC)!=='ok') G.screen='gate';
   const save=()=>localStorage.setItem(LSG,JSON.stringify(G));
   const uid=()=>Math.random().toString(36).slice(2,8);
 
-  // hook de debug/pruebas (no interfiere con el juego)
-  window.__lg = { get G(){return G;}, resolveWave: resolveWave, place: function(i,c,r){G.players[i].cell={col:c,row:r};save();paint();}, paint: paint };
   function boot(){
     const app=document.getElementById('app'); if(app) app.style.display='none';
     document.body.style.overflow='auto';
     const root=document.createElement('div'); root.id='lgRoot'; document.body.appendChild(root);
     paint();
+    setInterval(tickClock, 1000);
   }
 
-  // prioridad efectiva: quien no ha agarrado ola outrankea a los que sí;
-  // entre los que agarraron, el que agarró más RECIENTE es el último.
-  function prioRank(pid){
-    const i=G.caught.indexOf(pid);
-    return i<0 ? -1 : i; // -1 = máxima
-  }
-  function prioLabel(pid){
-    const order=G.players.slice().sort((a,b)=>{
+  function prioRank(pid){ const i=G.caught.indexOf(pid); return i<0 ? -1 : i; }
+  function prioOrder(){
+    return G.players.slice().sort(function(a,b){
       const ra=prioRank(a.id), rb=prioRank(b.id);
       if(ra===-1&&rb===-1) return 0;
       if(ra===-1) return -1; if(rb===-1) return 1;
       return ra-rb;
     });
-    return 'P'+(order.findIndex(p=>p.id===pid)+1);
   }
   const dist=(a,b)=>Math.max(Math.abs(a.col-b.col),Math.abs(a.row-b.row));
 
@@ -2763,59 +2756,114 @@ document.head.appendChild(printStyle);
     const cands=G.players.filter(p=>p.cell&&dist(p.cell,cell)<=1);
     let winner=null, pts=0;
     if(cands.length){
-      cands.sort((a,b)=>{
+      cands.sort(function(a,b){
         const ra=prioRank(a.id), rb=prioRank(b.id);
         const pa=ra===-1?-999:ra, pb=rb===-1?-999:rb;
-        if(pa!==pb) return pa-pb;                       // mejor prioridad gana
-        return dist(a.cell,cell)-dist(b.cell,cell);     // tiebreak: inside
+        if(pa!==pb) return pa-pb;
+        return dist(a.cell,cell)-dist(b.cell,cell);
       });
       winner=cands[0];
       pts=dist(winner.cell,cell)===0?score:Math.round(score*5)/10;
       winner.score=Math.round((winner.score+pts)*10)/10;
-      winner.reads=(winner.reads||0)+1;
-      // rotación: cae a última prioridad
       G.caught=G.caught.filter(id=>id!==winner.id); G.caught.push(winner.id);
     }
-    G.players.forEach(p=>{ if(p.cell&&dist(p.cell,cell)<=1) p.near=(p.near||0)+1; });
-    G.waves.push({cell,score,winner:winner?winner.id:null,pts,ts:G.waves.length+1});
+    G.players.forEach(function(p){ if(p.cell&&dist(p.cell,cell)<=1) p.near=(p.near||0)+1; });
+    G.waves.push({cell:cell,score:score,winner:winner?winner.id:null,pts:pts});
     save(); paint();
-    toastG(winner? '🌊 '+score.toFixed(1)+' → '+winner.name+' ('+(dist(winner.cell,cell)===0?'pico exacto':'adyacente ½')+') · cae a última prioridad' : '🌊 '+score.toFixed(1)+' · nadie en posición');
+    toastG(winner? '🌊 '+score.toFixed(1)+' → '+winner.name+' ('+(dist(winner.cell,cell)===0?'pico exacto':'adyacente ½')+')' : '🌊 '+score.toFixed(1)+' · nadie en posición');
   }
 
   let tTimer=null;
   function toastG(msg){
     let t=document.getElementById('lgToast');
     if(!t){ t=document.createElement('div'); t.id='lgToast';
-      t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:90px;z-index:9999;background:rgba(4,20,31,.92);border:1px solid rgba(0,210,255,.4);color:#F7F9FA;border-radius:999px;padding:10px 20px;font-size:13px;font-family:Archivo;max-width:92%;text-align:center;transition:opacity .3s;';
+      t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:rgba(4,20,31,.92);border:1px solid rgba(0,210,255,.4);color:#F7F9FA;border-radius:999px;padding:12px 24px;font-size:15px;font-family:Archivo;max-width:92%;text-align:center;transition:opacity .3s;';
       document.body.appendChild(t); }
     t.textContent=msg; t.style.opacity=1;
-    clearTimeout(tTimer); tTimer=setTimeout(()=>t.style.opacity=0,3500);
+    clearTimeout(tTimer); tTimer=setTimeout(function(){t.style.opacity=0;},3500);
+  }
+
+  function timeLeft(){
+    if(!G.startedAt) return G.heatMin*60;
+    return Math.max(0, G.heatMin*60 - Math.floor((Date.now()-G.startedAt)/1000));
+  }
+  function fmtT(sec){ return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+  function tickClock(){
+    if(G.screen!=='play' || !G.startedAt) return;
+    const el=document.getElementById('lgClock'); if(!el) return;
+    const left=timeLeft();
+    el.textContent=fmtT(left);
+    el.style.color = left<=60 ? '#FF6B6B' : left<=300 ? '#FFD166' : '#F7F9FA';
+    if(left===0){ G.startedAt=null; save(); toastG('⏱ ¡TIEMPO! Heat terminado'); G.screen='results'; paint(); }
   }
 
   const F_D="font-family:'Archivo',sans-serif;font-stretch:125%;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;";
   const F_M="font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.16em;";
 
-  function gridSVG(interactive){
-    const W=600,H=680,cw=W/COLS,ch=H/ROWS;
-    let s='<svg id="lgMap" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;background:linear-gradient(#07354F,#0E5A7A 82%,#233427 82.5%);border-radius:16px;">';
+  /* ── TABLERO DE PRIORIDAD · como el de la playa ── */
+  function priorityBoardHTML(){
+    const order=prioOrder();
+    const panels=order.map(function(p,i){
+      const dark = p.color==='#111111';
+      const light = p.color==='#F7F9FA' || p.color==='#FFD166' || p.color==='#06D6A0' || p.color==='#00D2FF';
+      const txt = light ? '#061C2B' : '#F7F9FA';
+      return '<div style="flex:1;min-width:0;background:'+p.color+';border:'+(dark?'2px solid rgba(247,249,250,.3)':'none')+';border-radius:14px;padding:10px 6px;text-align:center;">'
+        +'<div style="'+F_D+'font-size:clamp(20px,4vw,34px);color:'+txt+';">P'+(i+1)+'</div>'
+        +'<div style="'+F_M+'font-size:clamp(8px,1.4vw,11px);color:'+txt+';opacity:.8;">'+p.name.slice(0,10)+'</div></div>';
+    }).join('');
+    return '<div style="display:flex;gap:8px;align-items:stretch;">'
+      +'<div style="background:#04141F;border:1.5px solid rgba(0,210,255,.3);border-radius:14px;padding:10px 16px;text-align:center;min-width:110px;">'
+      +'<div id="lgClock" style="'+F_D+'font-size:clamp(26px,5vw,42px);color:#F7F9FA;">'+fmtT(timeLeft())+'</div>'
+      +'<div style="'+F_M+'font-size:8px;color:#00D2FF;">'+(G.startedAt?'restante':'⏸ pausado')+'</div></div>'
+      +panels+'</div>';
+  }
+
+  /* ── RANKING LIVE · estilo live results ── */
+  function liveRankHTML(){
+    const board=G.players.slice().sort(function(a,b){return b.score-a.score;});
+    const lead=board[0]?board[0].score:0;
+    return '<div style="display:flex;gap:6px;margin-top:8px;overflow-x:auto;">'+board.map(function(p,i){
+      const need = i===0 ? '' : 'necesita '+Math.max(0,Math.round((lead-p.score+0.1)*10)/10).toFixed(1);
+      return '<div style="flex:1;min-width:110px;display:flex;align-items:center;gap:8px;background:rgba(247,249,250,'+(i===0?'.1':'.04')+');border:1px solid rgba(247,249,250,'+(i===0?'.3':'.1')+');border-radius:12px;padding:8px 10px;">'
+        +'<span style="'+F_D+'font-size:16px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';">'+(i+1)+'°</span>'
+        +'<span style="width:12px;height:12px;border-radius:50%;background:'+p.color+';border:1.5px solid rgba(6,28,43,.4);flex:0 0 auto;"></span>'
+        +'<span style="min-width:0;"><span style="display:block;font-size:12px;font-weight:700;color:#F7F9FA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.name+'</span>'
+        +'<span style="display:block;font-size:11px;color:rgba(247,249,250,.55);font-family:IBM Plex Mono;">'+p.score.toFixed(1)+(need?' · '+need:' · líder')+'</span></span></div>';
+    }).join('')+'</div>';
+  }
+
+  function gridSVG(){
+    const W=600,H=640,cw=W/COLS,ch=H/ROWS;
+    let s='<svg id="lgMap" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;background:linear-gradient(#07354F,#0E5A7A 84%,#233427 84.5%);border-radius:16px;touch-action:none;">';
     s+='<g stroke="rgba(0,210,255,0.12)" stroke-width="0.7">';
     for(let r=1;r<ROWS;r++) s+='<line x1="0" y1="'+(r*ch)+'" x2="'+W+'" y2="'+(r*ch)+'"/>';
     for(let c=1;c<COLS;c++) s+='<line x1="'+(c*cw)+'" y1="0" x2="'+(c*cw)+'" y2="'+H+'"/>';
     s+='</g>';
-    for(let r=1;r<=ROWS;r++) s+='<text x="10" y="'+((r-0.5)*ch+4)+'" font-size="11" fill="rgba(0,210,255,.7)" font-family="IBM Plex Mono">'+LETTERS[r-1]+'</text>';
-    for(let c=1;c<=COLS;c++) s+='<text x="'+((c-0.5)*cw)+'" y="'+(H-6)+'" text-anchor="middle" font-size="11" fill="rgba(255,209,102,.8)" font-family="IBM Plex Mono">'+c+'</text>';
-    // olas pasadas (huella)
+    for(let r=1;r<=ROWS;r++) s+='<text x="10" y="'+((r-0.5)*ch+5)+'" font-size="13" font-weight="700" fill="rgba(0,210,255,.75)" font-family="IBM Plex Mono">'+LETTERS[r-1]+'</text>';
+    for(let c=1;c<=COLS;c++) s+='<text x="'+((c-0.5)*cw)+'" y="'+(H-8)+'" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,209,102,.85)" font-family="IBM Plex Mono">'+c+'</text>';
+    // líneas out/in
+    if(G.map.outY!=null){ s+='<line x1="0" y1="'+G.map.outY+'" x2="'+W+'" y2="'+G.map.outY+'" stroke="#00D2FF" stroke-width="2.5" stroke-dasharray="10 6"/><text x="16" y="'+(G.map.outY-8)+'" font-size="12" fill="#00D2FF" font-family="IBM Plex Mono" letter-spacing="2">OUTSIDE</text>'; }
+    if(G.map.inY!=null){ s+='<line x1="0" y1="'+G.map.inY+'" x2="'+W+'" y2="'+G.map.inY+'" stroke="#7FE3FF" stroke-width="2" stroke-dasharray="5 6"/><text x="16" y="'+(G.map.inY+16)+'" font-size="12" fill="#7FE3FF" font-family="IBM Plex Mono" letter-spacing="2">INSIDE</text>'; }
+    // trazos lápiz
+    G.map.strokes.forEach(function(d){ s+='<path d="'+d+'" fill="none" stroke="#F7F9FA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>'; });
+    // referencias en tierra
+    G.map.refs.forEach(function(rf){
+      s+='<text x="'+rf.x+'" y="'+rf.y+'" text-anchor="middle" font-size="22">📍</text>';
+      s+='<text x="'+rf.x+'" y="'+(rf.y+18)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#061C2B" font-family="Archivo">'+rf.label.toUpperCase()+'</text>';
+    });
+    // olas (huella)
     G.waves.slice(-14).forEach(function(w,i,arr){
       const cx=(w.cell.col-0.5)*cw, cy=(w.cell.row-0.5)*ch, last=i===arr.length-1;
-      s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(last?14:8)+'" fill="rgba(255,209,102,'+(last?'.55':'.22')+'"/>';
-      if(last) s+='<text x="'+cx+'" y="'+(cy+4)+'" text-anchor="middle" font-size="11" font-weight="800" fill="#061C2B">'+w.score.toFixed(1)+'</text>';
+      s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(last?17:9)+'" fill="rgba(255,209,102,'+(last?'.6':'.22')+')"/>';
+      if(last) s+='<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-size="13" font-weight="800" fill="#061C2B">'+w.score.toFixed(1)+'</text>';
     });
-    // fichas
+    // fichas — grandes para iPad
     G.players.forEach(function(p){
       if(!p.cell) return;
       const cx=(p.cell.col-0.5)*cw, cy=(p.cell.row-0.5)*ch;
-      s+='<circle cx="'+cx+'" cy="'+cy+'" r="15" fill="'+p.color+'" stroke="#061C2B" stroke-width="2.5"/>';
-      s+='<text x="'+cx+'" y="'+(cy+4)+'" text-anchor="middle" font-size="11" font-weight="800" fill="#061C2B">'+p.name.slice(0,2).toUpperCase()+'</text>';
+      const dark=p.color==='#111111';
+      s+='<circle cx="'+cx+'" cy="'+cy+'" r="19" fill="'+p.color+'" stroke="'+(dark?'#F7F9FA':'#061C2B')+'" stroke-width="3"/>';
+      s+='<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-size="13" font-weight="800" fill="'+(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B')+'">'+p.name.slice(0,2).toUpperCase()+'</text>';
     });
     s+='</svg>';
     return s;
@@ -2831,97 +2879,155 @@ document.head.appendChild(printStyle);
   }
 
   function headerHTML(sub){
-    return '<div style="display:flex;align-items:center;gap:12px;padding:16px;background:#04141F;border-bottom:2px solid rgba(0,210,255,.3);">'
-      +'<img src="tss-wave.png?v=1" style="height:36px;width:auto;">'
-      +'<div><div style="'+F_D+'font-size:15px;">Lineup Game</div>'
+    return '<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:#04141F;border-bottom:2px solid rgba(0,210,255,.3);">'
+      +'<img src="tss-wave.png?v=1" style="height:38px;width:auto;">'
+      +'<div><div style="'+F_D+'font-size:17px;">Lineup Game</div>'
       +'<div style="'+F_M+'font-size:8px;color:#00D2FF;margin-top:2px;">'+(sub||'The Surf Sequence · lee el mar como un tablero')+'</div></div></div>';
   }
 
   function gateHTML(){
-    return headerHTML()+'<div style="max-width:380px;margin:60px auto;padding:0 20px;text-align:center;">'
-      +'<img src="tss-wave.png?v=1" style="height:80px;filter:drop-shadow(0 0 26px rgba(0,210,255,.4));">'
-      +'<div style="'+F_D+'font-size:26px;margin-top:18px;">Acceso privado</div>'
-      +'<p style="font-size:13px;color:rgba(247,249,250,.6);margin-top:10px;">Este juego requiere código de acceso.</p>'
-      +'<input id="lgCode" type="password" inputmode="numeric" placeholder="Código" style="margin-top:18px;width:100%;padding:14px;border-radius:14px;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:16px;text-align:center;letter-spacing:.3em;">'
-      +'<button id="lgGo" style="margin-top:14px;width:100%;padding:15px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:11px;cursor:pointer;">Entrar →</button>'
-      +'<div id="lgErr" style="color:#FF6B6B;font-size:12px;margin-top:10px;min-height:16px;"></div></div>';
+    return headerHTML()+'<div style="max-width:400px;margin:8vh auto;padding:0 20px;text-align:center;">'
+      +'<img src="tss-wave.png?v=1" style="height:84px;filter:drop-shadow(0 0 26px rgba(0,210,255,.4));">'
+      +'<div style="'+F_D+'font-size:28px;margin-top:18px;">Acceso privado</div>'
+      +'<input id="lgCode" type="password" inputmode="numeric" placeholder="Código" style="margin-top:20px;width:100%;padding:16px;border-radius:16px;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:18px;text-align:center;letter-spacing:.3em;">'
+      +'<button id="lgGo" style="margin-top:14px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Entrar →</button>'
+      +'<div id="lgErr" style="color:#FF6B6B;font-size:13px;margin-top:10px;min-height:18px;"></div></div>';
   }
   function wireGate(){
     document.getElementById('lgGo').onclick=function(){
-      if(document.getElementById('lgCode').value.trim()==='220824'){
-        localStorage.setItem(LSC,'ok'); G.screen='setup'; save(); paint();
-      } else document.getElementById('lgErr').textContent='Código incorrecto';
+      if(document.getElementById('lgCode').value.trim()==='220824'){ localStorage.setItem(LSC,'ok'); G.screen='setup'; save(); paint(); }
+      else document.getElementById('lgErr').textContent='Código incorrecto';
     };
   }
 
   function setupHTML(){
-    return headerHTML('setup del heat')+'<div style="max-width:420px;margin:0 auto;padding:20px;">'
-      +'<div style="'+F_M+'font-size:10px;color:#00D2FF;margin-bottom:8px;">Jugadores (2-6)</div>'
-      +'<div id="lgPl">'+G.players.map(function(p,i){return '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;"><span style="width:22px;height:22px;border-radius:50%;background:'+p.color+';display:inline-block;"></span><input data-i="'+i+'" class="lgName" value="'+p.name+'" style="flex:1;padding:11px;border-radius:12px;border:1.5px solid rgba(247,249,250,.15);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:14px;"><button class="lgDel" data-i="'+i+'" style="color:#FF6B6B;background:none;border:none;font-size:18px;cursor:pointer;">×</button></div>';}).join('')+'</div>'
-      +'<button id="lgAdd" style="width:100%;padding:12px;border:1.5px dashed rgba(0,210,255,.4);border-radius:12px;background:none;color:#00D2FF;font-size:13px;cursor:pointer;">+ Agregar jugador</button>'
-      +'<div style="font-size:11px;color:rgba(247,249,250,.5);line-height:1.6;margin-top:16px;">Reglas: prioridad rotativa (reglamento actual) — el heat arranca sin prioridad; agarrar ola te manda a última. Ola en tu celda exacta = score completo · celda vecina = mitad. Si dos están en zona, se la lleva la mejor prioridad (empate: el más cerca del pico).</div>'
-      +'<button id="lgStart" style="margin-top:16px;width:100%;padding:16px;border:none;border-radius:999px;background:#06D6A0;color:#061C2B;'+F_M+'font-size:11px;cursor:pointer;">Iniciar heat →</button></div>';
+    return headerHTML('setup del heat')+'<div style="max-width:480px;margin:0 auto;padding:20px;">'
+      +'<div style="'+F_M+'font-size:10px;color:#00D2FF;margin-bottom:8px;">Jugadores (2-6) · lycra por color</div>'
+      +'<div>'+G.players.map(function(p,i){return '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;"><span style="width:26px;height:26px;border-radius:8px;background:'+p.color+';border:2px solid rgba(247,249,250,.25);display:inline-block;"></span><input data-i="'+i+'" class="lgName" value="'+p.name+'" style="flex:1;padding:13px;border-radius:14px;border:1.5px solid rgba(247,249,250,.15);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;"><button class="lgDel" data-i="'+i+'" style="color:#FF6B6B;background:none;border:none;font-size:20px;cursor:pointer;">×</button></div>';}).join('')+'</div>'
+      +'<button id="lgAdd" style="width:100%;padding:13px;border:1.5px dashed rgba(0,210,255,.4);border-radius:14px;background:none;color:#00D2FF;font-size:14px;cursor:pointer;">+ Agregar jugador</button>'
+      +'<div style="'+F_M+'font-size:10px;color:#00D2FF;margin:18px 0 8px;">Duración del heat</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+[10,15,20,25].map(function(m){return '<button class="lgDur" data-m="'+m+'" style="flex:1;padding:12px;border-radius:999px;border:1.5px solid '+(G.heatMin===m?'#00D2FF':'rgba(247,249,250,.15)')+';background:'+(G.heatMin===m?'rgba(0,210,255,.15)':'none')+';color:'+(G.heatMin===m?'#00D2FF':'#F7F9FA')+';font-size:14px;font-weight:700;cursor:pointer;">'+m+' min</button>';}).join('')+'</div>'
+      +'<button id="lgStart" style="margin-top:20px;width:100%;padding:17px;border:none;border-radius:999px;background:#06D6A0;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Iniciar heat →</button></div>';
   }
   function wireSetup(){
     document.getElementById('lgAdd').onclick=function(){
       if(G.players.length>=6) return;
-      G.players.push({id:uid(),name:'Jugador '+(G.players.length+1),color:COLORS[G.players.length%COLORS.length],score:0,cell:null,reads:0,near:0});
+      const i=G.players.length;
+      G.players.push({id:uid(),name:COLOR_NAMES[i],color:COLORS[i],score:0,cell:null,near:0});
       save(); paint();
     };
+    document.querySelectorAll('.lgDur').forEach(function(b){ b.onclick=function(){ G.heatMin=+b.dataset.m; save(); paint(); }; });
     document.querySelectorAll('.lgDel').forEach(function(b){ b.onclick=function(){ G.players.splice(+b.dataset.i,1); save(); paint(); }; });
-    document.querySelectorAll('.lgName').forEach(function(inp){ inp.onchange=function(){ G.players[+inp.dataset.i].name=inp.value.trim()||('Jugador '+(+inp.dataset.i+1)); save(); }; });
+    document.querySelectorAll('.lgName').forEach(function(inp){ inp.onchange=function(){ G.players[+inp.dataset.i].name=inp.value.trim()||COLOR_NAMES[+inp.dataset.i]; save(); }; });
     document.getElementById('lgStart').onclick=function(){
       if(G.players.length<2){ toastG('Agregá al menos 2 jugadores'); return; }
-      G.started=true; G.screen='play'; G.caught=[]; G.waves=[]; G.players.forEach(function(p){p.score=0;p.cell=null;p.reads=0;p.near=0;});
+      G.screen='play'; G.caught=[]; G.waves=[]; G.startedAt=Date.now();
+      G.players.forEach(function(p){p.score=0;p.cell=null;p.near=0;});
       save(); paint();
       toastG('Cada atleta elige dónde sentarse — tocá su ficha y luego el mapa');
     };
   }
 
+  function toolBtn(id,label,active,color){
+    return '<button class="lgTool" data-t="'+id+'" style="flex:0 0 auto;padding:10px 14px;border-radius:999px;border:2px solid '+(active?(color||'#00D2FF'):'rgba(247,249,250,.15)')+';background:'+(active?'rgba(0,210,255,.15)':'rgba(247,249,250,.04)')+';color:'+(active?(color||'#00D2FF'):'rgba(247,249,250,.8)')+';font-size:13px;font-weight:700;cursor:pointer;font-family:IBM Plex Mono;letter-spacing:.06em;">'+label+'</button>';
+  }
+
   function playHTML(){
     const chips=G.players.map(function(p){
       const on=G.placing===p.id;
-      return '<button class="lgChip" data-id="'+p.id+'" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:2px solid '+(on?p.color:'rgba(247,249,250,.15)')+';background:'+(on?p.color:'rgba(247,249,250,.05)')+';color:'+(on?'#061C2B':'#F7F9FA')+';font-size:12px;font-weight:700;cursor:pointer;">'
-        +'<span style="width:10px;height:10px;border-radius:50%;background:'+(on?'#061C2B':p.color)+';"></span>'
-        +p.name+' · '+prioLabel(p.id)+' · '+p.score.toFixed(1)+'</button>';
+      const dark=p.color==='#111111';
+      return '<button class="lgChip" data-id="'+p.id+'" style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:999px;border:2.5px solid '+(on?p.color:'rgba(247,249,250,.15)')+';background:'+(on?p.color:'rgba(247,249,250,.05)')+';color:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):'#F7F9FA')+';font-size:14px;font-weight:800;cursor:pointer;">'
+        +'<span style="width:13px;height:13px;border-radius:50%;background:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):p.color)+';"></span>'+p.name+'</button>';
     }).join('');
-    const waveOn=G.placing==='WAVE';
-    return headerHTML(G.waves.length+' olas · prioridad rotativa')
-      +'<div style="max-width:640px;margin:0 auto;padding:12px;">'
-      +'<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;">'+chips
-      +'<button id="lgWave" style="flex:0 0 auto;padding:8px 16px;border-radius:999px;border:2px solid '+(waveOn?'#FFD166':'rgba(255,209,102,.4)')+';background:'+(waveOn?'#FFD166':'rgba(255,209,102,.08)')+';color:'+(waveOn?'#061C2B':'#FFD166')+';font-weight:800;font-size:12px;cursor:pointer;">🌊 OLA</button>'
-      +'<button id="lgEnd" style="flex:0 0 auto;padding:8px 14px;border-radius:999px;border:1.5px solid rgba(255,107,107,.5);background:none;color:#FF6B6B;font-size:12px;font-weight:700;cursor:pointer;">■ Terminar</button></div>'
-      +gridSVG(true)
-      +'<div style="'+F_M+'font-size:9px;color:rgba(247,249,250,.45);margin-top:8px;text-align:center;">'+(G.placing==='WAVE'?'Tocá DÓNDE salió la ola':G.placing?'Tocá dónde se sienta '+(G.players.find(function(p){return p.id===G.placing;})||{}).name:'Tocá una ficha para mover · 🌊 OLA para anotar')+'</div>'
-      +'<div id="lgScore" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(6,28,43,.85);backdrop-filter:blur(4px);"><div style="max-width:360px;margin:24vh auto;background:#0A2438;border:1px solid rgba(0,210,255,.3);border-radius:24px;padding:20px;">'
-      +'<div style="'+F_D+'font-size:16px;">Score de la ola</div>'
-      +'<div id="lgSGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px;"></div></div></div>'
+    return headerHTML(G.waves.length+' olas anotadas')
+      +'<div style="max-width:1160px;margin:0 auto;padding:12px 14px;">'
+      +priorityBoardHTML()
+      +liveRankHTML()
+      +'<div style="display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px;" class="lgCols">'
+      +'<style>@media(min-width:900px){.lgCols{grid-template-columns:340px 1fr !important;align-items:start;}}</style>'
+      +'<div>'
+      +'<div style="'+F_M+'font-size:9px;color:#00D2FF;margin-bottom:6px;">Atletas · tocá y ubicá</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+chips+'</div>'
+      +'<div style="'+F_M+'font-size:9px;color:#FFD166;margin:14px 0 6px;">Anotar</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+      +'<button id="lgWave" style="padding:13px 22px;border-radius:999px;border:2.5px solid '+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.45)')+';background:'+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.08)')+';color:'+(G.placing==='WAVE'?'#061C2B':'#FFD166')+';font-weight:800;font-size:16px;cursor:pointer;">🌊 OLA</button></div>'
+      +'<div style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);margin:14px 0 6px;">Mapa del spot</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+      +toolBtn('ref','📍 REF',G.tool==='ref')
+      +toolBtn('out','OUT',G.tool==='out')
+      +toolBtn('in','IN',G.tool==='in')
+      +toolBtn('pen','✏️',G.tool==='pen')
+      +toolBtn('erase','🧽',G.tool==='erase','#FF6B6B')
+      +'</div>'
+      +'<button id="lgEnd" style="margin-top:16px;width:100%;padding:13px;border-radius:999px;border:1.5px solid rgba(255,107,107,.5);background:none;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;">■ Terminar heat</button>'
+      +'<div style="font-size:11px;color:rgba(247,249,250,.45);margin-top:10px;line-height:1.6;">'+(G.placing==='WAVE'?'Tocá DÓNDE salió la ola':G.placing?'Tocá dónde se ubica '+((G.players.find(function(p){return p.id===G.placing;})||{}).name||''):G.tool?'Herramienta activa: tocá el mapa':'Ficha → mover atleta · OLA → anotar')+'</div>'
+      +'</div>'
+      +'<div>'+gridSVG()+'</div>'
+      +'</div>'
+      +'<div id="lgScore" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(6,28,43,.85);backdrop-filter:blur(4px);"><div style="max-width:420px;margin:22vh auto;background:#0A2438;border:1px solid rgba(0,210,255,.3);border-radius:24px;padding:22px;">'
+      +'<div style="'+F_D+'font-size:18px;">Score de la ola</div>'
+      +'<div id="lgSGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px;"></div></div></div>'
       +'</div>';
   }
+
   function wirePlay(){
-    document.querySelectorAll('.lgChip').forEach(function(b){ b.onclick=function(){ G.placing=(G.placing===b.dataset.id?null:b.dataset.id); save(); paint(); }; });
-    document.getElementById('lgWave').onclick=function(){ G.placing=(G.placing==='WAVE'?null:'WAVE'); save(); paint(); };
-    document.getElementById('lgEnd').onclick=function(){ if(confirm('¿Terminar el heat y ver resultados?')){ G.screen='results'; save(); paint(); } };
+    document.querySelectorAll('.lgChip').forEach(function(b){ b.onclick=function(){ G.tool=null; G.placing=(G.placing===b.dataset.id?null:b.dataset.id); save(); paint(); }; });
+    document.getElementById('lgWave').onclick=function(){ G.tool=null; G.placing=(G.placing==='WAVE'?null:'WAVE'); save(); paint(); };
+    document.querySelectorAll('.lgTool').forEach(function(b){ b.onclick=function(){ G.placing=null; G.tool=(G.tool===b.dataset.t?null:b.dataset.t); save(); paint(); }; });
+    document.getElementById('lgEnd').onclick=function(){ if(confirm('¿Terminar el heat y ver resultados?')){ G.startedAt=null; G.screen='results'; save(); paint(); } };
     const svg=document.getElementById('lgMap');
-    svg.addEventListener('click',function(e){
+    const pt=function(e){
       const r=svg.getBoundingClientRect();
-      const col=Math.min(COLS,Math.max(1,Math.floor((e.clientX-r.left)/r.width*COLS)+1));
-      const row=Math.min(ROWS,Math.max(1,Math.floor((e.clientY-r.top)/r.height*ROWS)+1));
+      const t=(e.touches&&e.touches[0])||e;
+      return { x:(t.clientX-r.left)/r.width*600, y:(t.clientY-r.top)/r.height*640,
+               col:Math.min(COLS,Math.max(1,Math.floor((t.clientX-r.left)/r.width*COLS)+1)),
+               row:Math.min(ROWS,Math.max(1,Math.floor((t.clientY-r.top)/r.height*ROWS)+1)) };
+    };
+    let drawing=null;
+    svg.addEventListener('pointerdown',function(e){
+      if(G.tool==='pen'){ const p=pt(e); drawing='M'+p.x.toFixed(1)+' '+p.y.toFixed(1); svg.setPointerCapture(e.pointerId); e.preventDefault(); }
+    });
+    svg.addEventListener('pointermove',function(e){
+      if(drawing){ const p=pt(e); drawing+=' L '+p.x.toFixed(1)+' '+p.y.toFixed(1); }
+    });
+    svg.addEventListener('pointerup',function(e){
+      const p=pt(e);
+      if(drawing){
+        if(drawing.includes(' L ')){ G.map.strokes.push(drawing); save(); paint(); toastG('✏️ Trazo guardado · seguí dibujando o elegí otra cosa'); }
+        drawing=null; return;
+      }
+      if(G.tool==='ref'){
+        const label=prompt('¿Qué referencia es? (palmera, torre, casa…)','palmera');
+        if(label){ G.map.refs.push({x:p.x,y:p.y,label:label.slice(0,12)}); save(); paint(); }
+        return;
+      }
+      if(G.tool==='out'){ G.map.outY=Math.min(p.y, 640*0.78); save(); paint(); return; }
+      if(G.tool==='in'){ G.map.inY=Math.min(p.y, 640*0.80); save(); paint(); return; }
+      if(G.tool==='erase'){
+        // borrar lo más cercano: ref, trazo, línea
+        let done=false;
+        for(let i=G.map.refs.length-1;i>=0;i--){ const rf=G.map.refs[i]; if(Math.hypot(p.x-rf.x,p.y-rf.y)<40){ G.map.refs.splice(i,1); done=true; break; } }
+        if(!done && G.map.strokes.length){ G.map.strokes.pop(); done=true; }
+        else if(!done && G.map.inY!=null && Math.abs(p.y-G.map.inY)<30){ G.map.inY=null; done=true; }
+        else if(!done && G.map.outY!=null && Math.abs(p.y-G.map.outY)<30){ G.map.outY=null; done=true; }
+        if(done){ save(); paint(); toastG('Borrado ✓'); }
+        return;
+      }
       if(G.placing==='WAVE'){
-        G.pendingWave={col:col,row:row}; save();
+        G.pendingWave={col:p.col,row:p.row}; save();
         const m=document.getElementById('lgScore'); m.style.display='block';
         const g=document.getElementById('lgSGrid'); g.innerHTML='';
         for(let n=1;n<=10;n++){ (function(n){
           const b=document.createElement('button');
-          b.textContent=n; b.style.cssText='padding:14px 4px;border:2px solid rgba(0,210,255,.35);border-radius:12px;background:rgba(0,210,255,.08);color:#00D2FF;font-weight:800;font-size:16px;cursor:pointer;font-family:IBM Plex Mono;';
+          b.textContent=n; b.style.cssText='padding:18px 4px;border:2px solid rgba(0,210,255,.35);border-radius:14px;background:rgba(0,210,255,.08);color:#00D2FF;font-weight:800;font-size:20px;cursor:pointer;font-family:IBM Plex Mono;';
           b.onclick=function(){ m.style.display='none'; const c=G.pendingWave; G.pendingWave=null; resolveWave(c,n); };
           g.appendChild(b);
         })(n); }
         return;
       }
       if(G.placing){
-        const p=G.players.find(function(x){return x.id===G.placing;});
-        if(p){ p.cell={col:col,row:row}; save(); paint(); }
+        const pl=G.players.find(function(x){return x.id===G.placing;});
+        if(pl){ pl.cell={col:p.col,row:p.row}; save(); paint(); }
       }
     });
   }
@@ -2931,27 +3037,28 @@ document.head.appendChild(printStyle);
     const total=G.waves.length||1;
     let heat={};
     G.waves.forEach(function(w){ const k=w.cell.col+'-'+w.cell.row; heat[k]=(heat[k]||0)+1; });
-    const hotCells=Object.entries(heat).sort(function(a,b){return b[1]-a[1];}).slice(0,3)
+    const hot=Object.entries(heat).sort(function(a,b){return b[1]-a[1];}).slice(0,3)
       .map(function(e){ const p=e[0].split('-'); return LETTERS[p[1]-1]+p[0]; }).join(' · ');
-    return headerHTML('resultados')+'<div style="max-width:480px;margin:0 auto;padding:20px;">'
-      +'<div style="'+F_D+'font-size:24px;margin-bottom:14px;">Resultados</div>'
+    return headerHTML('resultados')+'<div style="max-width:560px;margin:0 auto;padding:20px;">'
+      +'<div style="'+F_D+'font-size:28px;margin-bottom:16px;">Resultados</div>'
       +board.map(function(p,i){
         const read=Math.round(100*(p.near||0)/total);
-        return '<div style="display:flex;align-items:center;gap:10px;background:rgba(247,249,250,.05);border:1px solid rgba(247,249,250,.1);border-radius:16px;padding:12px 14px;margin-bottom:8px;'+(i===0?'border-color:#FFD166;':'')+'">'
-          +'<span style="'+F_D+'font-size:18px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.5)')+';width:26px;">'+(i+1)+'</span>'
-          +'<span style="width:14px;height:14px;border-radius:50%;background:'+p.color+';"></span>'
-          +'<span style="flex:1;font-weight:700;">'+p.name+'</span>'
-          +'<span style="text-align:right;"><span style="'+F_D+'font-size:18px;color:#00D2FF;">'+p.score.toFixed(1)+'</span><br><span style="'+F_M+'font-size:8px;color:rgba(247,249,250,.5);">lectura '+read+'%</span></span></div>';
+        return '<div style="display:flex;align-items:center;gap:12px;background:rgba(247,249,250,.05);border:1.5px solid '+(i===0?'#FFD166':'rgba(247,249,250,.1)')+';border-radius:18px;padding:14px 16px;margin-bottom:10px;">'
+          +'<span style="'+F_D+'font-size:22px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';width:34px;">'+(i+1)+'°</span>'
+          +'<span style="width:18px;height:18px;border-radius:50%;background:'+p.color+';border:2px solid rgba(6,28,43,.4);"></span>'
+          +'<span style="flex:1;font-weight:800;font-size:16px;">'+p.name+'</span>'
+          +'<span style="text-align:right;"><span style="'+F_D+'font-size:22px;color:#00D2FF;">'+p.score.toFixed(1)+'</span><br><span style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);">lectura '+read+'%</span></span></div>';
       }).join('')
-      +'<div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:16px;padding:12px 14px;font-size:12px;color:rgba(247,249,250,.75);margin-top:10px;">'
-      +'🌊 '+G.waves.length+' olas anotadas · picos calientes: <strong style="color:#FFD166;">'+(hotCells||'—')+'</strong><br>'
-      +'<span style="font-size:11px;color:rgba(247,249,250,.5);">Lectura % = olas que salieron a 1 celda o menos de tu posición.</span></div>'
-      +gridSVG(false)
-      +'<button id="lgAgain" style="margin-top:14px;width:100%;padding:15px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:11px;cursor:pointer;">Jugar otro heat →</button></div>';
+      +'<div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:18px;padding:14px 16px;font-size:13px;color:rgba(247,249,250,.8);margin-top:12px;">'
+      +'🌊 '+G.waves.length+' olas · picos calientes: <strong style="color:#FFD166;">'+(hot||'—')+'</strong><br>'
+      +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Lectura % = olas que salieron a ≤1 celda de tu posición.</span></div>'
+      +gridSVG()
+      +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Jugar otro heat →</button></div>';
   }
-  function wireResults(){
-    document.getElementById('lgAgain').onclick=function(){ G.screen='setup'; save(); paint(); };
-  }
+  function wireResults(){ document.getElementById('lgAgain').onclick=function(){ G.screen='setup'; save(); paint(); }; }
+
+  // hook de pruebas
+  window.__lg = { get G(){return G;}, resolveWave: resolveWave, place: function(i,c,r){G.players[i].cell={col:c,row:r};save();paint();}, paint: paint };
 })();
 </script>
 </body>
