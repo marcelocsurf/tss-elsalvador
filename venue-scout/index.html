@@ -2902,16 +2902,32 @@ document.head.appendChild(printStyle);
     const root=document.getElementById('lgRoot'); if(!root) return;
     root.style.cssText='width:100%;min-height:100vh;background:#061C2B;color:#F7F9FA;font-family:Archivo,sans-serif;padding:0 0 40px;';
     if(G.screen==='gate'){ root.innerHTML=gateHTML(); wireGate(); return; }
-    if(G.screen==='setup'){ root.innerHTML=setupHTML(); wireSetup(); return; }
-    if(G.screen==='results'){ root.innerHTML=resultsHTML(); wireResults(); return; }
-    root.innerHTML=playHTML(); wirePlay();
+    if(G.screen==='setup'){ root.innerHTML=setupHTML(); wireSetup(); wireHeader(); return; }
+    if(G.screen==='results'){ root.innerHTML=resultsHTML(); wireResults(); wireHeader(); return; }
+    root.innerHTML=playHTML(); wirePlay(); wireHeader();
   }
 
   function headerHTML(sub){
     return '<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:#04141F;border-bottom:2px solid rgba(0,210,255,.3);">'
       +'<img src="tss-wave.png?v=1" style="height:38px;width:auto;">'
-      +'<div><div style="'+F_D+'font-size:17px;">Lineup Game</div>'
-      +'<div style="'+F_M+'font-size:8px;color:#00D2FF;margin-top:2px;">'+(sub||'The Surf Sequence · lee el mar como un tablero')+'</div></div></div>';
+      +'<div style="flex:1;min-width:0;"><div style="'+F_D+'font-size:17px;">Lineup Game</div>'
+      +'<div style="'+F_M+'font-size:8px;color:#00D2FF;margin-top:2px;">'+(sub||'The Surf Sequence · lee el mar como un tablero')+'</div></div>'
+      +(G.screen!=='gate'
+        ? '<button id="lgReset" style="flex:0 0 auto;padding:9px 14px;border-radius:999px;border:1.5px solid rgba(255,209,102,.4);background:none;color:#FFD166;font-size:12px;font-weight:700;cursor:pointer;">↺ Nuevo</button>'
+          +'<button id="lgExit" style="flex:0 0 auto;padding:9px 14px;border-radius:999px;border:1.5px solid rgba(247,249,250,.25);background:none;color:rgba(247,249,250,.7);font-size:12px;font-weight:700;cursor:pointer;">Salir</button>'
+        : '')
+      +'</div>';
+  }
+  function wireHeader(){
+    const rs=document.getElementById('lgReset');
+    if(rs) rs.onclick=function(){
+      if(!confirm('¿Empezar de cero? Se borra el heat y el mapa del spot.')) return;
+      G={ screen:'setup', players:[], caught:[], waves:[], pendingWave:null, placing:null, tool:null,
+          heatMin:G.heatMin, startedAt:null, map:{refs:[],outY:null,inY:null,strokes:[],peaks:[]} };
+      save(); paint();
+    };
+    const ex=document.getElementById('lgExit');
+    if(ex) ex.onclick=function(){ location.href=location.pathname; };
   }
 
   function gateHTML(){
@@ -3116,9 +3132,16 @@ document.head.appendChild(printStyle);
       +'🌊 '+G.waves.length+' olas · celdas calientes: <strong style="color:#FFD166;">'+(hot||'—')+'</strong>'+peakLine+'<br>'
       +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Puntaje = suma de tus 2 mejores olas (regla ISA). Lectura % = olas que salieron a ≤1 celda de tu posición.</span></div>'
       +gridSVG()
-      +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Jugar otro heat →</button></div>';
+      +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Otro heat · mismo spot →</button>'
+      +'<button id="lgFresh" style="margin-top:10px;width:100%;padding:15px;border:1.5px solid rgba(255,209,102,.5);border-radius:999px;background:none;color:#FFD166;'+F_M+'font-size:11px;cursor:pointer;">🗺 Spot nuevo · borrar mapa</button></div>';
   }
-  function wireResults(){ document.getElementById('lgAgain').onclick=function(){ G.screen='setup'; save(); paint(); }; }
+  function wireResults(){
+    document.getElementById('lgAgain').onclick=function(){ G.screen='setup'; save(); paint(); };
+    document.getElementById('lgFresh').onclick=function(){
+      G.map={refs:[],outY:null,inY:null,strokes:[],peaks:[]}; G.waves=[]; G.caught=[]; G.screen='setup'; save(); paint();
+      toastG('🗺 Mapa limpio — spot nuevo');
+    };
+  }
 
   // hook de pruebas
   window.__lg = { get G(){return G;}, resolveWave: resolveWave, place: function(i,c,r){G.players[i].cell={col:c,row:r};save();paint();}, paint: paint };
