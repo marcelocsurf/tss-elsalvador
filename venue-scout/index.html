@@ -2727,8 +2727,9 @@ document.head.appendChild(printStyle);
   const COLORS=['#FF3B30','#F7F9FA','#00D2FF','#FFD166','#06D6A0','#111111'];
   const COLOR_NAMES=['ROJO','BLANCO','AZUL','AMARILLO','VERDE','NEGRO'];
   let G={ screen:'gate', players:[], caught:[], waves:[], pendingWave:null, placing:null, tool:null,
-          heatMin:15, startedAt:null, map:{refs:[],outY:null,inY:null,strokes:[]} };
+          heatMin:15, startedAt:null, map:{refs:[],outY:null,inY:null,strokes:[],peaks:[]} };
   try{ const p=JSON.parse(localStorage.getItem(LSG)||'null'); if(p&&p.players) G=Object.assign(G,p); }catch(e){}
+  if(!G.map.peaks) G.map.peaks=[];
   if(G.screen!=='gate' && localStorage.getItem(LSC)!=='ok') G.screen='gate';
   const save=()=>localStorage.setItem(LSG,JSON.stringify(G));
   const uid=()=>Math.random().toString(36).slice(2,8);
@@ -2769,8 +2770,13 @@ document.head.appendChild(printStyle);
     }
     G.players.forEach(function(p){ if(p.cell&&dist(p.cell,cell)<=1) p.near=(p.near||0)+1; });
     G.waves.push({cell:cell,score:score,winner:winner?winner.id:null,pts:pts});
+    let msg;
+    if(winner){
+      msg='🌊 '+score.toFixed(1)+' → '+winner.name+' ('+(dist(winner.cell,cell)===0?'exacta':'adyacente ½')+') · la ola lo llevó — reubicalo';
+      winner.cell=null; // surfeó: pierde su lugar en el line-up
+    } else msg='🌊 '+score.toFixed(1)+' · nadie en posición';
     save(); paint();
-    toastG(winner? '🌊 '+score.toFixed(1)+' → '+winner.name+' ('+(dist(winner.cell,cell)===0?'pico exacto':'adyacente ½')+')' : '🌊 '+score.toFixed(1)+' · nadie en posición');
+    toastG(msg);
   }
 
   let tTimer=null;
@@ -2851,6 +2857,12 @@ document.head.appendChild(printStyle);
     G.map.refs.forEach(function(rf){
       s+='<text x="'+rf.x+'" y="'+rf.y+'" text-anchor="middle" font-size="22">📍</text>';
       s+='<text x="'+rf.x+'" y="'+(rf.y+18)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#061C2B" font-family="Archivo">'+rf.label.toUpperCase()+'</text>';
+    });
+    // picos con nombre
+    (G.map.peaks||[]).forEach(function(pk){
+      s+='<circle cx="'+pk.x+'" cy="'+pk.y+'" r="24" fill="none" stroke="#FFD166" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>';
+      s+='<text x="'+pk.x+'" y="'+(pk.y+8)+'" text-anchor="middle" font-size="24" font-weight="800" fill="#FFD166" font-family="Archivo">'+pk.letter+'</text>';
+      s+='<text x="'+pk.x+'" y="'+(pk.y+40)+'" text-anchor="middle" font-size="10" fill="rgba(255,209,102,.7)" font-family="IBM Plex Mono" letter-spacing="2">PICO</text>';
     });
     // olas (huella)
     G.waves.slice(-14).forEach(function(w,i,arr){
@@ -2937,9 +2949,15 @@ document.head.appendChild(printStyle);
     const chips=G.players.map(function(p){
       const on=G.placing===p.id;
       const dark=p.color==='#111111';
-      return '<button class="lgChip" data-id="'+p.id+'" style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:999px;border:2.5px solid '+(on?p.color:'rgba(247,249,250,.15)')+';background:'+(on?p.color:'rgba(247,249,250,.05)')+';color:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):'#F7F9FA')+';font-size:14px;font-weight:800;cursor:pointer;">'
-        +'<span style="width:13px;height:13px;border-radius:50%;background:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):p.color)+';"></span>'+p.name+'</button>';
+      const noPos=!p.cell && G.startedAt;
+      return '<button class="lgChip" data-id="'+p.id+'" style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:999px;border:2.5px solid '+(on?p.color:noPos?'#FFD166':'rgba(247,249,250,.15)')+';background:'+(on?p.color:'rgba(247,249,250,.05)')+';color:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):'#F7F9FA')+';font-size:14px;font-weight:800;cursor:pointer;">'
+        +'<span style="width:13px;height:13px;border-radius:50%;background:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):p.color)+';"></span>'+p.name+(noPos?' ⚠':'')+'</button>';
     }).join('');
+    const placingPlayer=G.placing && G.placing!=='WAVE';
+    const peakBtns=(placingPlayer && G.map.peaks.length)
+      ? '<div style="'+F_M+'font-size:9px;color:#FFD166;margin:10px 0 6px;">Ubicar en pico</div><div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        +G.map.peaks.map(function(pk){return '<button class="lgGoPeak" data-l="'+pk.letter+'" style="padding:14px 22px;border-radius:14px;border:2px solid #FFD166;background:rgba(255,209,102,.12);color:#FFD166;font-size:20px;font-weight:800;cursor:pointer;font-family:Archivo;">'+pk.letter+'</button>';}).join('')
+        +'</div>' : '';
     return headerHTML(G.waves.length+' olas anotadas')
       +'<div style="max-width:1160px;margin:0 auto;padding:12px 14px;">'
       +priorityBoardHTML()
@@ -2949,11 +2967,13 @@ document.head.appendChild(printStyle);
       +'<div>'
       +'<div style="'+F_M+'font-size:9px;color:#00D2FF;margin-bottom:6px;">Atletas · tocá y ubicá</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+chips+'</div>'
+      +peakBtns
       +'<div style="'+F_M+'font-size:9px;color:#FFD166;margin:14px 0 6px;">Anotar</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
       +'<button id="lgWave" style="padding:13px 22px;border-radius:999px;border:2.5px solid '+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.45)')+';background:'+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.08)')+';color:'+(G.placing==='WAVE'?'#061C2B':'#FFD166')+';font-weight:800;font-size:16px;cursor:pointer;">🌊 OLA</button></div>'
       +'<div style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);margin:14px 0 6px;">Mapa del spot</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+      +toolBtn('peak','⭐ PICO',G.tool==='peak','#FFD166')
       +toolBtn('ref','📍 REF',G.tool==='ref')
       +toolBtn('out','OUT',G.tool==='out')
       +toolBtn('in','IN',G.tool==='in')
@@ -2974,6 +2994,11 @@ document.head.appendChild(printStyle);
   function wirePlay(){
     document.querySelectorAll('.lgChip').forEach(function(b){ b.onclick=function(){ G.tool=null; G.placing=(G.placing===b.dataset.id?null:b.dataset.id); save(); paint(); }; });
     document.getElementById('lgWave').onclick=function(){ G.tool=null; G.placing=(G.placing==='WAVE'?null:'WAVE'); save(); paint(); };
+    document.querySelectorAll('.lgGoPeak').forEach(function(b){ b.onclick=function(){
+      const pk=G.map.peaks.find(function(k){return k.letter===b.dataset.l;});
+      const pl=G.players.find(function(x){return x.id===G.placing;});
+      if(pk&&pl){ pl.cell={col:pk.col,row:pk.row}; G.placing=null; save(); paint(); toastG(pl.name+' → pico '+pk.letter); }
+    }; });
     document.querySelectorAll('.lgTool').forEach(function(b){ b.onclick=function(){ G.placing=null; G.tool=(G.tool===b.dataset.t?null:b.dataset.t); save(); paint(); }; });
     document.getElementById('lgEnd').onclick=function(){ if(confirm('¿Terminar el heat y ver resultados?')){ G.startedAt=null; G.screen='results'; save(); paint(); } };
     const svg=document.getElementById('lgMap');
@@ -2999,6 +3024,13 @@ document.head.appendChild(printStyle);
         if(drawing.includes(' L ')){ G.map.strokes.push(drawing); save(); paint(); toastG('✏️ Trazo guardado · seguí dibujando o elegí otra cosa'); }
         drawing=null; return;
       }
+      if(G.tool==='peak'){
+        const used=G.map.peaks.map(function(k){return k.letter;});
+        const letter='ABCDEFGH'.split('').find(function(l){return used.indexOf(l)<0;});
+        if(!letter){ toastG('Máximo 8 picos'); return; }
+        G.map.peaks.push({x:p.x,y:p.y,col:p.col,row:p.row,letter:letter});
+        save(); paint(); toastG('⭐ Pico '+letter+' marcado'); return;
+      }
       if(G.tool==='ref'){
         const label=prompt('¿Qué referencia es? (palmera, torre, casa…)','palmera');
         if(label){ G.map.refs.push({x:p.x,y:p.y,label:label.slice(0,12)}); save(); paint(); }
@@ -3009,7 +3041,8 @@ document.head.appendChild(printStyle);
       if(G.tool==='erase'){
         // borrar lo más cercano: ref, trazo, línea
         let done=false;
-        for(let i=G.map.refs.length-1;i>=0;i--){ const rf=G.map.refs[i]; if(Math.hypot(p.x-rf.x,p.y-rf.y)<40){ G.map.refs.splice(i,1); done=true; break; } }
+        for(let i=G.map.peaks.length-1;i>=0;i--){ const pk=G.map.peaks[i]; if(Math.hypot(p.x-pk.x,p.y-pk.y)<40){ G.map.peaks.splice(i,1); done=true; break; } }
+        if(!done) for(let i=G.map.refs.length-1;i>=0;i--){ const rf=G.map.refs[i]; if(Math.hypot(p.x-rf.x,p.y-rf.y)<40){ G.map.refs.splice(i,1); done=true; break; } }
         if(!done && G.map.strokes.length){ G.map.strokes.pop(); done=true; }
         else if(!done && G.map.inY!=null && Math.abs(p.y-G.map.inY)<30){ G.map.inY=null; done=true; }
         else if(!done && G.map.outY!=null && Math.abs(p.y-G.map.outY)<30){ G.map.outY=null; done=true; }
@@ -3042,6 +3075,15 @@ document.head.appendChild(printStyle);
     G.waves.forEach(function(w){ const k=w.cell.col+'-'+w.cell.row; heat[k]=(heat[k]||0)+1; });
     const hot=Object.entries(heat).sort(function(a,b){return b[1]-a[1];}).slice(0,3)
       .map(function(e){ const p=e[0].split('-'); return LETTERS[p[1]-1]+p[0]; }).join(' · ');
+    let peakLine='';
+    if((G.map.peaks||[]).length && G.waves.length){
+      const totPts=G.waves.reduce(function(a,w){return a+w.score;},0)||1;
+      const per=G.map.peaks.map(function(pk){
+        const pts=G.waves.filter(function(w){return Math.max(Math.abs(w.cell.col-pk.col),Math.abs(w.cell.row-pk.row))<=1;}).reduce(function(a,w){return a+w.score;},0);
+        return {l:pk.letter,pts:pts,pct:Math.round(100*pts/totPts)};
+      }).sort(function(a,b){return b.pts-a.pts;});
+      peakLine='<br>⭐ Producción por pico: '+per.map(function(x){return '<strong style="color:#FFD166;">'+x.l+'</strong> '+x.pct+'%';}).join(' · ');
+    }
     return headerHTML('resultados')+'<div style="max-width:560px;margin:0 auto;padding:20px;">'
       +'<div style="'+F_D+'font-size:28px;margin-bottom:16px;">Resultados</div>'
       +board.map(function(p,i){
@@ -3053,7 +3095,7 @@ document.head.appendChild(printStyle);
           +'<span style="text-align:right;"><span style="'+F_D+'font-size:22px;color:#00D2FF;">'+p.score.toFixed(1)+'</span><br><span style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);">lectura '+read+'%</span></span></div>';
       }).join('')
       +'<div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:18px;padding:14px 16px;font-size:13px;color:rgba(247,249,250,.8);margin-top:12px;">'
-      +'🌊 '+G.waves.length+' olas · picos calientes: <strong style="color:#FFD166;">'+(hot||'—')+'</strong><br>'
+      +'🌊 '+G.waves.length+' olas · celdas calientes: <strong style="color:#FFD166;">'+(hot||'—')+'</strong>'+peakLine+'<br>'
       +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Lectura % = olas que salieron a ≤1 celda de tu posición.</span></div>'
       +gridSVG()
       +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Jugar otro heat →</button></div>';
