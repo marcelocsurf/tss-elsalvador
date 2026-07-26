@@ -1225,12 +1225,11 @@ function handleDrawEnd(e){
   if(_drawingPath.includes(' L ')){
     state.map.freehand = state.map.freehand || [];
     state.map.freehand.push({ d: _drawingPath, color: '#ffffff', width: 2.8 });
-    // Volver SOLO al modo de captura de olas — quedarse atrapado en el
-    // lápiz era la queja #1: dibujabas y ya no podías marcar olas.
-    state.activeMode = (state.config.mode === 'free') ? 'ola' : 'mejor';
+    // El lápiz QUEDA activo (podés dibujar todos los trazos que quieras);
+    // la salida es explícita y el aviso te recuerda cómo.
     save();
     render();
-    toast('✏️ Trazo guardado · de vuelta a marcar olas');
+    toast('✏️ Trazo guardado · seguí dibujando o tocá OLA para volver a marcar');
   } else {
     const prev = document.getElementById('drawPreview');
     if(prev) prev.setAttribute('d', '');
