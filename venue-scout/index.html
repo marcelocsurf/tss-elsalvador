@@ -2827,20 +2827,21 @@ document.head.appendChild(printStyle);
       return '<div style="flex:1;min-width:110px;display:flex;align-items:center;gap:8px;background:rgba(247,249,250,'+(i===0?'.1':'.04')+');border:1px solid rgba(247,249,250,'+(i===0?'.3':'.1')+');border-radius:12px;padding:8px 10px;">'
         +'<span style="'+F_D+'font-size:16px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';">'+(i+1)+'°</span>'
         +'<span style="width:12px;height:12px;border-radius:50%;background:'+p.color+';border:1.5px solid rgba(6,28,43,.4);flex:0 0 auto;"></span>'
-        +'<span style="min-width:0;"><span style="display:block;font-size:12px;font-weight:700;color:#F7F9FA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.name+'</span>'
-        +'<span style="display:block;font-size:11px;color:rgba(247,249,250,.55);font-family:IBM Plex Mono;">'+p.score.toFixed(1)+(need?' · '+need:' · líder')+'</span></span></div>';
+        +'<span style="min-width:0;flex:1;"><span style="display:block;font-size:12px;font-weight:700;color:#F7F9FA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.name+'</span>'
+        +'<span style="display:block;font-size:10px;color:rgba(247,249,250,.5);font-family:IBM Plex Mono;">'+(need?need:'líder')+'</span></span>'
+        +'<span style="'+F_D+'font-size:24px;color:#00D2FF;flex:0 0 auto;">'+p.score.toFixed(1)+'</span></div>';
     }).join('')+'</div>';
   }
 
   function gridSVG(){
     const W=600,H=640,cw=W/COLS,ch=H/ROWS;
     let s='<svg id="lgMap" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;background:linear-gradient(#07354F,#0E5A7A 84%,#233427 84.5%);border-radius:16px;touch-action:none;">';
-    s+='<g stroke="rgba(0,210,255,0.12)" stroke-width="0.7">';
+    s+='<g stroke="rgba(0,210,255,0.07)" stroke-width="0.7">';
     for(let r=1;r<ROWS;r++) s+='<line x1="0" y1="'+(r*ch)+'" x2="'+W+'" y2="'+(r*ch)+'"/>';
     for(let c=1;c<COLS;c++) s+='<line x1="'+(c*cw)+'" y1="0" x2="'+(c*cw)+'" y2="'+H+'"/>';
     s+='</g>';
-    for(let r=1;r<=ROWS;r++) s+='<text x="10" y="'+((r-0.5)*ch+5)+'" font-size="13" font-weight="700" fill="rgba(0,210,255,.75)" font-family="IBM Plex Mono">'+LETTERS[r-1]+'</text>';
-    for(let c=1;c<=COLS;c++) s+='<text x="'+((c-0.5)*cw)+'" y="'+(H-8)+'" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,209,102,.85)" font-family="IBM Plex Mono">'+c+'</text>';
+    for(let r=1;r<=ROWS;r++) s+='<text x="10" y="'+((r-0.5)*ch+5)+'" font-size="12" font-weight="700" fill="rgba(0,210,255,.45)" font-family="IBM Plex Mono">'+LETTERS[r-1]+'</text>';
+    for(let c=1;c<=COLS;c++) s+='<text x="'+((c-0.5)*cw)+'" y="'+(H-8)+'" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(255,209,102,.5)" font-family="IBM Plex Mono">'+c+'</text>';
     // líneas out/in
     if(G.map.outY!=null){ s+='<line x1="0" y1="'+G.map.outY+'" x2="'+W+'" y2="'+G.map.outY+'" stroke="#00D2FF" stroke-width="2.5" stroke-dasharray="10 6"/><text x="16" y="'+(G.map.outY-8)+'" font-size="12" fill="#00D2FF" font-family="IBM Plex Mono" letter-spacing="2">OUTSIDE</text>'; }
     if(G.map.inY!=null){ s+='<line x1="0" y1="'+G.map.inY+'" x2="'+W+'" y2="'+G.map.inY+'" stroke="#7FE3FF" stroke-width="2" stroke-dasharray="5 6"/><text x="16" y="'+(G.map.inY+16)+'" font-size="12" fill="#7FE3FF" font-family="IBM Plex Mono" letter-spacing="2">INSIDE</text>'; }
@@ -2854,8 +2855,8 @@ document.head.appendChild(printStyle);
     // olas (huella)
     G.waves.slice(-14).forEach(function(w,i,arr){
       const cx=(w.cell.col-0.5)*cw, cy=(w.cell.row-0.5)*ch, last=i===arr.length-1;
-      s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(last?17:9)+'" fill="rgba(255,209,102,'+(last?'.6':'.22')+')"/>';
-      if(last) s+='<text x="'+cx+'" y="'+(cy+5)+'" text-anchor="middle" font-size="13" font-weight="800" fill="#061C2B">'+w.score.toFixed(1)+'</text>';
+      s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(last?21:9)+'" fill="rgba(255,209,102,'+(last?'.7':'.22')+')"/>';
+      if(last) s+='<text x="'+cx+'" y="'+(cy+6)+'" text-anchor="middle" font-size="16" font-weight="800" fill="#061C2B">'+w.score.toFixed(1)+'</text>';
     });
     // fichas — grandes para iPad
     G.players.forEach(function(p){
@@ -2985,11 +2986,13 @@ document.head.appendChild(printStyle);
     };
     let drawing=null;
     svg.addEventListener('pointerdown',function(e){
-      if(G.tool==='pen'){ const p=pt(e); drawing='M'+p.x.toFixed(1)+' '+p.y.toFixed(1); svg.setPointerCapture(e.pointerId); e.preventDefault(); }
+      if(G.tool==='pen'){ const p=pt(e); drawing='M'+p.x.toFixed(1)+' '+p.y.toFixed(1); try{svg.setPointerCapture(e.pointerId);}catch(err){} e.preventDefault(); }
     });
     svg.addEventListener('pointermove',function(e){
-      if(drawing){ const p=pt(e); drawing+=' L '+p.x.toFixed(1)+' '+p.y.toFixed(1); }
+      if(drawing){ const p=pt(e); drawing+=' L '+p.x.toFixed(1)+' '+p.y.toFixed(1); e.preventDefault(); }
     });
+    // iPad/Safari: sin esto, el gesto de dibujo scrollea la página
+    svg.addEventListener('touchmove',function(e){ if(drawing || G.tool==='pen') e.preventDefault(); },{passive:false});
     svg.addEventListener('pointerup',function(e){
       const p=pt(e);
       if(drawing){
