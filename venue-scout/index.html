@@ -1665,16 +1665,24 @@ function setInsight(){
       counts[bi+1]=(counts[bi+1]||0)+1;
     });
     const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
-    if(top && top[1] >= 2) best = { pos:+top[0], n:top[1], total:scored.length };
+    // Patrón real = la misma posición gana en la MAYORÍA de los sets
+    // observados (no solo 2 de 5). Menos que eso = ruido, no señal.
+    if(top && top[1] >= 2 && top[1] / scored.length > 0.5) best = { pos:+top[0], n:top[1], total:scored.length };
   }
   return { count: sets.length, typical, best };
 }
 function ordinal(n){ return n===1?'1ª':n===2?'2ª':n===3?'3ª':n+'ª'; }
+// Consejo táctico según QUÉ posición del set rinde más — nunca contradictorio.
+function setAdvice(pos){
+  if(pos === 1) return 'entrá a la PRIMERA del set — no la dejes pasar';
+  if(pos === 2) return 'dejá pasar la primera y tomá la segunda';
+  return 'dejá pasar las primeras y esperá la ' + ordinal(pos);
+}
 function renderSetInsightChip(){
   const si = setInsight();
   if(!si || si.count < 1) return '';
   let txt = `🌀 ${si.count} set${si.count===1?'':'s'} detectado${si.count===1?'':'s'} · ~${si.typical} olas por set`;
-  if(si.best) txt += ` · la ${ordinal(si.best.pos)} suele ser la mejor (${si.best.n} de ${si.best.total} sets)`;
+  if(si.best) txt += ` · la ${ordinal(si.best.pos)} suele ser la mejor (${si.best.n} de ${si.best.total} sets) → ${setAdvice(si.best.pos)}`;
   return `<div style="margin-top:8px;padding:9px 12px;background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:12px;font-size:11px;color:var(--text-soft);">${txt}</div>`;
 }
 
@@ -2346,14 +2354,19 @@ function renderZoneRanking(zones, cl){
     </div>`;
   }).join('');
   return `<section class="section">
-    ${(()=>{ const si=setInsight(); if(!si||si.count<1) return ''; return `
-    <div class="section" style="margin-bottom:14px;">
-      <div class="section-t">Comportamiento de sets</div>
-      <div style="font-size:13px;color:var(--text-soft);line-height:1.6;">
-        🌀 ${si.count} set${si.count===1?'':'s'} · tamaño típico ~${si.typical} olas
-        ${si.best ? `<br><strong style="color:var(--gold-text);">La ${ordinal(si.best.pos)} ola del set suele traer el mejor score</strong> (visto en ${si.best.n} de ${si.best.total} sets) — dejá pasar las primeras.` : `<br><span style="color:var(--grey);">Aún sin patrón repetido de qué ola del set rinde más.</span>`}
-      </div>
-    </div>`; })()}
+    ${(()=>{ const si=setInsight(); if(!si||si.count<1) return '';
+      var inner = '';
+      if(si.best){
+        inner = '<br><strong style="color:var(--gold-text);">La ' + ordinal(si.best.pos) + ' ola del set suele traer el mejor score</strong> (' + si.best.n + ' de ' + si.best.total + ' sets) — ' + setAdvice(si.best.pos) + '.';
+      } else {
+        inner = '<br><span style="color:var(--grey);">Aún sin patrón claro de qué ola del set rinde más — el consejo aparece cuando una posición gana en la mayoría de los sets.</span>';
+      }
+      return '<div class="section" style="margin-bottom:14px;">' +
+        '<div class="section-t">Comportamiento de sets</div>' +
+        '<div style="font-size:13px;color:var(--text-soft);line-height:1.6;">' +
+        '🌀 ' + si.count + ' set' + (si.count===1?'':'s') + ' · tamaño típico ~' + si.typical + ' olas' + inner +
+        '</div></div>';
+    })()}
     <div class="section-h"><div class="section-t">Dónde salen los puntos hoy</div></div>
     ${rows}
   </section>`;
