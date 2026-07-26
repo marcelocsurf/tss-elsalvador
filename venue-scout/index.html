@@ -2758,6 +2758,11 @@ document.head.appendChild(printStyle);
     const best=pts.slice(0,2);
     return { n:pts.length, best:best, total:Math.round(best.reduce(function(a,x){return a+x;},0)*10)/10 };
   }
+  // Score de UNA ola que necesita para superar targetTotal (la nueva reemplaza su peor contada)
+  function needWave(S,targetTotal){
+    const keep=S.best.length?S.best[0]:0; // su mejor ola queda; la nueva reemplaza la 2da
+    return Math.max(0, Math.round((targetTotal+0.1-keep)*10)/10);
+  }
 
   function resolveWave(cell,score){
     const cands=G.players.filter(p=>p.cell&&dist(p.cell,cell)<=1);
@@ -2838,7 +2843,9 @@ document.head.appendChild(printStyle);
     return '<div style="display:flex;gap:6px;margin-top:8px;overflow-x:auto;">'+board.map(function(p,i){
       const S=st[p.id];
       const detail=(S.best.length? S.best.map(function(x){return x.toFixed(1);}).join(' + ') : '—')+' · '+S.n+(S.n===1?' ola':' olas');
-      const need = i===0 ? detail : 'necesita '+Math.max(0,Math.round((lead-S.total+0.1)*10)/10).toFixed(1)+' · '+detail;
+      let need=detail;
+      if(i===1) need='ola de '+needWave(S,lead).toFixed(1)+' → 1° · '+detail;
+      else if(i>1){ const t2=st[board[1].id].total; need='ola de '+needWave(S,t2).toFixed(1)+' → 2° · '+detail; }
       return '<div style="flex:1;min-width:110px;display:flex;align-items:center;gap:8px;background:rgba(247,249,250,'+(i===0?'.1':'.04')+');border:1px solid rgba(247,249,250,'+(i===0?'.3':'.1')+');border-radius:12px;padding:8px 10px;">'
         +'<span style="'+F_D+'font-size:16px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';">'+(i+1)+'°</span>'
         +'<span style="width:12px;height:12px;border-radius:50%;background:'+p.color+';border:1.5px solid rgba(6,28,43,.4);flex:0 0 auto;"></span>'
