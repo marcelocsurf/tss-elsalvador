@@ -2752,6 +2752,12 @@ document.head.appendChild(printStyle);
     });
   }
   const dist=(a,b)=>Math.max(Math.abs(a.col-b.col),Math.abs(a.row-b.row));
+  // Regla ISA: cuentan las 2 mejores olas
+  function pStats(pid){
+    const pts=G.waves.filter(function(w){return w.winner===pid;}).map(function(w){return w.pts;}).sort(function(a,b){return b-a;});
+    const best=pts.slice(0,2);
+    return { n:pts.length, best:best, total:Math.round(best.reduce(function(a,x){return a+x;},0)*10)/10 };
+  }
 
   function resolveWave(cell,score){
     const cands=G.players.filter(p=>p.cell&&dist(p.cell,cell)<=1);
@@ -2826,16 +2832,19 @@ document.head.appendChild(printStyle);
 
   /* ── RANKING LIVE · estilo live results ── */
   function liveRankHTML(){
-    const board=G.players.slice().sort(function(a,b){return b.score-a.score;});
-    const lead=board[0]?board[0].score:0;
+    const st={}; G.players.forEach(function(p){ st[p.id]=pStats(p.id); });
+    const board=G.players.slice().sort(function(a,b){return st[b.id].total-st[a.id].total;});
+    const lead=board[0]?st[board[0].id].total:0;
     return '<div style="display:flex;gap:6px;margin-top:8px;overflow-x:auto;">'+board.map(function(p,i){
-      const need = i===0 ? '' : 'necesita '+Math.max(0,Math.round((lead-p.score+0.1)*10)/10).toFixed(1);
+      const S=st[p.id];
+      const detail=(S.best.length? S.best.map(function(x){return x.toFixed(1);}).join(' + ') : '—')+' · '+S.n+(S.n===1?' ola':' olas');
+      const need = i===0 ? detail : 'necesita '+Math.max(0,Math.round((lead-S.total+0.1)*10)/10).toFixed(1)+' · '+detail;
       return '<div style="flex:1;min-width:110px;display:flex;align-items:center;gap:8px;background:rgba(247,249,250,'+(i===0?'.1':'.04')+');border:1px solid rgba(247,249,250,'+(i===0?'.3':'.1')+');border-radius:12px;padding:8px 10px;">'
         +'<span style="'+F_D+'font-size:16px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';">'+(i+1)+'°</span>'
         +'<span style="width:12px;height:12px;border-radius:50%;background:'+p.color+';border:1.5px solid rgba(6,28,43,.4);flex:0 0 auto;"></span>'
         +'<span style="min-width:0;flex:1;"><span style="display:block;font-size:12px;font-weight:700;color:#F7F9FA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.name+'</span>'
         +'<span style="display:block;font-size:10px;color:rgba(247,249,250,.5);font-family:IBM Plex Mono;">'+(need?need:'líder')+'</span></span>'
-        +'<span style="'+F_D+'font-size:24px;color:#00D2FF;flex:0 0 auto;">'+p.score.toFixed(1)+'</span></div>';
+        +'<span style="'+F_D+'font-size:24px;color:#00D2FF;flex:0 0 auto;">'+S.total.toFixed(1)+'</span></div>';
     }).join('')+'</div>';
   }
 
@@ -3069,7 +3078,8 @@ document.head.appendChild(printStyle);
   }
 
   function resultsHTML(){
-    const board=G.players.slice().sort(function(a,b){return b.score-a.score;});
+    const stR={}; G.players.forEach(function(p){ stR[p.id]=pStats(p.id); });
+    const board=G.players.slice().sort(function(a,b){return stR[b.id].total-stR[a.id].total;});
     const total=G.waves.length||1;
     let heat={};
     G.waves.forEach(function(w){ const k=w.cell.col+'-'+w.cell.row; heat[k]=(heat[k]||0)+1; });
@@ -3088,15 +3098,16 @@ document.head.appendChild(printStyle);
       +'<div style="'+F_D+'font-size:28px;margin-bottom:16px;">Resultados</div>'
       +board.map(function(p,i){
         const read=Math.round(100*(p.near||0)/total);
+        const S=stR[p.id];
         return '<div style="display:flex;align-items:center;gap:12px;background:rgba(247,249,250,.05);border:1.5px solid '+(i===0?'#FFD166':'rgba(247,249,250,.1)')+';border-radius:18px;padding:14px 16px;margin-bottom:10px;">'
           +'<span style="'+F_D+'font-size:22px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';width:34px;">'+(i+1)+'°</span>'
           +'<span style="width:18px;height:18px;border-radius:50%;background:'+p.color+';border:2px solid rgba(6,28,43,.4);"></span>'
           +'<span style="flex:1;font-weight:800;font-size:16px;">'+p.name+'</span>'
-          +'<span style="text-align:right;"><span style="'+F_D+'font-size:22px;color:#00D2FF;">'+p.score.toFixed(1)+'</span><br><span style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);">lectura '+read+'%</span></span></div>';
+          +'<span style="text-align:right;"><span style="'+F_D+'font-size:22px;color:#00D2FF;">'+S.total.toFixed(1)+'</span><br><span style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);">'+(S.best.length?S.best.map(function(x){return x.toFixed(1);}).join(' + ')+' · ':'')+S.n+(S.n===1?' ola':' olas')+' · lectura '+read+'%</span></span></div>';
       }).join('')
       +'<div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:18px;padding:14px 16px;font-size:13px;color:rgba(247,249,250,.8);margin-top:12px;">'
       +'🌊 '+G.waves.length+' olas · celdas calientes: <strong style="color:#FFD166;">'+(hot||'—')+'</strong>'+peakLine+'<br>'
-      +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Lectura % = olas que salieron a ≤1 celda de tu posición.</span></div>'
+      +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Puntaje = suma de tus 2 mejores olas (regla ISA). Lectura % = olas que salieron a ≤1 celda de tu posición.</span></div>'
       +gridSVG()
       +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Jugar otro heat →</button></div>';
   }
