@@ -2147,21 +2147,64 @@ function moveCostMin(a, b){
    el ritmo medido; cada ola agarrada consume WAVE_COST_MIN del reloj;
    los scores se sortean de los que el coach anotó en esa zona (bootstrap).
    El puntaje del heat = suma de las 2 mejores olas del trial. */
-function simulateStrategy(stints, target, trials){
+// Benchmarks mundiales (ISA WSG 2023+2024+2025 · ~900 heats · 3,077 resultados)
+const WSG = { avanzar: 9.6, ganar: 11.9, dominar: 13.5 };
+function wsgContext(pts){
+  return pts >= WSG.dominar ? 'nivel dominante mundial'
+    : pts >= WSG.ganar ? 'sobre la mediana de GANADORES de mundial'
+    : pts >= WSG.avanzar ? 'sobre la mediana de AVANCE de mundial'
+    : 'bajo la línea de avance mundial (9.6)';
+}
+
+/* ── POLÍTICAS DE OLA (M154) ──
+   La decisión táctica real: qué ola tomás y cuál dejás pasar. Simuladas
+   SOLO con datos medidos (tus scores + ritmo). Sin rivales inventados.
+   · oport  — surfeá todo (referencia)
+   · seguro — asegurá 2 scores rápido, después solo ≥ mediana de la zona
+   · select — solo el tercio superior; si quedan <6 min y tenés <2 olas,
+              agarrá lo que venga (cláusula anti-cero) */
+const POLICIES = [
+  { id:'seguro', name:'ASEGURAR', desc:'2 olas rápido · después solo las buenas' },
+  { id:'select', name:'SELECTIVO', desc:'solo el tercio superior de lo que viste' },
+  { id:'oport',  name:'OPORTUNISTA', desc:'surfeá todo lo surfeable' },
+];
+function zoneThresholds(z){
+  const sorted = z.scores.slice().sort((a,b)=>a-b);
+  return {
+    med: sorted[(sorted.length/2)|0] ?? 0,
+    top: sorted[((sorted.length*2)/3)|0] ?? 0,
+  };
+}
+
+function simulateStrategy(stints, target, trials, policy){
+  policy = policy || 'oport';
   let sum = 0, hit = 0;
   const totals = new Array(trials);
+  const totalMin = stints.reduce((a,st)=>a+Math.max(0,st.minutes),0);
   for(let t=0; t<trials; t++){
     const caught = [];
+    let elapsed = 0;
     for(const st of stints){
       if(st.minutes <= 0 || !st.zone.ratePerMin) continue;
       const z = st.zone;
+      const th = zoneThresholds(z);
       let clock = 0;
       while(true){
         clock += -Math.log(1-Math.random())/z.ratePerMin;   // llegada exponencial
         if(clock > st.minutes) break;
-        caught.push(z.scores[(Math.random()*z.scores.length)|0]);
-        clock += WAVE_COST_MIN;
+        const sScore = z.scores[(Math.random()*z.scores.length)|0]; // "leés" la ola
+        const minLeft = totalMin - (elapsed + clock);
+        let ride;
+        if(policy === 'select'){
+          ride = sScore >= th.top || (minLeft < 6 && caught.length < 2); // anti-cero
+        } else if(policy === 'seguro'){
+          ride = caught.length < 2 || sScore >= th.med;
+        } else {
+          ride = true;
+        }
+        if(ride){ caught.push(sScore); clock += WAVE_COST_MIN; }
       }
+      elapsed += st.minutes;
     }
     caught.sort((a,b)=>b-a);
     const tot = (caught[0]||0) + (caught[1]||0);
@@ -2181,12 +2224,6 @@ function simulateStrategy(stints, target, trials){
 function buildTacticalPlan(zones){
   const T = state.closing.heatDurationMin || 20;
   const target = state.closing.heatObjective || 0;
-  // Benchmarks mundiales (ISA WSG 2023+2024+2025 · ~900 heats · 3,077 resultados)
-  const WSG = { avanzar: 9.6, ganar: 11.9, dominar: 13.5 };
-  const wsgContext = (pts) => pts >= WSG.dominar ? 'nivel dominante mundial'
-    : pts >= WSG.ganar ? 'sobre la mediana de GANADORES de mundial'
-    : pts >= WSG.avanzar ? 'sobre la mediana de AVANCE de mundial'
-    : 'bajo la línea de avance mundial (9.6)';
   const usable = zones.filter(z => z.n >= 2).slice(0, 4);
   if(!usable.length) return null;
   const strategies = [];
@@ -2206,10 +2243,25 @@ function buildTacticalPlan(zones){
       strategies.push({ type:'split', zones:[A,B], t1, mv, stints:[{zone:A, minutes:t1},{zone:B, minutes:t2}] });
     });
   }
-  strategies.forEach(s => { s.sim = simulateStrategy(s.stints, target, MC_TRIALS); });
+  // Cada estrategia de zona compite con las 3 políticas de ola (M154).
+  const candidates = [];
+  strategies.forEach(s => {
+    POLICIES.forEach(pol => {
+      const sim = simulateStrategy(s.stints, target, MC_TRIALS, pol.id);
+      candidates.push({ ...s, policy: pol, sim });
+    });
+    // ranking de zonas sigue usando la política de referencia (oport)
+    s.sim = candidates.filter(c => c.stints === s.stints && c.policy.id === 'oport')[0]?.sim
+          ?? simulateStrategy(s.stints, target, MC_TRIALS, 'oport');
+    s._stay && (s._stay.sim = s.sim);
+  });
+  strategies.length = 0;
+  candidates.forEach(c => strategies.push(c));
   strategies.sort((a,b) => b.sim.expected - a.sim.expected);
   const best = strategies[0];
-  const alt = strategies.find(s => s !== best && (s.zones[0] !== best.zones[0] || s.type !== best.type)) || null;
+  const alt = strategies.find(s => s !== best && (s.zones[0] !== best.zones[0] || s.type !== best.type))
+    || strategies.find(s => s !== best && s.policy && best.policy && s.policy.id !== best.policy.id)
+    || null;
   const totalWaves = usable.reduce((s,z)=>s+z.n, 0);
   return { T, target, best, alt, usable, lowConfidence: totalWaves < 10 };
 }
@@ -2311,21 +2363,36 @@ function renderTacticalPlanCard(plan){
     steps.push(`Si a los <strong>${b.t1} min</strong> no agarraste ola de <strong>${sStar}+</strong> → movete a <strong style="color:var(--cyan);">${B2.label}</strong>${refStr(B2)} (~${b.mv} min de remada).`);
     steps.push(`Cerrá el heat en ${B2.label}: ahí sale una cada <strong>${fmtMMSS(B2.meanIntervalMs)}</strong>.`);
   }
+  // M154 — la política de ola ganadora, como paso táctico concreto
+  if(b.policy){
+    const zn = b.zones[0];
+    const th = zoneThresholds(zn);
+    if(b.policy.id === 'seguro'){
+      steps.push(`<strong style="color:var(--foam);">ASEGURÁ</strong>: tomá tus 2 primeras olas decentes sin dudar · con el baseline en el bolsillo, soltá todo lo menor a <strong>${th.med.toFixed(1)}</strong> y mejorá.`);
+    } else if(b.policy.id === 'select'){
+      steps.push(`<strong style="color:var(--gold-text);">SÉ SELECTIVO</strong>: dejá pasar todo lo menor a <strong>${th.top.toFixed(1)}</strong> — solo el tercio superior · excepción: si a falta de 6 min tenés menos de 2 olas, agarrá lo que venga.`);
+    } else {
+      steps.push(`<strong style="color:var(--cyan);">VOLUMEN</strong>: hoy paga surfear todo lo surfeable — el ritmo de la zona compensa los scores medios.`);
+    }
+  }
   const probLine = prob===null ? '' :
     `<div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
       <span style="font-size:12px;color:var(--text-soft);">Probabilidad de llegar a ${target}:</span>
       <span style="font-size:20px;font-weight:800;color:${statusColor};font-family:'IBM Plex Mono',monospace;">${Math.round(prob*100)}%</span>
     </div>`;
+  const priorityCaveat = (b.policy && b.policy.id === 'select')
+    ? `<div style="margin-top:8px;font-size:11px;color:var(--amber);line-height:1.5;">⚠ En heats de 3-4, las bombas se pelean con prioridad. Sin prioridad, tu plan B es ASEGURAR — no esperes lo que otro se va a llevar.</div>`
+    : '';
   const altLine = plan.alt ? (() => {
     const a = plan.alt;
-    const desc = a.type==='stay'
+    const desc = (a.type==='stay'
       ? `quedate en ${a.zones[0].label} todo el heat`
-      : `${a.zones[0].label} → ${a.zones[1].label} al min ${a.t1}`;
+      : `${a.zones[0].label} → ${a.zones[1].label} al min ${a.t1}`) + (a.policy ? ` · ${a.policy.name}` : '');
     return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-soft);">Plan B: ${desc} · esperado <strong style="color:var(--text);">${a.sim.expected.toFixed(1)} pts</strong>${a.sim.probTarget!==null?` · ${Math.round(a.sim.probTarget*100)}%`:''}</div>`;
   })() : '';
   return `<section class="section" style="background:linear-gradient(135deg,rgba(0,210,255,.08),rgba(0,210,255,.02));border:1.5px solid ${statusColor};">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:${statusColor};">Plan para tu heat · ${plan.T} min</div>
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:${statusColor};">Plan para tu heat · ${plan.T} min${b.policy ? ' · ' + b.policy.name : ''}</div>
       <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.06);font-family:'IBM Plex Mono',monospace;">${b.sim.expected.toFixed(1)} pts esperados</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;">
@@ -2337,9 +2404,10 @@ function renderTacticalPlanCard(plan){
     ${probLine}
     <div style="margin-top:8px;font-size:11px;color:var(--text-soft);font-family:'IBM Plex Mono',monospace;">Rango típico: ${b.sim.p25.toFixed(1)} – ${b.sim.p75.toFixed(1)} pts · heat simulado ${MC_TRIALS.toLocaleString()} veces por estrategia</div>
     <div style="margin-top:6px;font-size:11px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;">Contexto mundial: ${b.sim.expected.toFixed(1)} pts = ${wsgContext(b.sim.expected)} · avance 9.6 · ganador 11.9 (WSG 23-25)</div>
+    ${priorityCaveat}
     ${altLine}
     ${plan.lowConfidence ? `<div style="margin-top:8px;font-size:11px;color:var(--amber);font-style:italic;">Confianza baja · menos de 10 olas observadas — el plan mejora con más datos</div>` : ''}
-    <div style="margin-top:8px;font-size:10px;color:var(--grey);line-height:1.4;">Supuestos: cada ola surfeada consume ~${WAVE_COST_MIN} min · remada ~${MOVE_MIN_PER_CELL} min/celda · no modela prioridad de rivales.</div>
+    <div style="margin-top:8px;font-size:10px;color:var(--grey);line-height:1.4;">Supuestos: cada ola surfeada consume ~${WAVE_COST_MIN} min · remada ~${MOVE_MIN_PER_CELL} min/celda · no modela prioridad de rivales · políticas de ola simuladas solo con tus scores anotados.</div>
   </section>`;
 }
 
