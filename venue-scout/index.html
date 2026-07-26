@@ -1225,8 +1225,12 @@ function handleDrawEnd(e){
   if(_drawingPath.includes(' L ')){
     state.map.freehand = state.map.freehand || [];
     state.map.freehand.push({ d: _drawingPath, color: '#ffffff', width: 2.8 });
+    // Volver SOLO al modo de captura de olas — quedarse atrapado en el
+    // lápiz era la queja #1: dibujabas y ya no podías marcar olas.
+    state.activeMode = (state.config.mode === 'free') ? 'ola' : 'mejor';
     save();
     render();
+    toast('✏️ Trazo guardado · de vuelta a marcar olas');
   } else {
     const prev = document.getElementById('drawPreview');
     if(prev) prev.setAttribute('d', '');
@@ -2178,6 +2182,12 @@ function simulateStrategy(stints, target, trials){
 function buildTacticalPlan(zones){
   const T = state.closing.heatDurationMin || 20;
   const target = state.closing.heatObjective || 0;
+  // Benchmarks mundiales (ISA WSG 2023+2024+2025 · ~900 heats · 3,077 resultados)
+  const WSG = { avanzar: 9.6, ganar: 11.9, dominar: 13.5 };
+  const wsgContext = (pts) => pts >= WSG.dominar ? 'nivel dominante mundial'
+    : pts >= WSG.ganar ? 'sobre la mediana de GANADORES de mundial'
+    : pts >= WSG.avanzar ? 'sobre la mediana de AVANCE de mundial'
+    : 'bajo la línea de avance mundial (9.6)';
   const usable = zones.filter(z => z.n >= 2).slice(0, 4);
   if(!usable.length) return null;
   const strategies = [];
@@ -2235,6 +2245,14 @@ function renderReport(){
       <div style="display:grid;grid-template-columns:1fr 70px;gap:10px;align-items:center;">
         <div class="label" style="margin:0;">Puntaje objetivo (total a batir)</div>
         <input type="number" class="inp" value="${cl.heatObjective}" min="0" max="20" step="0.5" oninput="state.closing.heatObjective=parseFloat(this.value)||0;save();" onchange="render();" style="text-align:center;font-weight:700;color:var(--text);">
+      </div>
+      <div class="chips" style="margin-top:8px;">
+        <span class="chip ${cl.heatObjective===9.6?'':'off'}" onclick="state.closing.heatObjective=9.6;save();render();">AVANZAR · 9.6</span>
+        <span class="chip ${cl.heatObjective===11.9?'':'off'}" onclick="state.closing.heatObjective=11.9;save();render();">GANAR · 11.9</span>
+        <span class="chip ${cl.heatObjective===13.5?'':'off'}" onclick="state.closing.heatObjective=13.5;save();render();">DOMINAR · 13.5</span>
+      </div>
+      <div style="font-size:10px;color:var(--grey);margin-top:6px;line-height:1.5;">
+        Referencia real: 900+ heats · Mundiales ISA 2023-25 (medianas de 2º puesto, ganador y p75 de ganadores). Cada spot y cada día son distintos — ajustá con lo que veas HOY. Dato: alguien quedó eliminado con 14.96.
       </div>
       <div style="margin-top:10px;">
         <div class="label" style="margin-bottom:6px;">Duración del heat</div>
@@ -2319,6 +2337,7 @@ function renderTacticalPlanCard(plan){
     </div>
     ${probLine}
     <div style="margin-top:8px;font-size:11px;color:var(--text-soft);font-family:'IBM Plex Mono',monospace;">Rango típico: ${b.sim.p25.toFixed(1)} – ${b.sim.p75.toFixed(1)} pts · heat simulado ${MC_TRIALS.toLocaleString()} veces por estrategia</div>
+    <div style="margin-top:6px;font-size:11px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;">Contexto mundial: ${b.sim.expected.toFixed(1)} pts = ${wsgContext(b.sim.expected)} · avance 9.6 · ganador 11.9 (WSG 23-25)</div>
     ${altLine}
     ${plan.lowConfidence ? `<div style="margin-top:8px;font-size:11px;color:var(--amber);font-style:italic;">Confianza baja · menos de 10 olas observadas — el plan mejora con más datos</div>` : ''}
     <div style="margin-top:8px;font-size:10px;color:var(--grey);line-height:1.4;">Supuestos: cada ola surfeada consume ~${WAVE_COST_MIN} min · remada ~${MOVE_MIN_PER_CELL} min/celda · no modela prioridad de rivales.</div>
