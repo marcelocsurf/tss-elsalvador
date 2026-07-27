@@ -2147,13 +2147,22 @@ function moveCostMin(a, b){
    el ritmo medido; cada ola agarrada consume WAVE_COST_MIN del reloj;
    los scores se sortean de los que el coach anotó en esa zona (bootstrap).
    El puntaje del heat = suma de las 2 mejores olas del trial. */
-// Benchmarks mundiales (ISA WSG 2023+2024+2025 · ~900 heats · 3,077 resultados)
-const WSG = { avanzar: 9.6, ganar: 11.9, dominar: 13.5 };
+// Benchmarks por etapa — 53,936 olas reales, 20 eventos ISA/PASA/ALAS/Panam
+// 2018-2026 (surfscores.com, medianas de ganador y 2º puesto por ronda).
+const STAGE_BENCH = {
+  early: { label:'RONDA TEMPRANA', avanza:8.4,  gana:11.6 },
+  mid:   { label:'RONDA MEDIA',    avanza:10.4, gana:12.0 },
+  late:  { label:'DEFINICIÓN',     avanza:12.5, gana:14.0 },
+};
+function heatStage(){
+  try{ if(state.closing && STAGE_BENCH[state.closing.heatStage]) return state.closing.heatStage; }catch(e){}
+  return 'early';
+}
 function wsgContext(pts){
-  return pts >= WSG.dominar ? 'nivel dominante mundial'
-    : pts >= WSG.ganar ? 'sobre la mediana de GANADORES de mundial'
-    : pts >= WSG.avanzar ? 'sobre la mediana de AVANCE de mundial'
-    : 'bajo la línea de avance mundial (9.6)';
+  const b = STAGE_BENCH[heatStage()];
+  return pts >= b.gana ? 'arriba del ganador mediano de tu etapa'
+    : pts >= b.avanza ? 'arriba de la línea de avance de tu etapa'
+    : 'bajo la línea de avance de tu etapa ('+b.avanza.toFixed(1)+')';
 }
 
 /* ── POLÍTICAS DE OLA (M154) ──
@@ -2297,13 +2306,16 @@ function renderReport(){
         <div class="label" style="margin:0;">Puntaje objetivo (total a batir)</div>
         <input type="number" class="inp" value="${cl.heatObjective}" min="0" max="20" step="0.5" oninput="state.closing.heatObjective=parseFloat(this.value)||0;save();" onchange="render();" style="text-align:center;font-weight:700;color:var(--text);">
       </div>
+      <div class="label" style="margin-top:10px;margin-bottom:4px;">¿En qué etapa estás?</div>
+      <div class="chips">
+        ${Object.keys(STAGE_BENCH).map(k=>`<span class="chip ${heatStage()===k?'':'off'}" onclick="state.closing.heatStage='${k}';save();render();">${STAGE_BENCH[k].label}</span>`).join('')}
+      </div>
       <div class="chips" style="margin-top:8px;">
-        <span class="chip ${cl.heatObjective===9.6?'':'off'}" onclick="state.closing.heatObjective=9.6;save();render();">AVANZAR · 9.6</span>
-        <span class="chip ${cl.heatObjective===11.9?'':'off'}" onclick="state.closing.heatObjective=11.9;save();render();">GANAR · 11.9</span>
-        <span class="chip ${cl.heatObjective===13.5?'':'off'}" onclick="state.closing.heatObjective=13.5;save();render();">DOMINAR · 13.5</span>
+        <span class="chip ${cl.heatObjective===STAGE_BENCH[heatStage()].avanza?'':'off'}" onclick="state.closing.heatObjective=${STAGE_BENCH[heatStage()].avanza};save();render();">AVANZAR · ${STAGE_BENCH[heatStage()].avanza.toFixed(1)}</span>
+        <span class="chip ${cl.heatObjective===STAGE_BENCH[heatStage()].gana?'':'off'}" onclick="state.closing.heatObjective=${STAGE_BENCH[heatStage()].gana};save();render();">GANAR · ${STAGE_BENCH[heatStage()].gana.toFixed(1)}</span>
       </div>
       <div style="font-size:10px;color:var(--grey);margin-top:6px;line-height:1.5;">
-        Referencia real: 900+ heats · Mundiales ISA 2023-25 (medianas de 2º puesto, ganador y p75 de ganadores). Cada spot y cada día son distintos — ajustá con lo que veas HOY. Dato: alguien quedó eliminado con 14.96.
+        Referencia real: 53,936 olas · 20 eventos ISA/PASA/ALAS/Panamericanos 2018-2026 (medianas de ganador y del 2º que avanza, por ronda). Los jueces varían ±1 pto en olas de 4+ — apuntá un punto arriba del número. Cada spot y cada día son distintos — ajustá con lo que veas HOY.
       </div>
       <div style="margin-top:10px;">
         <div class="label" style="margin-bottom:6px;">Duración del heat</div>
@@ -2363,6 +2375,8 @@ function renderTacticalPlanCard(plan){
     steps.push(`Si a los <strong>${b.t1} min</strong> no agarraste ola de <strong>${sStar}+</strong> → movete a <strong style="color:var(--cyan);">${B2.label}</strong>${refStr(B2)} (~${b.mv} min de remada).`);
     steps.push(`Cerrá el heat en ${B2.label}: ahí sale una cada <strong>${fmtMMSS(B2.meanIntervalMs)}</strong>.`);
   }
+  // Regla de apertura (53,936 olas): abrir con 5+ = 56% de ganar; con menos, 20%.
+  steps.push(`<strong style="color:var(--coral,#FF6B6B);">PRIMERA OLA</strong>: seleccionada, no apurada — abrir con <strong>5+</strong> te da 56% de ganar el heat; abrir con menos, 20%. No es la primera que venga: es la primera BUENA.`);
   // M154 — la política de ola ganadora, como paso táctico concreto
   if(b.policy){
     const zn = b.zones[0];
@@ -2403,7 +2417,7 @@ function renderTacticalPlanCard(plan){
     </div>
     ${probLine}
     <div style="margin-top:8px;font-size:11px;color:var(--text-soft);font-family:'IBM Plex Mono',monospace;">Rango típico: ${b.sim.p25.toFixed(1)} – ${b.sim.p75.toFixed(1)} pts · heat simulado ${MC_TRIALS.toLocaleString()} veces por estrategia</div>
-    <div style="margin-top:6px;font-size:11px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;">Contexto mundial: ${b.sim.expected.toFixed(1)} pts = ${wsgContext(b.sim.expected)} · avance 9.6 · ganador 11.9 (WSG 23-25)</div>
+    <div style="margin-top:6px;font-size:11px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;">Contexto real (${STAGE_BENCH[heatStage()].label.toLowerCase()}): ${b.sim.expected.toFixed(1)} pts = ${wsgContext(b.sim.expected)} · avanza ${STAGE_BENCH[heatStage()].avanza.toFixed(1)} · gana ${STAGE_BENCH[heatStage()].gana.toFixed(1)}</div>
     ${priorityCaveat}
     ${altLine}
     ${plan.lowConfidence ? `<div style="margin-top:8px;font-size:11px;color:var(--amber);font-style:italic;">Confianza baja · menos de 10 olas observadas — el plan mejora con más datos</div>` : ''}
@@ -2756,7 +2770,8 @@ document.head.appendChild(printStyle);
   function pStats(pid){
     const pts=G.waves.filter(function(w){return w.winner===pid;}).map(function(w){return w.pts;}).sort(function(a,b){return b-a;});
     const best=pts.slice(0,2);
-    return { n:pts.length, best:best, total:Math.round(best.reduce(function(a,x){return a+x;},0)*10)/10 };
+    const waste=pts.length?Math.round(100*pts.filter(function(x){return x<2;}).length/pts.length):null;
+    return { n:pts.length, best:best, waste:waste, total:Math.round(best.reduce(function(a,x){return a+x;},0)*10)/10 };
   }
   // Score de UNA ola que necesita para superar targetTotal (la nueva reemplaza su peor contada)
   function needWave(S,targetTotal){
@@ -3126,11 +3141,11 @@ document.head.appendChild(printStyle);
           +'<span style="'+F_D+'font-size:22px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';width:34px;">'+(i+1)+'°</span>'
           +'<span style="width:18px;height:18px;border-radius:50%;background:'+p.color+';border:2px solid rgba(6,28,43,.4);"></span>'
           +'<span style="flex:1;font-weight:800;font-size:16px;">'+p.name+'</span>'
-          +'<span style="text-align:right;"><span style="'+F_D+'font-size:22px;color:#00D2FF;">'+S.total.toFixed(1)+'</span><br><span style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);">'+(S.best.length?S.best.map(function(x){return x.toFixed(1);}).join(' + ')+' · ':'')+S.n+(S.n===1?' ola':' olas')+' · lectura '+read+'%</span></span></div>';
+          +'<span style="text-align:right;"><span style="'+F_D+'font-size:22px;color:#00D2FF;">'+S.total.toFixed(1)+'</span><br><span style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);">'+(S.best.length?S.best.map(function(x){return x.toFixed(1);}).join(' + ')+' · ':'')+S.n+(S.n===1?' ola':' olas')+' · lectura '+read+'%'+(S.waste!==null?' · <span style=\"color:'+(S.waste<=25?'#06D6A0':S.waste>=38?'#FF6B6B':'#FFD166')+';\">desp '+S.waste+'%</span>':'')+'</span></span></div>';
       }).join('')
       +'<div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:18px;padding:14px 16px;font-size:13px;color:rgba(247,249,250,.8);margin-top:12px;">'
       +'🌊 '+G.waves.length+' olas · celdas calientes: <strong style="color:#FFD166;">'+(hot||'—')+'</strong>'+peakLine+'<br>'
-      +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Puntaje = suma de tus 2 mejores olas (regla ISA). Lectura % = olas que salieron a ≤1 celda de tu posición.</span></div>'
+      +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Puntaje = suma de tus 2 mejores olas (regla ISA). Lectura % = olas que salieron a ≤1 celda de tu posición. Desp % = tus olas bajo 2.0 — en data real los ganadores desperdician 23% y los perdedores 38%: elegí mejor, no remes más.</span></div>'
       +gridSVG()
       +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Otro heat · mismo spot →</button>'
       +'<button id="lgFresh" style="margin-top:10px;width:100%;padding:15px;border:1.5px solid rgba(255,209,102,.5);border-radius:999px;background:none;color:#FFD166;'+F_M+'font-size:11px;cursor:pointer;">🗺 Spot nuevo · borrar mapa</button></div>';
