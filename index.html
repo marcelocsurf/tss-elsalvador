@@ -334,7 +334,6 @@ header{padding:calc(10px + env(safe-area-inset-top,0)) 16px 10px;display:flex;al
     <img src="logo-white-h.png?v=10.1" alt="The Surf Sequence" style="width:220px;max-width:70vw;height:auto;display:block;margin:0 auto 14px;">
 
   </div>
-  <div style="font-size:13px;color:var(--grey);margin-bottom:8px;line-height:1.7;">Equipo El Salvador · Temporada 2026</div>
   <div style="margin-bottom:32px;font-size:11px;color:#4A6070;letter-spacing:1px;">by Marcelo Castellanos</div>
   <div id="roleButtons" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;">
     <button class="btn btn-cyan" onclick="showPin('coach')"><span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>Head Coach</span></button>
@@ -1438,7 +1437,7 @@ function buildNav(){
   if(r==='coach') tabs=[{id:'panel',icon:'bar-chart',lbl:'Panel'},{id:'planeacion',icon:'clipboard',lbl:'Plan'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'presencial',icon:'activity',lbl:'Sesión'},{id:'evaluar',icon:'star',lbl:'Eval'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'atletas',icon:'users',lbl:'Equipo'},{id:'perfil',icon:'user',lbl:'Perfil'}];
   else if(r==='acoach') tabs=[{id:'panel',icon:'bar-chart',lbl:'Panel'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'presencial',icon:'activity',lbl:'Sesión'},{id:'evaluar',icon:'star',lbl:'Eval'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'atletas',icon:'users',lbl:'Equipo'},{id:'perfil',icon:'user',lbl:'Perfil'}];
   else if(r==='specialist') tabs=[{id:'panel',icon:'users',lbl:'Atletas'},{id:'citas',icon:'calendar-days',lbl:'Citas'},{id:'mensajes',icon:'mail',lbl:'Msg'},{id:'perfil',icon:'user',lbl:'Perfil'}];
-  else tabs=[{id:'hoy',icon:'waves',lbl:'Hoy'},{id:'semana',icon:'calendar',lbl:'Semana'},{id:'mensajes',icon:'mail',lbl:'Mensajes'},{id:'perfil',icon:'user',lbl:'Mi Perfil'}];
+  else tabs=[{id:'hoy',icon:'waves',lbl:'Hoy'},{id:'semana',icon:'calendar',lbl:'Semana'},{id:'ranking',icon:'trophy',lbl:'Ranking'},{id:'mensajes',icon:'mail',lbl:'Mensajes'},{id:'perfil',icon:'user',lbl:'Mi Perfil'}];
   document.getElementById('bottomNav').innerHTML=tabs.map(t=>`<button class="nav-btn" id="nb-${t.id}" onclick="switchView('${t.id}')">${icon(t.icon,{size:22})}<span>${t.lbl}</span></button>`).join('');
 }
 
@@ -1448,7 +1447,7 @@ function switchView(view){
   const btn=document.getElementById(`nb-${view}`); if(btn) btn.classList.add('active');
   if(view==='competencia') return; // vCompetencia se invoca directo con su ID
   const panelView = S.user?.role==='specialist' ? vSpecialistPanel : vPanel;
-  ({hoy:vHoy,semana:vSemana,perfil:vPerfil,panel:panelView,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial,mensajes:vMensajes,citas:vCitas})[view]?.();
+  ({hoy:vHoy,semana:vSemana,ranking:vRanking,perfil:vPerfil,panel:panelView,evaluar:vEvaluar,atletas:vAtletas,planeacion:vPlaneacion,presencial:vPresencial,mensajes:vMensajes,citas:vCitas})[view]?.();
 }
 
 /* ============================================================
@@ -1463,12 +1462,26 @@ async function vHoy(){
   render(`<div class="page-title">Mi Día</div><div class="page-sub">${fmtDate(today)}</div>
     <div id="compHoyBanner"></div>
     <div id="upcomingApptsBanner"></div>
-    <div id="groupRankingSection"></div>
     <div id="hoyContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>
     ${renderAthleteToolsSection()}`);
   await loadHoy(today);
   loadCompHoyBanner();
   loadUpcomingApptsBanner();
+}
+
+/* Ranking en tab propia — el atleta entra solo si quiere verlo.
+   El Hoy queda enfocado en lo que le toca hacer. */
+async function vRanking(){
+  const today=todayStr();
+  render(`<div class="page-title">Ranking</div><div class="page-sub">Puntos del equipo · semana y general</div>
+    <div id="groupRankingSection"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>`);
+  // La lista de atletas normalmente viene del boot; si falta (deep-link), cargarla acá.
+  if(!(S.athletes||[]).length){
+    try {
+      const{data:aths}=await db.from('tss_profiles').select('id,name,role,avatar_url,active').eq('role','athlete');
+      S.athletes=aths||[];
+    } catch(e){ console.error('vRanking load athletes', e); }
+  }
   loadGroupRanking(today);
 }
 
@@ -1785,13 +1798,34 @@ async function loadHoy(date){
       let totalBlocks=trackableBlocks.length;
       let doneBlocks=trackableBlocks.filter(isBlockDone).length;
       let pct=totalBlocks>0?Math.round((doneBlocks/totalBlocks)*100):0;
+      // Checklist compacto: TODO el día de un vistazo, una línea por tarea.
+      const summaryLine = (p) => {
+        const done = isBlockDone(p);
+        let lbl, sub = '';
+        if(p._isPresencial){
+          lbl = p.title || 'Sesión Presencial';
+          sub = [p.time_start, p.location].filter(Boolean).join(' · ');
+        } else {
+          const bt = getBlockType(p.work_type);
+          lbl = (p.objective || bt.label || p.work_type || 'Bloque');
+          sub = p.objective ? (bt.label || '') : '';
+        }
+        return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid rgba(247,249,250,.08);">
+          <span style="width:18px;height:18px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:2px solid ${done?'var(--green)':'rgba(255,255,255,.25)'};background:${done?'rgba(6,214,160,.18)':'transparent'};">
+            ${done?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--foam)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':''}
+          </span>
+          <span style="flex:1;min-width:0;font-size:12.5px;color:${done?'var(--grey)':'var(--white)'};${done?'text-decoration:line-through;':''}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(lbl)}</span>
+          ${sub?`<span style="font-size:10px;color:var(--grey);flex-shrink:0;font-family:'IBM Plex Mono',monospace;">${esc(sub)}</span>`:''}
+        </div>`;
+      };
       planHtml=`<div class="sec-title"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Plan del Día</div>
       <div class="card card-cyan anim-up" style="margin-bottom:12px;padding:12px 14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-size:12px;font-weight:700;color:var(--white);">Progreso del día</span>
+          <span style="font-size:12px;font-weight:700;color:var(--white);">Tu día de un vistazo</span>
           <span style="font-size:13px;font-weight:800;color:var(--cyan);font-family:'IBM Plex Mono',monospace;">${doneBlocks}/${totalBlocks}</span>
         </div>
         <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+        <div style="margin-top:8px;">${allBlocks.map(summaryLine).join('')}</div>
         ${pct===100?'<div style="text-align:center;margin-top:8px;font-size:12px;color:var(--green);font-weight:700;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>¡Día completado!</div>':''}
       </div>`;
 
