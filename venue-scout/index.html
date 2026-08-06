@@ -17,9 +17,9 @@
   --bg:#061C2B; --bg2:#0A2438; --bg3:#123049;
   --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
   --text:#E8F0F5; --text-soft:#B8CCDF; --grey:#6B7E8F;
-  --cyan:#00D2FF; --purple:#A855F7; --amber:#FFD166; --foam:#06D6A0; --coral:#FF6B6B;
-  --gold:#F59E0B; --silver:#9CA3AF; --bronze:#B45309;
-  --gold-text:#FCD34D; --silver-text:#D1D5DB; --bronze-text:#FBBF24;
+  --cyan:#00D2FF; --purple:#7B4FBE; --amber:#FFD166; --foam:#06D6A0; --coral:#FF6B6B;
+  --gold:#FF8C42; --silver:#8A99A3; --bronze:#7D4E27;
+  --gold-text:#FCD34D; --silver-text:#D1D5DB; --bronze-text:#FFD166;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Archivo',system-ui,sans-serif; min-height:100vh; min-height:100dvh; overscroll-behavior:none; -webkit-font-smoothing:antialiased;}
@@ -56,15 +56,15 @@ input,textarea,select{font-family:inherit;}
 .chip{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.04em; padding:8px 16px; border-radius:999px; background:rgba(0,210,255,.1); border:1.5px solid rgba(0,210,255,.3); color:var(--cyan); font-weight:500; cursor:pointer; user-select:none; transition:all .12s;}
 .chip:active{transform:scale(.96);}
 .chip.off{background:transparent; border:1px solid var(--border2); color:var(--grey);}
-.chip.amber{background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.4); color:var(--gold-text);}
-.chip.purple{background:rgba(168,85,247,.12); border-color:rgba(168,85,247,.4); color:#C9B9E8;}
+.chip.amber{background:rgba(255,140,66,.12); border-color:rgba(255,140,66,.4); color:var(--gold-text);}
+.chip.purple{background:rgba(123,79,190,.12); border-color:rgba(123,79,190,.4); color:#C9B9E8;}
 
 /* ---------- Buttons ---------- */
 .btn{padding:13px 18px; border-radius:999px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; transition:all .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
 .btn:active{transform:scale(.97);}
 .btn-cyan{background:var(--cyan); color:var(--bg);}
 .btn-ghost{background:transparent; border:1px solid var(--border2); color:var(--text-soft);}
-.btn-coral{background:rgba(252,165,165,.12); border:1px solid rgba(252,165,165,.4); color:var(--coral);}
+.btn-coral{background:rgba(255,107,107,.12); border:1px solid rgba(255,107,107,.4); color:var(--coral);}
 .btn-block{width:100%;}
 .btn-lg{padding:14px 18px; font-size:14px;}
 
@@ -73,7 +73,7 @@ input,textarea,select{font-family:inherit;}
 .cat{padding:14px 6px; border-radius:12px; text-align:center; cursor:pointer; user-select:none; transition:all .15s; border:2.5px solid transparent;}
 .cat:active{transform:scale(.97);}
 .cat.on{transform:scale(1.03); box-shadow:0 0 0 3px rgba(255,255,255,.18);}
-.cat-mejor{background:rgba(245,158,11,.18); border-color:var(--gold);}
+.cat-mejor{background:rgba(255,140,66,.18); border-color:var(--gold);}
 .cat-media{background:rgba(156,163,175,.16); border-color:var(--silver);}
 .cat-otra{background:rgba(180,83,9,.18); border-color:var(--bronze);}
 .cat-lbl{font-size:11px; font-weight:700; letter-spacing:.8px;}
@@ -98,7 +98,7 @@ input,textarea,select{font-family:inherit;}
 .timer-bar{display:flex; justify-content:space-between; align-items:center; gap:12px;}
 .timer-big{font-size:40px; font-weight:800; color:var(--text); font-family:'Archivo',sans-serif; font-stretch:125%; line-height:1;}
 .timer-sub{font-size:11px; color:var(--grey); margin-top:3px;}
-.timer-stop{font-size:13px; color:var(--coral); font-weight:600; padding:8px 14px; border:1px solid rgba(252,165,165,.4); border-radius:12px;}
+.timer-stop{font-size:13px; color:var(--coral); font-weight:600; padding:8px 14px; border:1px solid rgba(255,107,107,.4); border-radius:12px;}
 .timer-warn{color:var(--gold-text) !important;}
 
 /* ---------- Map ---------- */
@@ -132,7 +132,7 @@ input,textarea,select{font-family:inherit;}
 .report-block{background:rgba(255,255,255,.025); border:1px solid var(--border); border-left:4px solid var(--gold); border-radius:0 12px 12px 0; padding:0; margin-bottom:10px; overflow:hidden;}
 .report-block.silver{border-left-color:var(--silver);}
 .report-block.bronze{border-left-color:var(--bronze);}
-.report-cat-banner{display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:rgba(245,158,11,.08); border-bottom:1px solid var(--border);}
+.report-cat-banner{display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:rgba(255,140,66,.08); border-bottom:1px solid var(--border);}
 .report-block.silver .report-cat-banner{background:rgba(156,163,175,.06);}
 .report-block.bronze .report-cat-banner{background:rgba(180,83,9,.06);}
 .report-cat-lbl{font-size:11px; font-weight:700; letter-spacing:1px; color:var(--gold-text);}
@@ -151,9 +151,9 @@ input,textarea,select{font-family:inherit;}
 .report-strip{display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--border); flex-wrap:wrap;}
 .report-pill{font-size:11px; padding:4px 10px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid var(--border); color:var(--text-soft);}
 .report-pill strong{color:var(--text); font-weight:600;}
-.report-pill.foam{background:rgba(52,211,153,.12); border-color:rgba(52,211,153,.3); color:var(--foam);}
-.report-pill.amber{background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.3); color:var(--gold-text);}
-.report-pill.coral{background:rgba(252,165,165,.12); border-color:rgba(252,165,165,.3); color:var(--coral);}
+.report-pill.foam{background:rgba(6,214,160,.12); border-color:rgba(6,214,160,.3); color:var(--foam);}
+.report-pill.amber{background:rgba(255,140,66,.12); border-color:rgba(255,140,66,.3); color:var(--gold-text);}
+.report-pill.coral{background:rgba(255,107,107,.12); border-color:rgba(255,107,107,.3); color:var(--coral);}
 .report-alt-section{padding:10px 14px 14px; border-top:1px solid var(--border);}
 .report-alt-title{font-size:10px; font-weight:700; letter-spacing:1.2px; color:var(--cyan); margin-bottom:8px;}
 .report-alt-row{display:flex; align-items:center; gap:10px; padding:8px 0; font-size:12px; color:var(--text-soft);}
@@ -220,8 +220,8 @@ input,textarea,select{font-family:inherit;}
 .breath-logo{height:40px; width:auto; margin-bottom:22px; opacity:.95;}
 .breath-circle-wrap{position:relative; width:240px; height:240px; display:flex; align-items:center; justify-content:center;}
 .breath-circle{position:absolute; width:120px; height:120px; border-radius:50%; background:rgba(0,210,255,.12); border:2px solid rgba(0,210,255,.55); transition:transform 4s cubic-bezier(.5,.0,.5,1), background 4s ease, border-color 4s ease;}
-.breath-circle.in{transform:scale(1.9); background:rgba(34,211,238,.25); border-color:#22D3EE;}
-.breath-circle.hold{transform:scale(1.9); background:rgba(34,211,238,.18); border-color:#22D3EE;}
+.breath-circle.in{transform:scale(1.9); background:rgba(0,210,255,.25); border-color:#00D2FF;}
+.breath-circle.hold{transform:scale(1.9); background:rgba(0,210,255,.18); border-color:#00D2FF;}
 .breath-circle.out{transform:scale(1); background:rgba(0,210,255,.12); border-color:rgba(0,210,255,.55);}
 .breath-circle.holdout{transform:scale(1); background:rgba(0,210,255,.08); border-color:rgba(0,210,255,.4);}
 .breath-phase{position:absolute; font-family:'IBM Plex Mono',monospace; font-weight:500; letter-spacing:.2em; text-transform:uppercase; font-size:20px; color:var(--text); pointer-events:none;}
@@ -258,18 +258,18 @@ const ROW_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P'
 const HAZARDS = [
   { id:'rip',      label:'Corriente',    cat:'Peligros físicos',   color:'#00D2FF', directional:true, svg:'<line x1="12" y1="21" x2="12" y2="6"/><polyline points="6 12 12 6 18 12"/><polyline points="6 18 12 12 18 18"/>' },
   { id:'rocks',    label:'Piedras',      cat:'Peligros físicos',   color:'#B8CCDF', svg:'<ellipse cx="7" cy="17" rx="4.5" ry="3.5"/><ellipse cx="15" cy="13" rx="6" ry="4.5"/><ellipse cx="20" cy="18" rx="3" ry="2.5"/>' },
-  { id:'coral',    label:'Coral / fondo',cat:'Peligros físicos',   color:'#FCA5A5', svg:'<path d="M12 22V10"/><path d="M12 14c-2-2-4-2-5 0"/><path d="M12 14c2-2 4-2 5 0"/><path d="M12 18c-2-2-3.5-2-5 0"/><path d="M12 18c2-2 3.5-2 5 0"/><circle cx="12" cy="8" r="2"/>' },
-  { id:'danger',   label:'Peligro',      cat:'Peligros físicos',   color:'#F59E0B', svg:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
-  { id:'crowd',    label:'Crowd',        cat:'Otros humanos',      color:'#A855F7', svg:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
+  { id:'coral',    label:'Coral / fondo',cat:'Peligros físicos',   color:'#FF6B6B', svg:'<path d="M12 22V10"/><path d="M12 14c-2-2-4-2-5 0"/><path d="M12 14c2-2 4-2 5 0"/><path d="M12 18c-2-2-3.5-2-5 0"/><path d="M12 18c2-2 3.5-2 5 0"/><circle cx="12" cy="8" r="2"/>' },
+  { id:'danger',   label:'Peligro',      cat:'Peligros físicos',   color:'#FF8C42', svg:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
+  { id:'crowd',    label:'Crowd',        cat:'Otros humanos',      color:'#7B4FBE', svg:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
   { id:'judges',   label:'Jueces',       cat:'Otros humanos',      color:'#00D2FF', svg:'<path d="m14 12-8.5 8.5a2.12 2.12 0 1 1-3-3L11 9"/><path d="M15 13 9 7l4-4 6 6h3a8 8 0 0 1-7 7z"/>' },
   { id:'buoy',     label:'Boya',         cat:'Otros humanos',      color:'#E8F0F5', svg:'<circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/>' },
   { id:'camera',   label:'Cámara',       cat:'Otros humanos',      color:'#6B7E8F', svg:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>' },
-  { id:'marine',   label:'Vida marina',  cat:'Naturaleza y agua',  color:'#34D399', svg:'<path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/>' },
+  { id:'marine',   label:'Vida marina',  cat:'Naturaleza y agua',  color:'#06D6A0', svg:'<path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/>' },
   { id:'freshwater',label:'Agua dulce',  cat:'Naturaleza y agua',  color:'#00D2FF', svg:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>' },
   { id:'wind',     label:'Viento',       cat:'Naturaleza y agua',  color:'#B8CCDF', svg:'<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>' },
-  { id:'lifeguard',label:'Salvavidas',   cat:'Seguridad',          color:'#34D399', svg:'<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/>' },
-  { id:'safeentry',label:'Entrada segura',cat:'Seguridad',         color:'#34D399', svg:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>' },
-  { id:'meeting',  label:'Punto reunión',cat:'Seguridad',          color:'#F59E0B', svg:'<path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>' },
+  { id:'lifeguard',label:'Salvavidas',   cat:'Seguridad',          color:'#06D6A0', svg:'<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/>' },
+  { id:'safeentry',label:'Entrada segura',cat:'Seguridad',         color:'#06D6A0', svg:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>' },
+  { id:'meeting',  label:'Punto reunión',cat:'Seguridad',          color:'#FF8C42', svg:'<path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>' },
 ];
 const HAZARD_MAP = Object.fromEntries(HAZARDS.map(h => [h.id, h]));
 
@@ -379,7 +379,7 @@ function openAppMenu(){
       ${state.screen!=='setup' ? `<button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();state.screen='setup';save();render();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="15 18 9 12 15 6"/></svg>Volver al setup</button>`:''}
       <button class="btn btn-ghost btn-block" style="justify-content:space-between;padding:14px 16px;" onclick="toggleRapidMode(this)">
         <span style="display:inline-flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:10px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Score auto-clasifica · tap primero, score después</span>
-        <span style="font-size:11px;padding:3px 10px;border-radius:12px;background:${state.rapidMode?'rgba(52,211,153,.18)':'rgba(255,255,255,.06)'};color:${state.rapidMode?'var(--foam)':'var(--text-soft)'};font-weight:700;">${state.rapidMode?'ON':'OFF'}</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:12px;background:${state.rapidMode?'rgba(6,214,160,.18)':'rgba(255,255,255,.06)'};color:${state.rapidMode?'var(--foam)':'var(--text-soft)'};font-weight:700;">${state.rapidMode?'ON':'OFF'}</span>
       </button>
       <button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();window.print();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir / guardar PDF</button>
       <button class="btn btn-coral btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();reset();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Nuevo análisis (borra el actual)</button>
@@ -473,9 +473,9 @@ function renderSetup(){
           </div>
           <div style="font-size:11px;color:var(--text-soft);line-height:1.35;">Scoring 1-10 · clasificación automática según tus olas del día · plan táctico del heat · replay</div>
         </button>
-        <button onclick="setAnalysisMode('free')" style="padding:14px 10px;border-radius:12px;border:2px solid ${mode==='free'?'var(--foam)':'var(--border)'};background:${mode==='free'?'rgba(52,211,153,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
+        <button onclick="setAnalysisMode('free')" style="padding:14px 10px;border-radius:12px;border:2px solid ${mode==='free'?'var(--foam)':'var(--border)'};background:${mode==='free'?'rgba(6,214,160,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${mode==='free'?'#34D399':'#B8CCDF'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${mode==='free'?'#06D6A0':'#B8CCDF'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
             <div style="font-weight:700;font-size:13px;color:${mode==='free'?'var(--foam)':'var(--text)'};">SESIÓN LIBRE</div>
           </div>
           <div style="font-size:11px;color:var(--text-soft);line-height:1.35;">Sin puntajes · buscamos zona segura o zona deseada para el surfista</div>
@@ -555,7 +555,7 @@ function renderSetup(){
     <button class="btn btn-cyan btn-block btn-lg" onclick="goToObserve()" style="margin-top:8px;">
       Empezar análisis →
     </button>
-    <button class="btn btn-ghost btn-block" onclick="startBreathingThenObserve()" style="margin-top:8px;border:1px solid rgba(34,211,238,.3);color:#22D3EE;">
+    <button class="btn btn-ghost btn-block" onclick="startBreathingThenObserve()" style="margin-top:8px;border:1px solid rgba(0,210,255,.3);color:#00D2FF;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
       Conectar 60 seg primero · box breathing
     </button>
@@ -695,12 +695,12 @@ function renderObserve(){
 
       ${isFree ? `
       <div style="margin-top:14px;">
-        <div class="cat cat-mejor ${state.activeMode==='ola'?'on':''}" style="background:rgba(52,211,153,.14);border:2px solid ${state.activeMode==='ola'?'#34D399':'transparent'};padding:12px;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('ola')">
+        <div class="cat cat-mejor ${state.activeMode==='ola'?'on':''}" style="background:rgba(6,214,160,.14);border:2px solid ${state.activeMode==='ola'?'#06D6A0':'transparent'};padding:12px;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('ola')">
           <div>
-            <div class="cat-lbl" style="color:#34D399;">OLA BUENA</div>
+            <div class="cat-lbl" style="color:#06D6A0;">OLA BUENA</div>
             <div style="font-size:10px;color:var(--grey);margin-top:2px;">Tap donde viste una ola aprovechable</div>
           </div>
-          <div class="cat-num" style="color:#34D399;">${counts.ola||0}</div>
+          <div class="cat-num" style="color:#06D6A0;">${counts.ola||0}</div>
         </div>
       </div>
       ` : `
@@ -716,9 +716,9 @@ function renderObserve(){
       `}
 
       <div class="dir-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
-        <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='R'?'rgba(251,191,36,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FBBF24':'var(--border2)'};color:${state.activeDirection==='R'?'#FBBF24':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('R')" title="La ola va hacia tu izquierda visual = ola DERECHA del surfista">← DER</button>
+        <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='R'?'rgba(255,209,102,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FFD166':'var(--border2)'};color:${state.activeDirection==='R'?'#FFD166':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('R')" title="La ola va hacia tu izquierda visual = ola DERECHA del surfista">← DER</button>
         <button class="dir-btn ${state.activeDirection===null?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection===null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection===null?'var(--text-soft)':'var(--border2)'};color:${state.activeDirection===null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;letter-spacing:.4px;" onclick="toggleDirection(null)">SIN DIR</button>
-        <button class="dir-btn ${state.activeDirection==='L'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='L'?'rgba(34,211,238,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='L'?'#22D3EE':'var(--border2)'};color:${state.activeDirection==='L'?'#22D3EE':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;" onclick="toggleDirection('L')" title="La ola va hacia tu derecha visual = ola IZQUIERDA del surfista">IZQ →</button>
+        <button class="dir-btn ${state.activeDirection==='L'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='L'?'rgba(0,210,255,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='L'?'#00D2FF':'var(--border2)'};color:${state.activeDirection==='L'?'#00D2FF':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;" onclick="toggleDirection('L')" title="La ola va hacia tu derecha visual = ola IZQUIERDA del surfista">IZQ →</button>
       </div>
 
       <div class="toolbar" style="margin-top:10px;">
@@ -746,15 +746,15 @@ function renderObserve(){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
           +REF
         </div>
-        <div class="tool ${String(state.activeMode).startsWith('hazard')?'on':''}" style="color:#F59E0B;" onclick="openHazardModal()">
+        <div class="tool ${String(state.activeMode).startsWith('hazard')?'on':''}" style="color:#FF8C42;" onclick="openHazardModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           HAZARD
         </div>
-        <div class="tool entry ${state.activeMode==='entry'?'on':''}" style="color:#34D399;" onclick="setMode('entry')">
+        <div class="tool entry ${state.activeMode==='entry'?'on':''}" style="color:#06D6A0;" onclick="setMode('entry')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 9-6-6-6 6"/><path d="M12 3v14"/><path d="M5 21h14"/></svg>
           ENTRA
         </div>
-        <div class="tool exit ${state.activeMode==='exit'?'on':''}" style="color:#FCA5A5;" onclick="setMode('exit')">
+        <div class="tool exit ${state.activeMode==='exit'?'on':''}" style="color:#FF6B6B;" onclick="setMode('exit')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
           SALE
         </div>
@@ -797,9 +797,9 @@ function renderObserve(){
       ${renderMapSVG()}
     </section>
 
-    ${(()=>{ const pend = pendingWaves(); if(!pend.length) return ''; return `<div style="margin-top:8px;padding:10px 12px;background:rgba(52,211,153,.06);border:1.5px dashed var(--foam);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+    ${(()=>{ const pend = pendingWaves(); if(!pend.length) return ''; return `<div style="margin-top:8px;padding:10px 12px;background:rgba(6,214,160,.06);border:1.5px dashed var(--foam);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
       <div style="font-size:11px;color:var(--text);"><strong>${pend.length}</strong> ola${pend.length===1?'':'s'} sin score <span style="color:var(--text-soft);">· tap cada pin gris para asignar score</span></div>
-      <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px;color:var(--foam);border-color:rgba(52,211,153,.4);" onclick="categorizePendingModal('${pend[pend.length-1].id}')">Score de la última</button>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px;color:var(--foam);border-color:rgba(6,214,160,.4);" onclick="categorizePendingModal('${pend[pend.length-1].id}')">Score de la última</button>
     </div>`; })()}
 
     <section class="section">
@@ -848,23 +848,23 @@ function renderPredictionWidget(){
   const accuracy = hasStats ? Math.round(((ps.hit + ps.near*0.5) / ps.tried) * 100) : 0;
   if(state.activePrediction){
     const p = state.activePrediction;
-    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(34,211,238,.1);border:1.5px dashed #22D3EE;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-      <div style="font-size:11px;color:#22D3EE;font-weight:700;line-height:1.4;">🎯 Predijiste <strong style="font-family:'IBM Plex Mono',monospace;font-size:13px;">${rowToLetter(p.row)}${p.col}</strong> · esperando próxima MEJOR...</div>
+    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(0,210,255,.1);border:1.5px dashed #00D2FF;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div style="font-size:11px;color:#00D2FF;font-weight:700;line-height:1.4;">🎯 Predijiste <strong style="font-family:'IBM Plex Mono',monospace;font-size:13px;">${rowToLetter(p.row)}${p.col}</strong> · esperando próxima MEJOR...</div>
       <button onclick="cancelPrediction()" style="font-size:11px;color:var(--text-soft);padding:4px 10px;border:1px solid var(--border2);border-radius:6px;flex-shrink:0;">Cancelar</button>
     </div>`;
   }
   if(state.activeMode === 'predict'){
-    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(34,211,238,.08);border:1.5px solid #22D3EE;border-radius:10px;text-align:center;">
-      <div style="font-size:11px;color:#22D3EE;font-weight:700;">🎯 Tap la celda donde predecís la próxima MEJOR</div>
+    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(0,210,255,.08);border:1.5px solid #00D2FF;border-radius:10px;text-align:center;">
+      <div style="font-size:11px;color:#00D2FF;font-weight:700;">🎯 Tap la celda donde predecís la próxima MEJOR</div>
       <button onclick="setMode('mejor')" style="margin-top:6px;font-size:11px;color:var(--text-soft);padding:4px 12px;border:1px solid var(--border2);border-radius:6px;">Cancelar</button>
     </div>`;
   }
   return `<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 4px;">
-    <button onclick="startPrediction()" style="font-size:12px;color:#22D3EE;padding:8px 14px;border:1.5px solid rgba(34,211,238,.4);border-radius:9px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+    <button onclick="startPrediction()" style="font-size:12px;color:#00D2FF;padding:8px 14px;border:1.5px solid rgba(0,210,255,.4);border-radius:9px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
       🎯 Predecir próxima MEJOR
     </button>
     ${hasStats ? `<div style="font-size:11px;color:var(--text-soft);font-family:'IBM Plex Mono',monospace;">
-      ${ps.hit} aciertos · ${ps.near} cerca · ${ps.tried} intentos · <strong style="color:#22D3EE;">${accuracy}%</strong>
+      ${ps.hit} aciertos · ${ps.near} cerca · ${ps.tried} intentos · <strong style="color:#00D2FF;">${accuracy}%</strong>
     </div>` : `<div style="font-size:11px;color:var(--grey);font-style:italic;">opt-in · entrenar lectura del mar</div>`}
   </div>`;
 }
@@ -906,9 +906,9 @@ function renderRecentItem(w){
   const colorMap = { mejor:'var(--gold-text)', media:'var(--silver-text)', otra:'var(--bronze-text)' };
   const c = colorMap[w.category];
   const dirChip = w.direction === 'L'
-    ? `<span style="font-size:10px;color:#22D3EE;font-weight:700;">IZQ→</span>`
+    ? `<span style="font-size:10px;color:#00D2FF;font-weight:700;">IZQ→</span>`
     : w.direction === 'R'
-    ? `<span style="font-size:10px;color:#FBBF24;font-weight:700;">←DER</span>`
+    ? `<span style="font-size:10px;color:#FFD166;font-weight:700;">←DER</span>`
     : '';
   return `<div class="recent-item" onclick="openEditWaveModal('${w.id}')" style="cursor:pointer;">
     <span class="mono" style="color:var(--grey);font-size:10px;min-width:26px;">#${waveSeq(w)}</span>
@@ -994,25 +994,25 @@ function renderMapSVG(opts){
   for(let r=1; r<=GRID_ROWS; r++){
     const y = (r-0.5)*cellH;
     labels += `<rect x="2" y="${y-9}" width="20" height="18" rx="4" fill="${chipBg}"/>`;
-    labels += `<text x="12" y="${y+5}" text-anchor="middle" font-size="12" fill="#22D3EE">${rowToLetter(r)}</text>`;
+    labels += `<text x="12" y="${y+5}" text-anchor="middle" font-size="12" fill="#00D2FF">${rowToLetter(r)}</text>`;
   }
   // Números (eje horizontal, 1-15)
   for(let c=1; c<=GRID_COLS; c++){
     const x = (c-0.5)*cellW;
     const w = c >= 10 ? 24 : 20;
     labels += `<rect x="${x-w/2}" y="${MAP_H-22}" width="${w}" height="18" rx="4" fill="${chipBg}"/>`;
-    labels += `<text x="${x}" y="${MAP_H-8}" text-anchor="middle" font-size="12" fill="#FBBF24">${c}</text>`;
+    labels += `<text x="${x}" y="${MAP_H-8}" text-anchor="middle" font-size="12" fill="#FFD166">${c}</text>`;
   }
   labels += '</g>';
 
   // Líneas de referencia (outside/inside/orilla)
   let refLines = '';
-  if(state.map.lines.outside) refLines += renderLine(state.map.lines.outside, '#A855F7', 'OUTSIDE');
-  if(state.map.lines.inside)  refLines += renderLine(state.map.lines.inside,  '#F59E0B', 'INSIDE');
+  if(state.map.lines.outside) refLines += renderLine(state.map.lines.outside, '#7B4FBE', 'OUTSIDE');
+  if(state.map.lines.inside)  refLines += renderLine(state.map.lines.inside,  '#FF8C42', 'INSIDE');
   if(state.map.lines.orilla)  refLines += renderLine(state.map.lines.orilla,  '#00D2FF', 'ORILLA');
   if(state.pendingLineStart){
     const p = state.pendingLineStart;
-    const colors = {'line-out':'#A855F7','line-in':'#F59E0B','line-ori':'#00D2FF'};
+    const colors = {'line-out':'#7B4FBE','line-in':'#FF8C42','line-ori':'#00D2FF'};
     const c = colors[state.activeMode] || '#fff';
     refLines += `<circle cx="${p.x}" cy="${p.y}" r="8" fill="${c}" stroke="#fff" stroke-width="2"/>`;
   }
@@ -1023,32 +1023,32 @@ function renderMapSVG(opts){
     const ep = state.map.entryPoint;
     // arrow-up-from-line · flecha sube desde la orilla hacia el mar (entra al agua)
     entryExit += `<g class="entry-pin" data-kind="entry" style="cursor:pointer;">
-      <circle cx="${ep.x}" cy="${ep.y}" r="16" fill="rgba(52,211,153,0.25)" stroke="#34D399" stroke-width="3"/>
+      <circle cx="${ep.x}" cy="${ep.y}" r="16" fill="rgba(6,214,160,0.25)" stroke="#06D6A0" stroke-width="3"/>
       <g transform="translate(${ep.x-10} ${ep.y-10})" style="pointer-events:none;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06D6A0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="m18 9-6-6-6 6"/>
           <path d="M12 3v14"/>
           <path d="M5 21h14"/>
         </svg>
       </g>
       <rect x="${ep.x-24}" y="${ep.y+18}" width="48" height="16" rx="4" fill="rgba(0,0,0,0.75)"/>
-      <text x="${ep.x}" y="${ep.y+30}" text-anchor="middle" font-size="11" fill="#34D399" font-weight="700">ENTRADA</text>
+      <text x="${ep.x}" y="${ep.y+30}" text-anchor="middle" font-size="11" fill="#06D6A0" font-weight="700">ENTRADA</text>
     </g>`;
   }
   if(state.map.exitPoint){
     const xp = state.map.exitPoint;
     // arrow-down-to-line · flecha baja desde el mar y llega a la orilla (sale del agua)
     entryExit += `<g class="exit-pin" data-kind="exit" style="cursor:pointer;">
-      <circle cx="${xp.x}" cy="${xp.y}" r="16" fill="rgba(252,165,165,0.25)" stroke="#FCA5A5" stroke-width="3"/>
+      <circle cx="${xp.x}" cy="${xp.y}" r="16" fill="rgba(255,107,107,0.25)" stroke="#FF6B6B" stroke-width="3"/>
       <g transform="translate(${xp.x-10} ${xp.y-10})" style="pointer-events:none;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FCA5A5" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 17V3"/>
           <path d="m6 11 6 6 6-6"/>
           <path d="M19 21H5"/>
         </svg>
       </g>
       <rect x="${xp.x-20}" y="${xp.y+18}" width="40" height="16" rx="4" fill="rgba(0,0,0,0.75)"/>
-      <text x="${xp.x}" y="${xp.y+30}" text-anchor="middle" font-size="11" fill="#FCA5A5" font-weight="700">SALIDA</text>
+      <text x="${xp.x}" y="${xp.y+30}" text-anchor="middle" font-size="11" fill="#FF6B6B" font-weight="700">SALIDA</text>
     </g>`;
   }
 
@@ -1069,7 +1069,7 @@ function renderMapSVG(opts){
   Object.values(grouped).forEach(g=>{
     const cx = (g.col - 0.5) * cellW;
     const cy = (g.row - 0.5) * cellH;
-    const colors = { mejor:'#F59E0B', media:'#9CA3AF', otra:'#B45309', ola:'#34D399' };
+    const colors = { mejor:'#FF8C42', media:'#8A99A3', otra:'#7D4E27', ola:'#06D6A0' };
     const c = colors[g.category];
     const baseR = g.category==='mejor' ? 16 : g.category==='media' ? 14 : g.category==='ola' ? 15 : 12;
     const r = baseR + Math.min(8, (g.count-1) * 2);
@@ -1116,11 +1116,11 @@ function renderMapSVG(opts){
     const pcx = (p.col - 0.5) * cellW;
     const pcy = (p.row - 0.5) * cellH;
     predictionPin = `<g style="pointer-events:none;">
-      <circle cx="${pcx}" cy="${pcy}" r="18" fill="rgba(34,211,238,0.18)" stroke="#22D3EE" stroke-width="2.5" stroke-dasharray="4,3">
+      <circle cx="${pcx}" cy="${pcy}" r="18" fill="rgba(0,210,255,0.18)" stroke="#00D2FF" stroke-width="2.5" stroke-dasharray="4,3">
         <animate attributeName="r" values="18;22;18" dur="1.5s" repeatCount="indefinite"/>
         <animate attributeName="opacity" values="1;0.5;1" dur="1.5s" repeatCount="indefinite"/>
       </circle>
-      <text x="${pcx}" y="${pcy+4}" text-anchor="middle" font-size="14" font-weight="700" fill="#22D3EE">🎯</text>
+      <text x="${pcx}" y="${pcy+4}" text-anchor="middle" font-size="14" font-weight="700" fill="#00D2FF">🎯</text>
     </g>`;
   }
   // Hazards (corrientes, piedras, crowd, etc)
@@ -1584,7 +1584,7 @@ function categorizePendingModal(waveId){
   m = document.createElement('div'); m.className='modal-overlay';
   const scoreBtn = (n) => {
     const cat = scoreToCategory(n, scores);
-    const bg = cat==='mejor' ? 'rgba(245,158,11,.22)' : cat==='media' ? 'rgba(156,163,175,.18)' : cat==='otra' ? 'rgba(180,83,9,.22)' : 'rgba(255,255,255,.06)';
+    const bg = cat==='mejor' ? 'rgba(255,140,66,.22)' : cat==='media' ? 'rgba(156,163,175,.18)' : cat==='otra' ? 'rgba(180,83,9,.22)' : 'rgba(255,255,255,.06)';
     const border = cat==='mejor' ? 'var(--gold)' : cat==='media' ? 'var(--silver)' : cat==='otra' ? 'var(--bronze)' : 'var(--border2)';
     const col = cat==='mejor' ? 'var(--gold-text)' : cat==='media' ? 'var(--silver-text)' : cat==='otra' ? 'var(--bronze-text)' : 'var(--text)';
     return `<button onclick="assignScore('${w.id}',${n})" style="padding:14px 4px;background:${bg};border:2px solid ${border};border-radius:10px;color:${col};font-weight:800;font-size:16px;font-family:'IBM Plex Mono',monospace;">${n}</button>`;
@@ -1974,7 +1974,7 @@ function renderReportFree(){
       </div>
     </section>
 
-    <section class="section" style="background:rgba(52,211,153,.08);border:1.5px solid rgba(52,211,153,.35);">
+    <section class="section" style="background:rgba(6,214,160,.08);border:1.5px solid rgba(6,214,160,.35);">
       <div style="font-size:11px;color:var(--foam);font-weight:700;letter-spacing:.6px;margin-bottom:8px;">RECOMENDACIÓN</div>
       ${sp.name || belt ? `
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--text);line-height:1.5;">
@@ -1987,7 +1987,7 @@ function renderReportFree(){
     ${idealZone ? `
     <section class="section" style="border:2px solid var(--foam);">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06D6A0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         <div style="font-size:11px;color:var(--foam);font-weight:700;letter-spacing:.6px;">ZONA IDEAL</div>
       </div>
       <div style="font-size:22px;color:var(--white);font-weight:800;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;">${idealCell}</div>
@@ -1998,7 +1998,7 @@ function renderReportFree(){
       </div>
     </section>
     ` : `
-    <section class="section" style="border:1.5px dashed var(--amber);background:rgba(245,158,11,.05);">
+    <section class="section" style="border:1.5px dashed var(--amber);background:rgba(255,140,66,.05);">
       <div style="font-size:13px;color:var(--amber);text-align:center;">Marcá al menos una ola en el mapa para que el sistema recomiende una zona.</div>
     </section>
     `}
@@ -2007,7 +2007,7 @@ function renderReportFree(){
     <section class="section">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8C42" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <div style="font-size:11px;color:var(--amber);font-weight:700;letter-spacing:.6px;">EVITAR / TENER EN CUENTA</div>
         </div>
         <div style="font-size:10px;color:var(--grey);">números en el mapa ↓</div>
@@ -2024,11 +2024,11 @@ function renderReportFree(){
 
     ${(epCell || xpCell) ? `
     <section class="section" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${epCell ? `<div style="padding:10px;background:rgba(52,211,153,.08);border-radius:10px;border:1px solid rgba(52,211,153,.3);">
+      ${epCell ? `<div style="padding:10px;background:rgba(6,214,160,.08);border-radius:10px;border:1px solid rgba(6,214,160,.3);">
         <div style="font-size:10px;color:var(--foam);font-weight:700;letter-spacing:.5px;">ENTRADA</div>
         <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px;">${epCell}</div>
       </div>` : ''}
-      ${xpCell ? `<div style="padding:10px;background:rgba(252,165,165,.08);border-radius:10px;border:1px solid rgba(252,165,165,.3);">
+      ${xpCell ? `<div style="padding:10px;background:rgba(255,107,107,.08);border-radius:10px;border:1px solid rgba(255,107,107,.3);">
         <div style="font-size:10px;color:var(--coral);font-weight:700;letter-spacing:.5px;">SALIDA</div>
         <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px;">${xpCell}</div>
       </div>` : ''}
@@ -2336,7 +2336,7 @@ function renderReport(){
     <section class="section">
       <div class="section-h">
         <div class="section-t">Mapa final</div>
-        ${state.waves.length > 0 ? `<button class="btn btn-ghost" style="padding:6px 14px;font-size:11px;border:1px solid rgba(34,211,238,.4);color:#22D3EE;font-weight:700;" onclick="openReplay()">▶ Ver replay 30s</button>` : ''}
+        ${state.waves.length > 0 ? `<button class="btn btn-ghost" style="padding:6px 14px;font-size:11px;border:1px solid rgba(0,210,255,.4);color:#00D2FF;font-weight:700;" onclick="openReplay()">▶ Ver replay 30s</button>` : ''}
       </div>
       ${renderMapSVG({ waitSpots: true })}
     </section>
@@ -2352,7 +2352,7 @@ function renderReport(){
    en pasos que cualquiera entiende. */
 function renderTacticalPlanCard(plan){
   if(!plan){
-    return `<section class="section" style="border:1.5px dashed var(--amber);background:rgba(245,158,11,.05);">
+    return `<section class="section" style="border:1.5px dashed var(--amber);background:rgba(255,140,66,.05);">
       <div style="font-size:13px;color:var(--amber);text-align:center;line-height:1.5;">Marcá al menos 2 olas con score en una misma zona para generar el plan del heat.</div>
     </section>`;
   }
@@ -2434,7 +2434,7 @@ function renderZoneRanking(zones, cl){
     .slice(0, 3);
   if(!ranked.length) return '';
   const T = cl.heatDurationMin || 25;
-  const medals = ['#F5C518', '#B8CCDF', '#B45309'];
+  const medals = ['#F5C518', '#B8CCDF', '#7D4E27'];
   const rows = ranked.map((z, i) => {
     const refStr = z.refs && z.refs.length ? ` · ${z.refs.map(r=>esc(r.label)).join(' y ')}` : '';
     const dirStr = z.dirDominant==='L' ? ' · IZQUIERDAS' : z.dirDominant==='R' ? ' · DERECHAS' : z.dirDominant==='mixed' ? ' · mixtas' : '';
@@ -2519,7 +2519,7 @@ function openReplay(){
       <span style="color:var(--text-soft);">Olas: <strong id="replayCount" style="color:var(--text);font-size:14px;">0 / ${state.waves.length}</strong></span>
     </div>
     <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:8px;overflow:hidden;">
-      <div id="replayBar" style="height:100%;background:linear-gradient(90deg,#22D3EE,#FBBF24);width:0%;transition:width .1s linear;"></div>
+      <div id="replayBar" style="height:100%;background:linear-gradient(90deg,#00D2FF,#FFD166);width:0%;transition:width .1s linear;"></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="btn btn-ghost btn-block" onclick="closeReplay()">Cerrar</button>
@@ -2544,7 +2544,7 @@ function openReplay(){
       const cellH = MAP_H / GRID_ROWS;
       const cx = (w.gridCol - 0.5) * cellW;
       const cy = (w.gridRow - 0.5) * cellH;
-      const colors = { mejor:'#F59E0B', media:'#9CA3AF', otra:'#B45309' };
+      const colors = { mejor:'#FF8C42', media:'#8A99A3', otra:'#7D4E27' };
       const c = colors[w.category];
       const r = w.category==='mejor' ? 14 : w.category==='media' ? 11 : 9;
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -2589,8 +2589,8 @@ function renderReplayMapEmpty(){
   for(let c=1; c<GRID_COLS; c++) grid += `<line x1="${c*cellW}" y1="0" x2="${c*cellW}" y2="${MAP_H}"/>`;
   grid += '</g>';
   let refLines = '';
-  if(state.map.lines.outside) refLines += renderLine(state.map.lines.outside, '#A855F7', 'OUT');
-  if(state.map.lines.inside)  refLines += renderLine(state.map.lines.inside,  '#F59E0B', 'IN');
+  if(state.map.lines.outside) refLines += renderLine(state.map.lines.outside, '#7B4FBE', 'OUT');
+  if(state.map.lines.inside)  refLines += renderLine(state.map.lines.inside,  '#FF8C42', 'IN');
   if(state.map.lines.orilla)  refLines += renderLine(state.map.lines.orilla,  '#00D2FF', 'OR');
   let refs = '';
   state.map.refs.forEach(r=>{
@@ -2601,18 +2601,18 @@ function renderReplayMapEmpty(){
   if(state.map.entryPoint){
     const ep = state.map.entryPoint;
     replayEE += `<g style="pointer-events:none;">
-      <circle cx="${ep.x}" cy="${ep.y}" r="13" fill="rgba(52,211,153,0.3)" stroke="#34D399" stroke-width="2.5"/>
+      <circle cx="${ep.x}" cy="${ep.y}" r="13" fill="rgba(6,214,160,0.3)" stroke="#06D6A0" stroke-width="2.5"/>
       <g transform="translate(${ep.x-8} ${ep.y-8})">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="m18 9-6-6-6 6"/><path d="M12 3v14"/><path d="M5 21h14"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06D6A0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="m18 9-6-6-6 6"/><path d="M12 3v14"/><path d="M5 21h14"/></svg>
       </g>
     </g>`;
   }
   if(state.map.exitPoint){
     const xp = state.map.exitPoint;
     replayEE += `<g style="pointer-events:none;">
-      <circle cx="${xp.x}" cy="${xp.y}" r="13" fill="rgba(252,165,165,0.3)" stroke="#FCA5A5" stroke-width="2.5"/>
+      <circle cx="${xp.x}" cy="${xp.y}" r="13" fill="rgba(255,107,107,0.3)" stroke="#FF6B6B" stroke-width="2.5"/>
       <g transform="translate(${xp.x-8} ${xp.y-8})">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FCA5A5" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
       </g>
     </g>`;
   }
