@@ -366,6 +366,7 @@ header{padding:calc(10px + env(safe-area-inset-top,0)) 16px 10px;display:flex;al
   <div class="copyright-block">
     <span style="color:var(--cyan);font-weight:700;font-size:10px;">© The Surf Sequence Method®</span><br>
     Propiedad intelectual exclusiva de <strong style="color:var(--grey);">Marcelo Castellanos</strong> · Enkrateia SA de CV. Todos los derechos reservados.
+    <div style="margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);">Hecho en El Salvador</div>
   </div>
 </div>
 
@@ -374,7 +375,7 @@ header{padding:calc(10px + env(safe-area-inset-top,0)) 16px 10px;display:flex;al
   <header>
     <div class="hdr-logo" onclick="goHome()" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
       <img src="logo-wave.png?v=10.1" alt="The Surf Sequence" style="height:26px;width:auto;display:block;">
-      <div class="hdr-logo-text" style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--cyan-soft);text-transform:uppercase;font-weight:400;"><span id="headerSub">El Salvador</span></div>
+      <div class="hdr-logo-text" style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--cyan-soft);text-transform:uppercase;font-weight:400;"><span id="headerSub">The Surf Sequence</span></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span class="role-chip" id="roleChip"></span>
@@ -1399,7 +1400,7 @@ async function bootApp(){
     const labelMap={coach:'Head Coach',acoach:'Coach Manager'};
     document.getElementById('roleChip').textContent=labelMap[S.user.role]||S.user.name;
     document.getElementById('roleChip').className=`role-chip ${chipMap[S.user.role]||'rc-athlete'}`;
-    document.getElementById('headerSub').textContent=(isCoach||isACoach)?'Coach Panel':'El Salvador';
+    document.getElementById('headerSub').textContent=(isCoach||isACoach)?'Coach Panel':'The Surf Sequence';
     updateHeaderAvatar();
 
     buildNav(); switchView((isCoach||isACoach)?'panel':'hoy');
@@ -1457,9 +1458,104 @@ function switchView(view){
    MÓDULO: HOY — Vista diaria del atleta
    vHoy, loadHoy, buildPlansHtml, buildCheckinForm
    ════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   LA FRASE DEL DÍA · banco curado de la doctrina TSS + leyendas
+   Determinística por fecha: todo el equipo ve la misma frase el mismo
+   día y rota sin repetirse por ~2 meses. Doctrina sin autor (voz de la
+   casa) · externas con atribución real.
+   ════════════════════════════════════════════════════════════════════ */
+const TSS_QUOTES = [
+  // ── Doctrina TSS · claridad y estructura ──
+  { t:'La claridad lo cambia todo.' },
+  { t:'Entrená con intención. Aprendé con estructura.' },
+  { t:'El mar no tiene manual. Vos sí.' },
+  { t:'Una sesión sin objetivo es solo un chapuzón.' },
+  { t:'Si no lo podés explicar, todavía no lo aprendiste.' },
+  { t:'Lo que se registra, mejora.' },
+  { t:'Sin briefing no hay heat: llegá sabiendo qué buscás.' },
+  // ── Doctrina · el mar como maestro ──
+  { t:'El mar siempre manda. Vos elegís cómo escucharlo.' },
+  { t:'Jugá con el mar, nunca contra él.' },
+  { t:'El mar premia al que llega con un plan.' },
+  { t:'Cada ola tiene tres momentos. Leelos antes de remar.' },
+  { t:'La mejor maniobra es la que la ola pide.' },
+  // ── Doctrina · proceso sobre resultado ──
+  { t:'La ola de hoy no se repite. Tu preparación sí.' },
+  { t:'Repetir no es aburrido. Repetir es cómo el cuerpo aprende.' },
+  { t:'La constancia le gana al talento que no llega a la playa.' },
+  { t:'Tu rival más honesto es tu sesión de ayer.' },
+  { t:'Pequeños pasos, olas grandes.' },
+  { t:'Medí tu semana en olas buenas, no en horas quemadas.' },
+  { t:'Hoy toca lo que toca. Hacelo completo.' },
+  { t:'Los puntos se suman en el agua, pero se ganan en la rutina.' },
+  // ── Doctrina · técnica y fundamentos ──
+  { t:'Primero la postura. Después todo lo demás.' },
+  { t:'La rotación empieza en la mirada.' },
+  { t:'El pop-up perfecto se construye en la arena.' },
+  { t:'Flow no es suerte: es fundamentos encadenados.' },
+  { t:'La técnica te da opciones. La táctica te dice cuál elegir.' },
+  { t:'Un error trazado a su bloque deja de ser un misterio.' },
+  { t:'No busques la ola perfecta. Construí al surfista que la aprovecha.' },
+  { t:'La remada también puntúa: te pone donde las cosas pasan.' },
+  // ── Doctrina · progresión y cintas ──
+  { t:'Nadie salta de cinta. Nadie se queda en una.' },
+  { t:'Tu cinta no es un color. Es todo lo que ya superaste.' },
+  { t:'La cinta negra es un alumno que nunca dejó de empezar.' },
+  { t:'El juego es serio: por eso se entrena.' },
+  // ── Doctrina · mentalidad de competencia ──
+  { t:'El heat se gana antes de mojarte.' },
+  { t:'En el lineup, la paciencia es una posición.' },
+  { t:'Visualizá la ola antes de que exista.' },
+  { t:'Confiá en tu secuencia. Para eso la construiste.' },
+  { t:'Respirá primero. El resto viene solo.' },
+  { t:'Primero seguro, después valiente, siempre preparado.' },
+  // ── Doctrina · bienestar de atleta ──
+  { t:'Dormí como atleta. Hidratate como atleta. Después surfeá como atleta.' },
+  { t:'El descanso también es entreno.' },
+  { t:'El check-in de hoy es el reporte de tu futuro.' },
+  { t:'Tu cuerpo es tu primera tabla: cuidalo igual.' },
+  { t:'La energía que no recuperás hoy, te falta mañana.' },
+  // ── Leyendas del surf ──
+  { t:'El mejor surfista del agua es el que más se está divirtiendo.', a:'Phil Edwards' },
+  { t:'Eddie iría.', a:'Eddie Aikau' },
+  { t:'Fuera del agua, no soy nada.', a:'Duke Kahanamoku' },
+  { t:'Todo depende de dónde está tu mente.', a:'Kelly Slater' },
+  { t:'Asegurate de que tu peor enemigo no viva entre tus propias orejas.', a:'Laird Hamilton' },
+  { t:'El coraje no es no tener miedo: es no dejar que el miedo te detenga.', a:'Bethany Hamilton' },
+  { t:'Solo necesitás tres cosas: tu cuerpo, una tabla y una ola.', a:'Gerry Lopez' },
+  { t:'No podés parar las olas, pero podés aprender a surfearlas.', a:'Jon Kabat-Zinn' },
+  { t:'El mar, una vez que te hechiza, te tiene para siempre en su red de maravillas.', a:'Jacques Cousteau' },
+  // ── Leyendas del deporte y la filosofía ──
+  { t:'Sé agua, amigo mío.', a:'Bruce Lee' },
+  { t:'No cuentes los días; hacé que los días cuenten.', a:'Muhammad Ali' },
+  { t:'He fallado una y otra vez en mi vida. Por eso he tenido éxito.', a:'Michael Jordan' },
+  { t:'El trabajo duro le gana al talento cuando el talento no trabaja duro.', a:'Tim Notke' },
+  { t:'La presión es un privilegio.', a:'Billie Jean King' },
+  { t:'Lo que cuenta es lo que aprendés después de creer que ya lo sabés todo.', a:'John Wooden' },
+  { t:'La suerte es lo que sucede cuando la preparación se encuentra con la oportunidad.', a:'Séneca' },
+  { t:'El hombre que mueve montañas empieza cargando piedras pequeñas.', a:'Confucio' },
+];
+
+function getQuoteOfDay(){
+  const today = todayStr();
+  const dayIdx = Math.floor(new Date(today+'T12:00:00').getTime() / 86400000);
+  return TSS_QUOTES[dayIdx % TSS_QUOTES.length];
+}
+
+function renderQuoteOfDay(){
+  const q = getQuoteOfDay();
+  if(!q) return '';
+  return `<div class="anim-up" style="margin-bottom:14px;padding:12px 14px;border:1px solid rgba(247,249,250,.10);border-left:2px solid var(--cyan);background:rgba(255,255,255,.02);">
+    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);font-family:'IBM Plex Mono',monospace;margin-bottom:6px;">La frase del día</div>
+    <div style="font-size:14px;line-height:1.55;color:var(--white);">${esc(q.t)}</div>
+    ${q.a?`<div style="margin-top:6px;font-size:10px;color:var(--grey);font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;">— ${esc(q.a)}</div>`:''}
+  </div>`;
+}
+
 async function vHoy(){
   const today=todayStr();
   render(`<div class="page-title">Mi Día</div><div class="page-sub">${fmtDate(today)}</div>
+    ${renderQuoteOfDay()}
     <div id="compHoyBanner"></div>
     <div id="upcomingApptsBanner"></div>
     <div id="hoyContent"><p style="padding:20px;text-align:center;color:var(--grey);font-size:12px;">Cargando...</p></div>
