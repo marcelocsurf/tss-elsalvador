@@ -15,7 +15,7 @@
 <style>
 :root{
   --bg:#061C2B; --bg2:#0A2438; --bg3:#123049;
-  --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
+  --border:rgba(247,249,250,.10); --border2:rgba(247,249,250,.16);
   --text:#E8F0F5; --text-soft:#B8CCDF; --grey:#6B7E8F;
   --cyan:#00D2FF; --purple:#7B4FBE; --amber:#FFD166; --foam:#06D6A0; --coral:#FF6B6B;
   --gold:#FF8C42; --silver:#8A99A3; --bronze:#7D4E27;
@@ -31,7 +31,7 @@ input,textarea,select{font-family:inherit;}
 
 /* ---------- Layout ---------- */
 .app{max-width:100%; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;}
-.topbar{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(10,22,40,.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); z-index:10;}
+.topbar{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(6,28,43,.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); z-index:10;}
 .brand-block{display:flex; align-items:center; gap:14px;}
 .brand-logo{height:48px; width:auto; opacity:1;}
 .brand-divider{width:1px; height:32px; background:var(--border2);}
@@ -40,27 +40,27 @@ input,textarea,select{font-family:inherit;}
 .brand-ctx{font-family:'Archivo',sans-serif; font-size:12px; color:var(--text-soft); display:none;}
 .brand-ctx strong{color:var(--text); font-weight:600;}
 @media(min-width:600px){ .brand-ctx{display:inline;} }
-.menu-btn{padding:7px; border:1px solid var(--border2); border-radius:12px; color:var(--text-soft); display:inline-flex; align-items:center; justify-content:center; transition:all .15s;}
+.menu-btn{padding:7px; border:1px solid var(--border2); border-radius:0; color:var(--text-soft); display:inline-flex; align-items:center; justify-content:center; transition:all .15s;}
 .menu-btn:hover{border-color:var(--cyan); color:var(--cyan);}
 .menu-btn svg{width:16px; height:16px;}
 .screen{padding:16px; flex:1; display:flex; flex-direction:column; gap:14px;}
 
 /* ---------- Inputs ---------- */
 .label{font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--cyan); font-weight:500; margin-bottom:6px;}
-.inp,.sel,.ta{width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border2); border-radius:10px; padding:11px 14px; color:var(--text); font-size:14px;}
+.inp,.sel,.ta{width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border2); border-radius:0; padding:11px 14px; color:var(--text); font-size:14px;}
 .inp:focus,.sel:focus,.ta:focus{outline:none; border-color:var(--cyan); background:rgba(0,210,255,.04);}
 .ta{resize:vertical; min-height:64px; font-family:inherit;}
 
 /* ---------- Chips ---------- */
 .chips{display:flex; gap:6px; flex-wrap:wrap;}
-.chip{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.04em; padding:8px 16px; border-radius:999px; background:rgba(0,210,255,.1); border:1.5px solid rgba(0,210,255,.3); color:var(--cyan); font-weight:500; cursor:pointer; user-select:none; transition:all .12s;}
+.chip{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.04em; padding:8px 16px; border-radius:0; background:rgba(0,210,255,.1); border:1.5px solid rgba(0,210,255,.3); color:var(--cyan); font-weight:500; cursor:pointer; user-select:none; transition:all .12s;}
 .chip:active{transform:scale(.96);}
 .chip.off{background:transparent; border:1px solid var(--border2); color:var(--grey);}
 .chip.amber{background:rgba(255,140,66,.12); border-color:rgba(255,140,66,.4); color:var(--gold-text);}
 .chip.purple{background:rgba(123,79,190,.12); border-color:rgba(123,79,190,.4); color:#C9B9E8;}
 
 /* ---------- Buttons ---------- */
-.btn{padding:13px 18px; border-radius:999px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; transition:all .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
+.btn{padding:13px 18px; border-radius:0; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:500; transition:all .15s; display:inline-flex; align-items:center; justify-content:center; gap:6px;}
 .btn:active{transform:scale(.97);}
 .btn-cyan{background:var(--cyan); color:var(--bg);}
 .btn-ghost{background:transparent; border:1px solid var(--border2); color:var(--text-soft);}
@@ -70,7 +70,7 @@ input,textarea,select{font-family:inherit;}
 
 /* ---------- Categories ---------- */
 .cat-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
-.cat{padding:14px 6px; border-radius:12px; text-align:center; cursor:pointer; user-select:none; transition:all .15s; border:2.5px solid transparent;}
+.cat{padding:14px 6px; border-radius:0; text-align:center; cursor:pointer; user-select:none; transition:all .15s; border:2.5px solid transparent;}
 .cat:active{transform:scale(.97);}
 .cat.on{transform:scale(1.03); box-shadow:0 0 0 3px rgba(255,255,255,.18);}
 .cat-mejor{background:rgba(255,140,66,.18); border-color:var(--gold);}
@@ -84,7 +84,7 @@ input,textarea,select{font-family:inherit;}
 
 /* ---------- Toolbar ---------- */
 .toolbar{display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px;} .toolbar>*{flex:0 0 auto; min-width:62px;}
-.tool{padding:9px 4px; border-radius:12px; text-align:center; font-size:10px; font-weight:700; border:1px solid var(--border2); color:var(--text-soft); cursor:pointer; user-select:none; letter-spacing:.4px; transition:all .12s; line-height:1.1;}
+.tool{padding:9px 4px; border-radius:0; text-align:center; font-size:10px; font-weight:700; border:1px solid var(--border2); color:var(--text-soft); cursor:pointer; user-select:none; letter-spacing:.4px; transition:all .12s; line-height:1.1;}
 .tool:active{transform:scale(.96);}
 .tool svg{display:block; margin:0 auto 3px; width:16px; height:16px;}
 .tool.on{background:rgba(255,255,255,.08); border-color:currentColor;}
@@ -98,11 +98,11 @@ input,textarea,select{font-family:inherit;}
 .timer-bar{display:flex; justify-content:space-between; align-items:center; gap:12px;}
 .timer-big{font-size:40px; font-weight:800; color:var(--text); font-family:'Archivo',sans-serif; font-stretch:125%; line-height:1;}
 .timer-sub{font-size:11px; color:var(--grey); margin-top:3px;}
-.timer-stop{font-size:13px; color:var(--coral); font-weight:600; padding:8px 14px; border:1px solid rgba(255,107,107,.4); border-radius:12px;}
+.timer-stop{font-size:13px; color:var(--coral); font-weight:600; padding:8px 14px; border:1px solid rgba(255,107,107,.4); border-radius:0;}
 .timer-warn{color:var(--gold-text) !important;}
 
 /* ---------- Map ---------- */
-.map-wrap{position:relative; background:#021126; border-radius:14px; overflow:hidden; touch-action:pan-y;}
+.map-wrap{position:relative; background:#021126; border-radius:0; overflow:hidden; touch-action:pan-y;}
 .map-wrap svg{display:block; width:100%; height:auto; touch-action:pan-y; max-height:52vh;}
 .map-wrap.drawing-mode, .map-wrap.drawing-mode svg{touch-action:none;}
 .map-meta{display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--grey); padding:4px 2px; font-family:'IBM Plex Mono',monospace;}
@@ -111,25 +111,25 @@ input,textarea,select{font-family:inherit;}
 }
 
 /* ---------- Section ---------- */
-.section{background:rgba(247,249,250,.03); border:1px solid var(--border); border-radius:20px; padding:16px;}
+.section{background:rgba(247,249,250,.03); border:1px solid var(--border); border-radius:0; padding:16px;}
 .section-h{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
 .section-t{font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.16em; font-weight:500; font-size:10px; color:var(--cyan); margin-bottom:10px;}
 
 /* ---------- Recent waves list ---------- */
 .recent{max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;}
-.recent-item{display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(255,255,255,.04); border-radius:6px; font-size:12px;}
+.recent-item{display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(255,255,255,.04); border-radius:0; font-size:12px;}
 .recent-coord{font-family:'IBM Plex Mono',monospace; font-weight:700;}
 .recent-time{color:var(--grey); font-size:11px;}
 
 /* ---------- Modal ---------- */
 .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.78); display:flex; align-items:center; justify-content:center; z-index:200; backdrop-filter:blur(8px); padding:20px;}
-.modal{background:var(--bg2); border:1px solid rgba(0,210,255,.2); border-radius:24px; padding:20px 20px 22px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto;}
+.modal{background:var(--bg2); border:1px solid rgba(0,210,255,.2); border-radius:0; padding:20px 20px 22px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto;}
 .modal-h{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px;}
 .modal-t{font-family:'Archivo',sans-serif; font-stretch:125%; text-transform:uppercase; font-size:17px; font-weight:800;}
 .modal-x{font-size:22px; color:var(--grey); padding:0 6px;}
 
 /* ---------- Report ---------- */
-.report-block{background:rgba(255,255,255,.025); border:1px solid var(--border); border-left:4px solid var(--gold); border-radius:0 12px 12px 0; padding:0; margin-bottom:10px; overflow:hidden;}
+.report-block{background:rgba(255,255,255,.025); border:1px solid var(--border); border-left:4px solid var(--gold); border-radius:0; padding:0; margin-bottom:10px; overflow:hidden;}
 .report-block.silver{border-left-color:var(--silver);}
 .report-block.bronze{border-left-color:var(--bronze);}
 .report-cat-banner{display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:rgba(255,140,66,.08); border-bottom:1px solid var(--border);}
@@ -149,7 +149,7 @@ input,textarea,select{font-family:inherit;}
 .report-hero-sub{font-size:13px; color:var(--text-soft); margin-top:6px; line-height:1.4;}
 .report-hero-sub strong{color:var(--text); font-weight:500;}
 .report-strip{display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--border); flex-wrap:wrap;}
-.report-pill{font-size:11px; padding:4px 10px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid var(--border); color:var(--text-soft);}
+.report-pill{font-size:11px; padding:4px 10px; border-radius:0; background:rgba(255,255,255,.04); border:1px solid var(--border); color:var(--text-soft);}
 .report-pill strong{color:var(--text); font-weight:600;}
 .report-pill.foam{background:rgba(6,214,160,.12); border-color:rgba(6,214,160,.3); color:var(--foam);}
 .report-pill.amber{background:rgba(255,140,66,.12); border-color:rgba(255,140,66,.3); color:var(--gold-text);}
@@ -162,7 +162,7 @@ input,textarea,select{font-family:inherit;}
 .report-alt-coord{font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--text); min-width:42px;}
 .report-alt-refs{flex:1; min-width:0; color:var(--grey); font-size:11px;}
 .report-alt-data{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-soft);}
-.plan-card{background:rgba(0,210,255,.08); border:1px solid rgba(0,210,255,.3); border-radius:12px; padding:14px 16px; margin-top:14px;}
+.plan-card{background:rgba(0,210,255,.08); border:1px solid rgba(0,210,255,.3); border-radius:0; padding:14px 16px; margin-top:14px;}
 .plan-h{font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:1px; margin-bottom:8px;}
 .plan-line{font-size:13px; color:var(--text-soft); margin-top:5px; line-height:1.5;}
 .plan-line strong{color:var(--text); font-weight:600;}
@@ -171,7 +171,7 @@ input,textarea,select{font-family:inherit;}
 /* ---------- Score sliders ---------- */
 .score-row{display:grid; grid-template-columns:30px 1fr 50px; align-items:center; gap:12px; margin-bottom:10px;}
 .score-row input[type=range]{width:100%; -webkit-appearance:none; background:transparent;}
-.score-row input[type=range]::-webkit-slider-runnable-track{height:8px; background:rgba(255,255,255,.08); border-radius:4px;}
+.score-row input[type=range]::-webkit-slider-runnable-track{height:8px; background:rgba(255,255,255,.08); border-radius:0;}
 .score-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--cyan); margin-top:-6px; box-shadow:0 0 0 3px rgba(0,210,255,.18);}
 .score-val{font-family:'IBM Plex Mono',monospace; font-weight:700; text-align:right; font-size:15px;}
 
@@ -204,13 +204,13 @@ input,textarea,select{font-family:inherit;}
 
 /* Hide scrollbar */
 .recent::-webkit-scrollbar{width:5px;}
-.recent::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1); border-radius:5px;}
+.recent::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1); border-radius:0;}
 
 /* SVG cell highlight on tap */
 .cell-hit{fill:rgba(0,210,255,.18); transition:opacity .2s; pointer-events:none;}
 
 /* Toast */
-.toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--bg3); border:1px solid var(--cyan); color:var(--text); padding:10px 18px; border-radius:24px; font-size:13px; font-weight:600; z-index:500; box-shadow:0 6px 24px rgba(0,0,0,.4); animation:toastIn .3s ease-out;}
+.toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--bg3); border:1px solid var(--cyan); color:var(--text); padding:10px 18px; border-radius:0; font-size:13px; font-weight:600; z-index:500; box-shadow:0 6px 24px rgba(0,0,0,.4); animation:toastIn .3s ease-out;}
 @keyframes toastIn{from{opacity:0; transform:translate(-50%,12px);} to{opacity:1; transform:translate(-50%,0);}}
 
 /* Box breathing screen */
@@ -226,7 +226,7 @@ input,textarea,select{font-family:inherit;}
 .breath-circle.holdout{transform:scale(1); background:rgba(0,210,255,.08); border-color:rgba(0,210,255,.4);}
 .breath-phase{position:absolute; font-family:'IBM Plex Mono',monospace; font-weight:500; letter-spacing:.2em; text-transform:uppercase; font-size:20px; color:var(--text); pointer-events:none;}
 .breath-meta{margin-top:32px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-soft); letter-spacing:1.5px;}
-.breath-skip{margin-top:24px; font-size:12px; color:var(--text-soft); padding:8px 18px; border:1px solid var(--border2); border-radius:20px; transition:all .15s;}
+.breath-skip{margin-top:24px; font-size:12px; color:var(--text-soft); padding:8px 18px; border:1px solid var(--border2); border-radius:0; transition:all .15s;}
 .breath-skip:hover{color:var(--text); border-color:var(--text-soft);}
 </style>
 </head>
@@ -379,7 +379,7 @@ function openAppMenu(){
       ${state.screen!=='setup' ? `<button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();state.screen='setup';save();render();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="15 18 9 12 15 6"/></svg>Volver al setup</button>`:''}
       <button class="btn btn-ghost btn-block" style="justify-content:space-between;padding:14px 16px;" onclick="toggleRapidMode(this)">
         <span style="display:inline-flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:10px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Score auto-clasifica · tap primero, score después</span>
-        <span style="font-size:11px;padding:3px 10px;border-radius:12px;background:${state.rapidMode?'rgba(6,214,160,.18)':'rgba(255,255,255,.06)'};color:${state.rapidMode?'var(--foam)':'var(--text-soft)'};font-weight:700;">${state.rapidMode?'ON':'OFF'}</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:0;background:${state.rapidMode?'rgba(6,214,160,.18)':'rgba(255,255,255,.06)'};color:${state.rapidMode?'var(--foam)':'var(--text-soft)'};font-weight:700;">${state.rapidMode?'ON':'OFF'}</span>
       </button>
       <button class="btn btn-ghost btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();window.print();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir / guardar PDF</button>
       <button class="btn btn-coral btn-block" style="justify-content:flex-start;padding:14px 16px;" onclick="this.closest('.modal-overlay').remove();reset();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:10px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Nuevo análisis (borra el actual)</button>
@@ -466,14 +466,14 @@ function renderSetup(){
     <section class="section">
       <div class="section-h"><div class="section-t">Tipo de análisis</div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button onclick="setAnalysisMode('comp')" style="padding:14px 10px;border-radius:12px;border:2px solid ${mode==='comp'?'var(--cyan)':'var(--border)'};background:${mode==='comp'?'rgba(0,210,255,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
+        <button onclick="setAnalysisMode('comp')" style="padding:14px 10px;border-radius:0;border:2px solid ${mode==='comp'?'var(--cyan)':'var(--border)'};background:${mode==='comp'?'rgba(0,210,255,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${mode==='comp'?'#00D2FF':'#B8CCDF'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
             <div style="font-weight:700;font-size:13px;color:${mode==='comp'?'var(--cyan)':'var(--text)'};">COMPETENCIA</div>
           </div>
           <div style="font-size:11px;color:var(--text-soft);line-height:1.35;">Scoring 1-10 · clasificación automática según tus olas del día · plan táctico del heat · replay</div>
         </button>
-        <button onclick="setAnalysisMode('free')" style="padding:14px 10px;border-radius:12px;border:2px solid ${mode==='free'?'var(--foam)':'var(--border)'};background:${mode==='free'?'rgba(6,214,160,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
+        <button onclick="setAnalysisMode('free')" style="padding:14px 10px;border-radius:0;border:2px solid ${mode==='free'?'var(--foam)':'var(--border)'};background:${mode==='free'?'rgba(6,214,160,.08)':'rgba(255,255,255,.02)'};color:var(--text);text-align:left;cursor:pointer;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${mode==='free'?'#06D6A0':'#B8CCDF'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
             <div style="font-weight:700;font-size:13px;color:${mode==='free'?'var(--foam)':'var(--text)'};">SESIÓN LIBRE</div>
@@ -695,7 +695,7 @@ function renderObserve(){
 
       ${isFree ? `
       <div style="margin-top:14px;">
-        <div class="cat cat-mejor ${state.activeMode==='ola'?'on':''}" style="background:rgba(6,214,160,.14);border:2px solid ${state.activeMode==='ola'?'#06D6A0':'transparent'};padding:12px;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('ola')">
+        <div class="cat cat-mejor ${state.activeMode==='ola'?'on':''}" style="background:rgba(6,214,160,.14);border:2px solid ${state.activeMode==='ola'?'#06D6A0':'transparent'};padding:12px;border-radius:0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('ola')">
           <div>
             <div class="cat-lbl" style="color:#06D6A0;">OLA BUENA</div>
             <div style="font-size:10px;color:var(--grey);margin-top:2px;">Tap donde viste una ola aprovechable</div>
@@ -705,7 +705,7 @@ function renderObserve(){
       </div>
       ` : `
       <div style="margin-top:14px;">
-        <div class="cat ${state.activeMode==='mejor'?'on':''}" style="background:rgba(0,210,255,.12);border:2px solid ${state.activeMode==='mejor'?'var(--cyan)':'transparent'};padding:12px;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('mejor')">
+        <div class="cat ${state.activeMode==='mejor'?'on':''}" style="background:rgba(0,210,255,.12);border:2px solid ${state.activeMode==='mejor'?'var(--cyan)':'transparent'};padding:12px;border-radius:0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="setMode('mejor')">
           <div>
             <div class="cat-lbl" style="color:var(--cyan);">OLA</div>
             <div style="font-size:10px;color:var(--grey);margin-top:2px;">Tap donde salió · le asignás score 1-10 después</div>
@@ -716,9 +716,9 @@ function renderObserve(){
       `}
 
       <div class="dir-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
-        <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='R'?'rgba(255,209,102,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FFD166':'var(--border2)'};color:${state.activeDirection==='R'?'#FFD166':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('R')" title="La ola va hacia tu izquierda visual = ola DERECHA del surfista">← DER</button>
-        <button class="dir-btn ${state.activeDirection===null?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection===null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection===null?'var(--text-soft)':'var(--border2)'};color:${state.activeDirection===null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;letter-spacing:.4px;" onclick="toggleDirection(null)">SIN DIR</button>
-        <button class="dir-btn ${state.activeDirection==='L'?'on':''}" style="padding:9px 4px;border-radius:9px;background:${state.activeDirection==='L'?'rgba(0,210,255,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='L'?'#00D2FF':'var(--border2)'};color:${state.activeDirection==='L'?'#00D2FF':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;" onclick="toggleDirection('L')" title="La ola va hacia tu derecha visual = ola IZQUIERDA del surfista">IZQ →</button>
+        <button class="dir-btn ${state.activeDirection==='R'?'on':''}" style="padding:9px 4px;border-radius:0;background:${state.activeDirection==='R'?'rgba(255,209,102,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='R'?'#FFD166':'var(--border2)'};color:${state.activeDirection==='R'?'#FFD166':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;transition:all .12s;" onclick="toggleDirection('R')" title="La ola va hacia tu izquierda visual = ola DERECHA del surfista">← DER</button>
+        <button class="dir-btn ${state.activeDirection===null?'on':''}" style="padding:9px 4px;border-radius:0;background:${state.activeDirection===null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection===null?'var(--text-soft)':'var(--border2)'};color:${state.activeDirection===null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;letter-spacing:.4px;" onclick="toggleDirection(null)">SIN DIR</button>
+        <button class="dir-btn ${state.activeDirection==='L'?'on':''}" style="padding:9px 4px;border-radius:0;background:${state.activeDirection==='L'?'rgba(0,210,255,.22)':'rgba(255,255,255,.04)'};border:1.5px solid ${state.activeDirection==='L'?'#00D2FF':'var(--border2)'};color:${state.activeDirection==='L'?'#00D2FF':'var(--text-soft)'};font-weight:700;font-size:12px;letter-spacing:.4px;" onclick="toggleDirection('L')" title="La ola va hacia tu derecha visual = ola IZQUIERDA del surfista">IZQ →</button>
       </div>
 
       <div class="toolbar" style="margin-top:10px;">
@@ -768,15 +768,15 @@ function renderObserve(){
         </div>
       </div>
       <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this)">
-      ${state.map.photoDataUrl ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:12px;font-size:11px;">
+      ${state.map.photoDataUrl ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:0;font-size:11px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
           <span class="mono" style="color:var(--grey);font-size:10px;">ZOOM</span>
           <input type="range" min="100" max="260" step="10" value="${Math.round((state.map.photoScale||1)*100)}" oninput="state.map.photoScale=parseInt(this.value)/100;save();render();" style="flex:1;">
           <span style="display:flex;gap:4px;">
-            <button onclick="nudgePhoto(0,-1)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">▲</button>
-            <button onclick="nudgePhoto(0,1)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">▼</button>
-            <button onclick="nudgePhoto(-1,0)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">◀</button>
-            <button onclick="nudgePhoto(1,0)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:8px;">▶</button>
+            <button onclick="nudgePhoto(0,-1)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:0;">▲</button>
+            <button onclick="nudgePhoto(0,1)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:0;">▼</button>
+            <button onclick="nudgePhoto(-1,0)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:0;">◀</button>
+            <button onclick="nudgePhoto(1,0)" style="padding:2px 8px;border:1px solid var(--border2);border-radius:0;">▶</button>
           </span>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -797,7 +797,7 @@ function renderObserve(){
       ${renderMapSVG()}
     </section>
 
-    ${(()=>{ const pend = pendingWaves(); if(!pend.length) return ''; return `<div style="margin-top:8px;padding:10px 12px;background:rgba(6,214,160,.06);border:1.5px dashed var(--foam);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+    ${(()=>{ const pend = pendingWaves(); if(!pend.length) return ''; return `<div style="margin-top:8px;padding:10px 12px;background:rgba(6,214,160,.06);border:1.5px dashed var(--foam);border-radius:0;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
       <div style="font-size:11px;color:var(--text);"><strong>${pend.length}</strong> ola${pend.length===1?'':'s'} sin score <span style="color:var(--text-soft);">· tap cada pin gris para asignar score</span></div>
       <button class="btn btn-ghost" style="padding:5px 12px;font-size:11px;color:var(--foam);border-color:rgba(6,214,160,.4);" onclick="categorizePendingModal('${pend[pend.length-1].id}')">Score de la última</button>
     </div>`; })()}
@@ -848,19 +848,19 @@ function renderPredictionWidget(){
   const accuracy = hasStats ? Math.round(((ps.hit + ps.near*0.5) / ps.tried) * 100) : 0;
   if(state.activePrediction){
     const p = state.activePrediction;
-    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(0,210,255,.1);border:1.5px dashed #00D2FF;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(0,210,255,.1);border:1.5px dashed #00D2FF;border-radius:0;display:flex;justify-content:space-between;align-items:center;gap:8px;">
       <div style="font-size:11px;color:#00D2FF;font-weight:700;line-height:1.4;">🎯 Predijiste <strong style="font-family:'IBM Plex Mono',monospace;font-size:13px;">${rowToLetter(p.row)}${p.col}</strong> · esperando próxima MEJOR...</div>
-      <button onclick="cancelPrediction()" style="font-size:11px;color:var(--text-soft);padding:4px 10px;border:1px solid var(--border2);border-radius:6px;flex-shrink:0;">Cancelar</button>
+      <button onclick="cancelPrediction()" style="font-size:11px;color:var(--text-soft);padding:4px 10px;border:1px solid var(--border2);border-radius:0;flex-shrink:0;">Cancelar</button>
     </div>`;
   }
   if(state.activeMode === 'predict'){
-    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(0,210,255,.08);border:1.5px solid #00D2FF;border-radius:10px;text-align:center;">
+    return `<div style="margin-top:10px;padding:10px 12px;background:rgba(0,210,255,.08);border:1.5px solid #00D2FF;border-radius:0;text-align:center;">
       <div style="font-size:11px;color:#00D2FF;font-weight:700;">🎯 Tap la celda donde predecís la próxima MEJOR</div>
-      <button onclick="setMode('mejor')" style="margin-top:6px;font-size:11px;color:var(--text-soft);padding:4px 12px;border:1px solid var(--border2);border-radius:6px;">Cancelar</button>
+      <button onclick="setMode('mejor')" style="margin-top:6px;font-size:11px;color:var(--text-soft);padding:4px 12px;border:1px solid var(--border2);border-radius:0;">Cancelar</button>
     </div>`;
   }
   return `<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 4px;">
-    <button onclick="startPrediction()" style="font-size:12px;color:#00D2FF;padding:8px 14px;border:1.5px solid rgba(0,210,255,.4);border-radius:9px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+    <button onclick="startPrediction()" style="font-size:12px;color:#00D2FF;padding:8px 14px;border:1.5px solid rgba(0,210,255,.4);border-radius:0;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
       🎯 Predecir próxima MEJOR
     </button>
     ${hasStats ? `<div style="font-size:11px;color:var(--text-soft);font-family:'IBM Plex Mono',monospace;">
@@ -915,7 +915,7 @@ function renderRecentItem(w){
     <span style="color:${c};font-weight:700;">● ${w.category==='pending'?'SIN SCORE':w.category.toUpperCase()}</span>
     <span class="recent-coord">${coordLbl(w)}</span>
     ${dirChip}
-    ${w.score?`<span style="font-size:10px;background:rgba(255,255,255,.08);color:var(--text);padding:1px 6px;border-radius:12px;font-weight:700;">${w.score}/10</span>`:''}
+    ${w.score?`<span style="font-size:10px;background:rgba(255,255,255,.08);color:var(--text);padding:1px 6px;border-radius:0;font-weight:700;">${w.score}/10</span>`:''}
     <span class="recent-time mono">+${fmtMMSS(w.ts)}</span>
     <button onclick="event.stopPropagation();removeWave('${w.id}')" style="color:var(--coral);font-size:14px;padding:0 4px;line-height:1;" title="Borrar">×</button>
   </div>`;
@@ -1493,7 +1493,7 @@ function openHazardModal(){
   const cats = [...new Set(HAZARDS.map(h=>h.cat))];
   const gridHTML = cats.map(cat => {
     const items = HAZARDS.filter(h=>h.cat===cat).map(h => `
-      <button class="hazard-cell" onclick="pickHazard('${h.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);cursor:pointer;">
+      <button class="hazard-cell" onclick="pickHazard('${h.id}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:0;background:rgba(255,255,255,.04);border:1px solid var(--border);cursor:pointer;">
         <span style="width:32px;height:32px;border-radius:50%;background:${h.color}22;border:1.5px solid ${h.color};display:inline-flex;align-items:center;justify-content:center;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${h.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${h.svg}</svg>
         </span>
@@ -1587,7 +1587,7 @@ function categorizePendingModal(waveId){
     const bg = cat==='mejor' ? 'rgba(255,140,66,.22)' : cat==='media' ? 'rgba(156,163,175,.18)' : cat==='otra' ? 'rgba(180,83,9,.22)' : 'rgba(255,255,255,.06)';
     const border = cat==='mejor' ? 'var(--gold)' : cat==='media' ? 'var(--silver)' : cat==='otra' ? 'var(--bronze)' : 'var(--border2)';
     const col = cat==='mejor' ? 'var(--gold-text)' : cat==='media' ? 'var(--silver-text)' : cat==='otra' ? 'var(--bronze-text)' : 'var(--text)';
-    return `<button onclick="assignScore('${w.id}',${n})" style="padding:14px 4px;background:${bg};border:2px solid ${border};border-radius:10px;color:${col};font-weight:800;font-size:16px;font-family:'IBM Plex Mono',monospace;">${n}</button>`;
+    return `<button onclick="assignScore('${w.id}',${n})" style="padding:14px 4px;background:${bg};border:2px solid ${border};border-radius:0;color:${col};font-weight:800;font-size:16px;font-family:'IBM Plex Mono',monospace;">${n}</button>`;
   };
   m.innerHTML = `<div class="modal" style="max-width:400px;">
     <div class="modal-h">
@@ -1603,9 +1603,9 @@ function categorizePendingModal(waveId){
     ${(!w.direction && !state.activeDirection) ? `
     <div class="section-t" style="margin-bottom:6px;">Dirección · vista desde la playa</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
-      <button onclick="updateWaveDir('${w.id}','R');categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--border2);border-radius:12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;">← DER</button>
-      <button onclick="updateWaveDir('${w.id}',null);categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--cyan);border-radius:12px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;font-size:11px;">SIN DIR</button>
-      <button onclick="updateWaveDir('${w.id}','L');categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--border2);border-radius:12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;">IZQ →</button>
+      <button onclick="updateWaveDir('${w.id}','R');categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--border2);border-radius:0;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;">← DER</button>
+      <button onclick="updateWaveDir('${w.id}',null);categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--cyan);border-radius:0;color:var(--cyan);font-family:'IBM Plex Mono',monospace;font-size:11px;">SIN DIR</button>
+      <button onclick="updateWaveDir('${w.id}','L');categorizePendingModal('${w.id}')" style="padding:10px;border:1.5px solid var(--border2);border-radius:0;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;">IZQ →</button>
     </div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
       ${[1,2,3,4,5,6,7,8,9,10].map(n => scoreBtn(n)).join('')}
@@ -1686,7 +1686,7 @@ function renderSetInsightChip(){
   if(!si || si.count < 1) return '';
   let txt = `🌀 ${si.count} set${si.count===1?'':'s'} detectado${si.count===1?'':'s'} · ~${si.typical} olas por set`;
   if(si.best) txt += ` · la ${ordinal(si.best.pos)} suele ser la mejor (${si.best.n} de ${si.best.total} sets) → ${setAdvice(si.best.pos)}`;
-  return `<div style="margin-top:8px;padding:9px 12px;background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:12px;font-size:11px;color:var(--text-soft);">${txt}</div>`;
+  return `<div style="margin-top:8px;padding:9px 12px;background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:0;font-size:11px;color:var(--text-soft);">${txt}</div>`;
 }
 
 function plantWave(col, row, category){
@@ -1759,8 +1759,8 @@ function openEditWaveModal(waveId){
   let m = document.querySelector('.modal-overlay'); if(m) m.remove();
   m = document.createElement('div'); m.className='modal-overlay';
   const catChip = w.category && w.category!=='pending'
-    ? `<span style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;padding:2px 10px;border-radius:12px;background:rgba(255,255,255,.07);color:${w.category==='mejor'?'var(--gold-text)':w.category==='media'?'var(--silver-text)':'var(--bronze-text)'};">${w.category.toUpperCase()} · auto</span>`
-    : `<span style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;padding:2px 10px;border-radius:12px;background:rgba(255,255,255,.07);color:var(--grey);">SIN SCORE</span>`;
+    ? `<span style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;padding:2px 10px;border-radius:0;background:rgba(255,255,255,.07);color:${w.category==='mejor'?'var(--gold-text)':w.category==='media'?'var(--silver-text)':'var(--bronze-text)'};">${w.category.toUpperCase()} · auto</span>`
+    : `<span style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;padding:2px 10px;border-radius:0;background:rgba(255,255,255,.07);color:var(--grey);">SIN SCORE</span>`;
   m.innerHTML = `<div class="modal" style="max-width:400px;">
     <div class="modal-h">
       <div>
@@ -1774,13 +1774,13 @@ function openEditWaveModal(waveId){
     </div>
     <div class="label">Score 1-10</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px;">
-      ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button onclick="updateWaveScore('${w.id}','${n}');render();" style="padding:12px 4px;background:${w.score===n?'rgba(0,210,255,.2)':'rgba(255,255,255,.05)'};border:2px solid ${w.score===n?'var(--cyan)':'var(--border2)'};border-radius:12px;color:${w.score===n?'var(--cyan)':'var(--text)'};font-weight:800;font-size:15px;font-family:'IBM Plex Mono',monospace;">${n}</button>`).join('')}
+      ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button onclick="updateWaveScore('${w.id}','${n}');render();" style="padding:12px 4px;background:${w.score===n?'rgba(0,210,255,.2)':'rgba(255,255,255,.05)'};border:2px solid ${w.score===n?'var(--cyan)':'var(--border2)'};border-radius:0;color:${w.score===n?'var(--cyan)':'var(--text)'};font-weight:800;font-size:15px;font-family:'IBM Plex Mono',monospace;">${n}</button>`).join('')}
     </div>
     <div class="label">Dirección · vista desde la playa</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
-      <button style="padding:10px 4px;border-radius:12px;background:${w.direction==='R'?'rgba(255,209,102,.18)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='R'?'var(--gold-text)':'var(--border2)'};color:${w.direction==='R'?'var(--gold-text)':'var(--text-soft)'};font-weight:700;font-size:12px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}','R')">← DER</button>
-      <button style="padding:10px 4px;border-radius:12px;background:${w.direction==null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==null?'var(--text-soft)':'var(--border2)'};color:${w.direction==null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}',null)">SIN DIR</button>
-      <button style="padding:10px 4px;border-radius:12px;background:${w.direction==='L'?'rgba(0,210,255,.16)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='L'?'var(--cyan)':'var(--border2)'};color:${w.direction==='L'?'var(--cyan)':'var(--text-soft)'};font-weight:700;font-size:12px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}','L')">IZQ →</button>
+      <button style="padding:10px 4px;border-radius:0;background:${w.direction==='R'?'rgba(255,209,102,.18)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='R'?'var(--gold-text)':'var(--border2)'};color:${w.direction==='R'?'var(--gold-text)':'var(--text-soft)'};font-weight:700;font-size:12px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}','R')">← DER</button>
+      <button style="padding:10px 4px;border-radius:0;background:${w.direction==null?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==null?'var(--text-soft)':'var(--border2)'};color:${w.direction==null?'var(--text)':'var(--text-soft)'};font-weight:700;font-size:11px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}',null)">SIN DIR</button>
+      <button style="padding:10px 4px;border-radius:0;background:${w.direction==='L'?'rgba(0,210,255,.16)':'rgba(255,255,255,.04)'};border:1.5px solid ${w.direction==='L'?'var(--cyan)':'var(--border2)'};color:${w.direction==='L'?'var(--cyan)':'var(--text-soft)'};font-weight:700;font-size:12px;font-family:'IBM Plex Mono',monospace;" onclick="updateWaveDir('${w.id}','L')">IZQ →</button>
     </div>
     <button class="btn btn-coral btn-block" onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();">× Borrar esta ola</button>
   </div>`;
@@ -1830,7 +1830,7 @@ function openClusterModal(col, row, category){
         <button onclick="removeWave('${w.id}');this.closest('.modal-overlay').remove();" style="color:var(--coral);font-size:14px;">×</button>
       </div>`).join('')}
     </div>
-    ${matching.length>1?`<div style="margin-top:12px;padding:10px;background:rgba(0,210,255,.06);border-radius:12px;font-size:12px;color:var(--text-soft);">
+    ${matching.length>1?`<div style="margin-top:12px;padding:10px;background:rgba(0,210,255,.06);border-radius:0;font-size:12px;color:var(--text-soft);">
       Intervalo promedio entre estas olas: <strong style="color:var(--cyan);">${avgIntervalLabel(matching)}</strong>
     </div>`:''}
   </div>`;
@@ -1979,7 +1979,7 @@ function renderReportFree(){
       ${sp.name || belt ? `
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--text);line-height:1.5;">
           ${sp.name ? `<strong>${esc(sp.name)}</strong>` : `<span style="color:var(--text-soft);">Sesión libre</span>`}
-          ${belt ? `<span style="padding:3px 10px;border-radius:10px;background:${belt.color};color:${belt.txt};font-weight:700;font-size:11px;letter-spacing:.5px;">CINTA ${belt.label.toUpperCase()}</span>` : ''}
+          ${belt ? `<span style="padding:3px 10px;border-radius:0;background:${belt.color};color:${belt.txt};font-weight:700;font-size:11px;letter-spacing:.5px;">CINTA ${belt.label.toUpperCase()}</span>` : ''}
         </div>
       ` : `<div style="font-size:13px;color:var(--text-soft);">Sesión libre · sin atleta específico</div>`}
     </section>
@@ -2013,8 +2013,8 @@ function renderReportFree(){
         <div style="font-size:10px;color:var(--grey);">números en el mapa ↓</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;">
-        ${hazardsList.map((h,i)=>`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:12px;">
-          <span style="width:22px;height:22px;border-radius:50%;border:2px solid ${h.color};background:rgba(10,22,40,.8);color:${h.color};font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
+        ${hazardsList.map((h,i)=>`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:0;">
+          <span style="width:22px;height:22px;border-radius:50%;border:2px solid ${h.color};background:rgba(6,28,43,.8);color:${h.color};font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
           <span style="color:${h.color};font-weight:600;flex:1;">${esc(h.label)}</span>
           <span class="mono" style="color:var(--text-soft);">${h.cell}</span>
         </div>`).join('')}
@@ -2024,11 +2024,11 @@ function renderReportFree(){
 
     ${(epCell || xpCell) ? `
     <section class="section" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      ${epCell ? `<div style="padding:10px;background:rgba(6,214,160,.08);border-radius:10px;border:1px solid rgba(6,214,160,.3);">
+      ${epCell ? `<div style="padding:10px;background:rgba(6,214,160,.08);border-radius:0;border:1px solid rgba(6,214,160,.3);">
         <div style="font-size:10px;color:var(--foam);font-weight:700;letter-spacing:.5px;">ENTRADA</div>
         <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px;">${epCell}</div>
       </div>` : ''}
-      ${xpCell ? `<div style="padding:10px;background:rgba(255,107,107,.08);border-radius:10px;border:1px solid rgba(255,107,107,.3);">
+      ${xpCell ? `<div style="padding:10px;background:rgba(255,107,107,.08);border-radius:0;border:1px solid rgba(255,107,107,.3);">
         <div style="font-size:10px;color:var(--coral);font-weight:700;letter-spacing:.5px;">SALIDA</div>
         <div style="font-size:18px;color:var(--white);font-weight:700;font-family:'IBM Plex Mono',monospace;margin-top:2px;">${xpCell}</div>
       </div>` : ''}
@@ -2039,7 +2039,7 @@ function renderReportFree(){
       <div style="font-size:11px;color:var(--text-soft);font-weight:700;letter-spacing:.6px;margin-bottom:10px;">CHECKLIST ANTES DE ENTRAR</div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         ${checklist.map(c=>`<div style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text);line-height:1.4;">
-          <span style="width:14px;height:14px;border-radius:4px;border:1.5px solid var(--text-soft);flex-shrink:0;margin-top:2px;"></span>
+          <span style="width:14px;height:14px;border-radius:0;border:1.5px solid var(--text-soft);flex-shrink:0;margin-top:2px;"></span>
           <span>${esc(c)}</span>
         </div>`).join('')}
       </div>
@@ -2047,7 +2047,7 @@ function renderReportFree(){
 
     <section class="section">
       <div style="font-size:11px;color:var(--text-soft);font-weight:700;letter-spacing:.6px;margin-bottom:10px;">MAPA DEL SPOT</div>
-      <div style="border-radius:12px;overflow:hidden;background:var(--bg2);">
+      <div style="border-radius:0;overflow:hidden;background:var(--bg2);">
         ${renderMapSVG({ enumerateHazards: true })}
       </div>
     </section>
@@ -2297,7 +2297,7 @@ function renderReport(){
         <span class="chip">${state.config.conditions.wind}</span>
         <span class="chip">${state.config.conditions.period}</span>
       </div>
-      ${pend ? `<div style="margin-top:10px;padding:8px 12px;border:1.5px dashed var(--amber);border-radius:10px;font-size:12px;color:var(--amber);">${pend} ola${pend===1?'':'s'} sin score no entran al análisis · <button style="color:var(--amber);font-weight:700;text-decoration:underline;" onclick="goBackToObserve()">volver y asignarles score</button></div>` : ''}
+      ${pend ? `<div style="margin-top:10px;padding:8px 12px;border:1.5px dashed var(--amber);border-radius:0;font-size:12px;color:var(--amber);">${pend} ola${pend===1?'':'s'} sin score no entran al análisis · <button style="color:var(--amber);font-weight:700;text-decoration:underline;" onclick="goBackToObserve()">volver y asignarles score</button></div>` : ''}
     </section>
 
     <section class="section">
@@ -2407,7 +2407,7 @@ function renderTacticalPlanCard(plan){
   return `<section class="section" style="background:linear-gradient(135deg,rgba(0,210,255,.08),rgba(0,210,255,.02));border:1.5px solid ${statusColor};">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:${statusColor};">Plan para tu heat · ${plan.T} min${b.policy ? ' · ' + b.policy.name : ''}</div>
-      <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.06);font-family:'IBM Plex Mono',monospace;">${b.sim.expected.toFixed(1)} pts esperados</div>
+      <div style="font-size:11px;font-weight:800;color:${statusColor};padding:3px 10px;border-radius:0;background:rgba(255,255,255,.06);font-family:'IBM Plex Mono',monospace;">${b.sim.expected.toFixed(1)} pts esperados</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;">
       ${steps.map((s,i)=>`<div style="display:flex;gap:10px;align-items:baseline;">
@@ -2511,14 +2511,14 @@ function openReplay(){
       </div>
       <button class="modal-x" onclick="closeReplay()">×</button>
     </div>
-    <div id="replayMapWrap" style="position:relative;background:#021126;border-radius:12px;overflow:hidden;">
+    <div id="replayMapWrap" style="position:relative;background:#021126;border-radius:0;overflow:hidden;">
       ${renderReplayMapEmpty()}
     </div>
     <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;">
       <span style="color:var(--text-soft);">Min reales: <strong id="replayMinReal" style="color:var(--text);font-size:14px;">0:00</strong></span>
       <span style="color:var(--text-soft);">Olas: <strong id="replayCount" style="color:var(--text);font-size:14px;">0 / ${state.waves.length}</strong></span>
     </div>
-    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px;margin-top:8px;overflow:hidden;">
+    <div style="height:6px;background:rgba(255,255,255,.06);border-radius:0;margin-top:8px;overflow:hidden;">
       <div id="replayBar" style="height:100%;background:linear-gradient(90deg,#00D2FF,#FFD166);width:0%;transition:width .1s linear;"></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:12px;">
@@ -2674,7 +2674,7 @@ printStyle.textContent = `@media print {
   .topbar, .timer-stop, .toolbar, .cat, button, #brandSplash { display: none !important; }
   body { background: #FFFFFF !important; color: #061C2B !important; }
   h1,h2,h3,.modal-t { color:#061C2B !important; }
-  .section { border: 1.5px solid rgba(6,28,43,.25) !important; background: #FFFFFF !important; page-break-inside: avoid; border-radius: 12px; }
+  .section { border: 1.5px solid rgba(6,28,43,.25) !important; background: #FFFFFF !important; page-break-inside: avoid; border-radius:0; }
   .section-t, .label { color:#00A8CC !important; }
   .report-block, .plan-card { background: #FFFFFF !important; color:#061C2B !important; border-color: rgba(6,28,43,.25) !important; }
   .report-stat, .mono, p, li, td, span, div { color: inherit; }
@@ -2711,9 +2711,9 @@ document.head.appendChild(printStyle);
    +'<div style="font-stretch:125%;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;font-size:26px;line-height:1.05;color:#F7F9FA;text-align:center;margin-top:20px;">The Surf<br>Sequence</div>'
    +'<div style="font-family:\'IBM Plex Mono\',monospace;text-transform:uppercase;letter-spacing:.2em;font-size:10px;color:#00D2FF;margin-top:10px;">Venue Scout</div>'
    +'<div style="font-size:13px;color:rgba(247,249,250,.6);text-align:center;max-width:300px;margin-top:18px;line-height:1.5;">Dejanos tu nombre y correo para usar la herramienta gratis — solo esta vez.</div>'
-   +'<input id="lgName" placeholder="Tu nombre" style="margin-top:18px;width:100%;max-width:320px;padding:14px;border-radius:14px;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;font-family:Archivo;">'
-   +'<input id="lgEmail" type="email" placeholder="tu@email.com" style="margin-top:10px;width:100%;max-width:320px;padding:14px;border-radius:14px;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;font-family:Archivo;">'
-   +'<button id="lgGo" style="margin-top:16px;width:100%;max-width:320px;padding:15px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;font-family:\'IBM Plex Mono\',monospace;text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:600;cursor:pointer;">Empezar &rarr;</button>'
+   +'<input id="lgName" placeholder="Tu nombre" style="margin-top:18px;width:100%;max-width:320px;padding:14px;border-radius:0;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;font-family:Archivo;">'
+   +'<input id="lgEmail" type="email" placeholder="tu@email.com" style="margin-top:10px;width:100%;max-width:320px;padding:14px;border-radius:0;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;font-family:Archivo;">'
+   +'<button id="lgGo" style="margin-top:16px;width:100%;max-width:320px;padding:15px;border:none;border-radius:0;background:#00D2FF;color:#061C2B;font-family:\'IBM Plex Mono\',monospace;text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:600;cursor:pointer;">Empezar &rarr;</button>'
    +'<div id="lgErr" style="font-size:12px;color:#FF6B6B;margin-top:10px;min-height:16px;"></div>'
    +'<div style="font-family:Lora,serif;font-style:italic;font-size:13px;color:rgba(0,210,255,.6);margin-top:8px;">Evolve through play</div>';
   document.body.appendChild(g);
@@ -2809,7 +2809,7 @@ document.head.appendChild(printStyle);
   function toastG(msg){
     let t=document.getElementById('lgToast');
     if(!t){ t=document.createElement('div'); t.id='lgToast';
-      t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:rgba(4,20,31,.92);border:1px solid rgba(0,210,255,.4);color:#F7F9FA;border-radius:999px;padding:12px 24px;font-size:15px;font-family:Archivo;max-width:92%;text-align:center;transition:opacity .3s;';
+      t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:9999;background:rgba(4,20,31,.92);border:1px solid rgba(0,210,255,.4);color:#F7F9FA;border-radius:0;padding:12px 24px;font-size:15px;font-family:Archivo;max-width:92%;text-align:center;transition:opacity .3s;';
       document.body.appendChild(t); }
     t.textContent=msg; t.style.opacity=1;
     clearTimeout(tTimer); tTimer=setTimeout(function(){t.style.opacity=0;},3500);
@@ -2839,12 +2839,12 @@ document.head.appendChild(printStyle);
       const dark = p.color==='#111111';
       const light = p.color==='#F7F9FA' || p.color==='#FFD166' || p.color==='#06D6A0' || p.color==='#00D2FF';
       const txt = light ? '#061C2B' : '#F7F9FA';
-      return '<div style="flex:1;min-width:0;background:'+p.color+';border:'+(dark?'2px solid rgba(247,249,250,.3)':'none')+';border-radius:14px;padding:10px 6px;text-align:center;">'
+      return '<div style="flex:1;min-width:0;background:'+p.color+';border:'+(dark?'2px solid rgba(247,249,250,.3)':'none')+';border-radius:0;padding:10px 6px;text-align:center;">'
         +'<div style="'+F_D+'font-size:clamp(20px,4vw,34px);color:'+txt+';">P'+(i+1)+'</div>'
         +'<div style="'+F_M+'font-size:clamp(8px,1.4vw,11px);color:'+txt+';opacity:.8;">'+p.name.slice(0,10)+'</div></div>';
     }).join('');
     return '<div style="display:flex;gap:8px;align-items:stretch;">'
-      +'<div style="background:#04141F;border:1.5px solid rgba(0,210,255,.3);border-radius:14px;padding:10px 16px;text-align:center;min-width:110px;">'
+      +'<div style="background:#04141F;border:1.5px solid rgba(0,210,255,.3);border-radius:0;padding:10px 16px;text-align:center;min-width:110px;">'
       +'<div id="lgClock" style="'+F_D+'font-size:clamp(26px,5vw,42px);color:#F7F9FA;">'+fmtT(timeLeft())+'</div>'
       +'<div style="'+F_M+'font-size:8px;color:#00D2FF;">'+(G.startedAt?'restante':'⏸ pausado')+'</div></div>'
       +panels+'</div>';
@@ -2861,7 +2861,7 @@ document.head.appendChild(printStyle);
       let need=detail;
       if(i===1) need='ola de '+needWave(S,lead).toFixed(1)+' → 1° · '+detail;
       else if(i>1){ const t2=st[board[1].id].total; need='ola de '+needWave(S,t2).toFixed(1)+' → 2° · '+detail; }
-      return '<div style="flex:1;min-width:110px;display:flex;align-items:center;gap:8px;background:rgba(247,249,250,'+(i===0?'.1':'.04')+');border:1px solid rgba(247,249,250,'+(i===0?'.3':'.1')+');border-radius:12px;padding:8px 10px;">'
+      return '<div style="flex:1;min-width:110px;display:flex;align-items:center;gap:8px;background:rgba(247,249,250,'+(i===0?'.1':'.04')+');border:1px solid rgba(247,249,250,'+(i===0?'.3':'.1')+');border-radius:0;padding:8px 10px;">'
         +'<span style="'+F_D+'font-size:16px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';">'+(i+1)+'°</span>'
         +'<span style="width:12px;height:12px;border-radius:50%;background:'+p.color+';border:1.5px solid rgba(6,28,43,.4);flex:0 0 auto;"></span>'
         +'<span style="min-width:0;flex:1;"><span style="display:block;font-size:12px;font-weight:700;color:#F7F9FA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.name+'</span>'
@@ -2872,7 +2872,7 @@ document.head.appendChild(printStyle);
 
   function gridSVG(){
     const W=600,H=640,cw=W/COLS,ch=H/ROWS;
-    let s='<svg id="lgMap" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;background:linear-gradient(#07354F,#0E5A7A 84%,#233427 84.5%);border-radius:16px;touch-action:none;">';
+    let s='<svg id="lgMap" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;background:linear-gradient(#07354F,#0E5A7A 84%,#233427 84.5%);border-radius:0;touch-action:none;">';
     s+='<g stroke="rgba(0,210,255,0.07)" stroke-width="0.7">';
     for(let r=1;r<ROWS;r++) s+='<line x1="0" y1="'+(r*ch)+'" x2="'+W+'" y2="'+(r*ch)+'"/>';
     for(let c=1;c<COLS;c++) s+='<line x1="'+(c*cw)+'" y1="0" x2="'+(c*cw)+'" y2="'+H+'"/>';
@@ -2928,8 +2928,8 @@ document.head.appendChild(printStyle);
       +'<div style="flex:1;min-width:0;"><div style="'+F_D+'font-size:17px;">Lineup Game</div>'
       +'<div style="'+F_M+'font-size:8px;color:#00D2FF;margin-top:2px;">'+(sub||'The Surf Sequence · lee el mar como un tablero')+'</div></div>'
       +(G.screen!=='gate'
-        ? '<button id="lgReset" style="flex:0 0 auto;padding:9px 14px;border-radius:999px;border:1.5px solid rgba(255,209,102,.4);background:none;color:#FFD166;font-size:12px;font-weight:700;cursor:pointer;">↺ Nuevo</button>'
-          +'<button id="lgExit" style="flex:0 0 auto;padding:9px 14px;border-radius:999px;border:1.5px solid rgba(247,249,250,.25);background:none;color:rgba(247,249,250,.7);font-size:12px;font-weight:700;cursor:pointer;">Salir</button>'
+        ? '<button id="lgReset" style="flex:0 0 auto;padding:9px 14px;border-radius:0;border:1.5px solid rgba(255,209,102,.4);background:none;color:#FFD166;font-size:12px;font-weight:700;cursor:pointer;">↺ Nuevo</button>'
+          +'<button id="lgExit" style="flex:0 0 auto;padding:9px 14px;border-radius:0;border:1.5px solid rgba(247,249,250,.25);background:none;color:rgba(247,249,250,.7);font-size:12px;font-weight:700;cursor:pointer;">Salir</button>'
         : '')
       +'</div>';
   }
@@ -2949,8 +2949,8 @@ document.head.appendChild(printStyle);
     return headerHTML()+'<div style="max-width:400px;margin:8vh auto;padding:0 20px;text-align:center;">'
       +'<img src="tss-wave.png?v=1" style="height:84px;filter:drop-shadow(0 0 26px rgba(0,210,255,.4));">'
       +'<div style="'+F_D+'font-size:28px;margin-top:18px;">Acceso privado</div>'
-      +'<input id="lgCode" type="password" inputmode="numeric" placeholder="Código" style="margin-top:20px;width:100%;padding:16px;border-radius:16px;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:18px;text-align:center;letter-spacing:.3em;">'
-      +'<button id="lgGo" style="margin-top:14px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Entrar →</button>'
+      +'<input id="lgCode" type="password" inputmode="numeric" placeholder="Código" style="margin-top:20px;width:100%;padding:16px;border-radius:0;border:1.5px solid rgba(247,249,250,.2);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:18px;text-align:center;letter-spacing:.3em;">'
+      +'<button id="lgGo" style="margin-top:14px;width:100%;padding:17px;border:none;border-radius:0;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Entrar →</button>'
       +'<div id="lgErr" style="color:#FF6B6B;font-size:13px;margin-top:10px;min-height:18px;"></div></div>';
   }
   function wireGate(){
@@ -2963,11 +2963,11 @@ document.head.appendChild(printStyle);
   function setupHTML(){
     return headerHTML('setup del heat')+'<div style="max-width:480px;margin:0 auto;padding:20px;">'
       +'<div style="'+F_M+'font-size:10px;color:#00D2FF;margin-bottom:8px;">Jugadores (2-6) · lycra por color</div>'
-      +'<div>'+G.players.map(function(p,i){return '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;"><span style="width:26px;height:26px;border-radius:8px;background:'+p.color+';border:2px solid rgba(247,249,250,.25);display:inline-block;"></span><input data-i="'+i+'" class="lgName" value="'+p.name+'" style="flex:1;padding:13px;border-radius:14px;border:1.5px solid rgba(247,249,250,.15);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;"><button class="lgDel" data-i="'+i+'" style="color:#FF6B6B;background:none;border:none;font-size:20px;cursor:pointer;">×</button></div>';}).join('')+'</div>'
-      +'<button id="lgAdd" style="width:100%;padding:13px;border:1.5px dashed rgba(0,210,255,.4);border-radius:14px;background:none;color:#00D2FF;font-size:14px;cursor:pointer;">+ Agregar jugador</button>'
+      +'<div>'+G.players.map(function(p,i){return '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;"><span style="width:26px;height:26px;border-radius:0;background:'+p.color+';border:2px solid rgba(247,249,250,.25);display:inline-block;"></span><input data-i="'+i+'" class="lgName" value="'+p.name+'" style="flex:1;padding:13px;border-radius:0;border:1.5px solid rgba(247,249,250,.15);background:rgba(247,249,250,.05);color:#F7F9FA;font-size:15px;"><button class="lgDel" data-i="'+i+'" style="color:#FF6B6B;background:none;border:none;font-size:20px;cursor:pointer;">×</button></div>';}).join('')+'</div>'
+      +'<button id="lgAdd" style="width:100%;padding:13px;border:1.5px dashed rgba(0,210,255,.4);border-radius:0;background:none;color:#00D2FF;font-size:14px;cursor:pointer;">+ Agregar jugador</button>'
       +'<div style="'+F_M+'font-size:10px;color:#00D2FF;margin:18px 0 8px;">Duración del heat</div>'
-      +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+[10,15,20,25].map(function(m){return '<button class="lgDur" data-m="'+m+'" style="flex:1;padding:12px;border-radius:999px;border:1.5px solid '+(G.heatMin===m?'#00D2FF':'rgba(247,249,250,.15)')+';background:'+(G.heatMin===m?'rgba(0,210,255,.15)':'none')+';color:'+(G.heatMin===m?'#00D2FF':'#F7F9FA')+';font-size:14px;font-weight:700;cursor:pointer;">'+m+' min</button>';}).join('')+'</div>'
-      +'<button id="lgStart" style="margin-top:20px;width:100%;padding:17px;border:none;border-radius:999px;background:#06D6A0;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Iniciar heat →</button></div>';
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+[10,15,20,25].map(function(m){return '<button class="lgDur" data-m="'+m+'" style="flex:1;padding:12px;border-radius:0;border:1.5px solid '+(G.heatMin===m?'#00D2FF':'rgba(247,249,250,.15)')+';background:'+(G.heatMin===m?'rgba(0,210,255,.15)':'none')+';color:'+(G.heatMin===m?'#00D2FF':'#F7F9FA')+';font-size:14px;font-weight:700;cursor:pointer;">'+m+' min</button>';}).join('')+'</div>'
+      +'<button id="lgStart" style="margin-top:20px;width:100%;padding:17px;border:none;border-radius:0;background:#06D6A0;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Iniciar heat →</button></div>';
   }
   function wireSetup(){
     document.getElementById('lgAdd').onclick=function(){
@@ -2989,7 +2989,7 @@ document.head.appendChild(printStyle);
   }
 
   function toolBtn(id,label,active,color){
-    return '<button class="lgTool" data-t="'+id+'" style="flex:0 0 auto;padding:10px 14px;border-radius:999px;border:2px solid '+(active?(color||'#00D2FF'):'rgba(247,249,250,.15)')+';background:'+(active?'rgba(0,210,255,.15)':'rgba(247,249,250,.04)')+';color:'+(active?(color||'#00D2FF'):'rgba(247,249,250,.8)')+';font-size:13px;font-weight:700;cursor:pointer;font-family:IBM Plex Mono;letter-spacing:.06em;">'+label+'</button>';
+    return '<button class="lgTool" data-t="'+id+'" style="flex:0 0 auto;padding:10px 14px;border-radius:0;border:2px solid '+(active?(color||'#00D2FF'):'rgba(247,249,250,.15)')+';background:'+(active?'rgba(0,210,255,.15)':'rgba(247,249,250,.04)')+';color:'+(active?(color||'#00D2FF'):'rgba(247,249,250,.8)')+';font-size:13px;font-weight:700;cursor:pointer;font-family:IBM Plex Mono;letter-spacing:.06em;">'+label+'</button>';
   }
 
   function playHTML(){
@@ -2997,13 +2997,13 @@ document.head.appendChild(printStyle);
       const on=G.placing===p.id;
       const dark=p.color==='#111111';
       const noPos=!p.cell && G.startedAt;
-      return '<button class="lgChip" data-id="'+p.id+'" style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:999px;border:2.5px solid '+(on?p.color:noPos?'#FFD166':'rgba(247,249,250,.15)')+';background:'+(on?p.color:'rgba(247,249,250,.05)')+';color:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):'#F7F9FA')+';font-size:14px;font-weight:800;cursor:pointer;">'
+      return '<button class="lgChip" data-id="'+p.id+'" style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:0;border:2.5px solid '+(on?p.color:noPos?'#FFD166':'rgba(247,249,250,.15)')+';background:'+(on?p.color:'rgba(247,249,250,.05)')+';color:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):'#F7F9FA')+';font-size:14px;font-weight:800;cursor:pointer;">'
         +'<span style="width:13px;height:13px;border-radius:50%;background:'+(on?(dark||p.color==='#FF3B30'?'#F7F9FA':'#061C2B'):p.color)+';"></span>'+p.name+(noPos?' ⚠':'')+'</button>';
     }).join('');
     const placingPlayer=G.placing && G.placing!=='WAVE';
     const peakBtns=(placingPlayer && G.map.peaks.length)
       ? '<div style="'+F_M+'font-size:9px;color:#FFD166;margin:10px 0 6px;">Ubicar en pico</div><div style="display:flex;gap:8px;flex-wrap:wrap;">'
-        +G.map.peaks.map(function(pk){return '<button class="lgGoPeak" data-l="'+pk.letter+'" style="padding:14px 22px;border-radius:14px;border:2px solid #FFD166;background:rgba(255,209,102,.12);color:#FFD166;font-size:20px;font-weight:800;cursor:pointer;font-family:Archivo;">'+pk.letter+'</button>';}).join('')
+        +G.map.peaks.map(function(pk){return '<button class="lgGoPeak" data-l="'+pk.letter+'" style="padding:14px 22px;border-radius:0;border:2px solid #FFD166;background:rgba(255,209,102,.12);color:#FFD166;font-size:20px;font-weight:800;cursor:pointer;font-family:Archivo;">'+pk.letter+'</button>';}).join('')
         +'</div>' : '';
     return headerHTML(G.waves.length+' olas anotadas')
       +'<div style="max-width:1160px;margin:0 auto;padding:12px 14px;">'
@@ -3017,7 +3017,7 @@ document.head.appendChild(printStyle);
       +peakBtns
       +'<div style="'+F_M+'font-size:9px;color:#FFD166;margin:14px 0 6px;">Anotar</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-      +'<button id="lgWave" style="padding:13px 22px;border-radius:999px;border:2.5px solid '+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.45)')+';background:'+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.08)')+';color:'+(G.placing==='WAVE'?'#061C2B':'#FFD166')+';font-weight:800;font-size:16px;cursor:pointer;">🌊 OLA</button></div>'
+      +'<button id="lgWave" style="padding:13px 22px;border-radius:0;border:2.5px solid '+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.45)')+';background:'+(G.placing==='WAVE'?'#FFD166':'rgba(255,209,102,.08)')+';color:'+(G.placing==='WAVE'?'#061C2B':'#FFD166')+';font-weight:800;font-size:16px;cursor:pointer;">🌊 OLA</button></div>'
       +'<div style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);margin:14px 0 6px;">Mapa del spot</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
       +toolBtn('peak','⭐ PICO',G.tool==='peak','#FFD166')
@@ -3027,12 +3027,12 @@ document.head.appendChild(printStyle);
       +toolBtn('pen','✏️',G.tool==='pen')
       +toolBtn('erase','🧽',G.tool==='erase','#FF6B6B')
       +'</div>'
-      +'<button id="lgEnd" style="margin-top:16px;width:100%;padding:13px;border-radius:999px;border:1.5px solid rgba(255,107,107,.5);background:none;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;">■ Terminar heat</button>'
+      +'<button id="lgEnd" style="margin-top:16px;width:100%;padding:13px;border-radius:0;border:1.5px solid rgba(255,107,107,.5);background:none;color:#FF6B6B;font-size:13px;font-weight:700;cursor:pointer;">■ Terminar heat</button>'
       +'<div style="font-size:11px;color:rgba(247,249,250,.45);margin-top:10px;line-height:1.6;">'+(G.placing==='WAVE'?'Tocá DÓNDE salió la ola':G.placing?'Tocá dónde se ubica '+((G.players.find(function(p){return p.id===G.placing;})||{}).name||''):G.tool?'Herramienta activa: tocá el mapa':'Ficha → mover atleta · OLA → anotar')+'</div>'
       +'</div>'
       +'<div>'+gridSVG()+'</div>'
       +'</div>'
-      +'<div id="lgScore" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(6,28,43,.85);backdrop-filter:blur(4px);"><div style="max-width:420px;margin:22vh auto;background:#0A2438;border:1px solid rgba(0,210,255,.3);border-radius:24px;padding:22px;">'
+      +'<div id="lgScore" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(6,28,43,.85);backdrop-filter:blur(4px);"><div style="max-width:420px;margin:22vh auto;background:#0A2438;border:1px solid rgba(0,210,255,.3);border-radius:0;padding:22px;">'
       +'<div style="'+F_D+'font-size:18px;">Score de la ola</div>'
       +'<div id="lgSGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px;"></div></div></div>'
       +'</div>';
@@ -3102,7 +3102,7 @@ document.head.appendChild(printStyle);
         const g=document.getElementById('lgSGrid'); g.innerHTML='';
         for(let n=1;n<=10;n++){ (function(n){
           const b=document.createElement('button');
-          b.textContent=n; b.style.cssText='padding:18px 4px;border:2px solid rgba(0,210,255,.35);border-radius:14px;background:rgba(0,210,255,.08);color:#00D2FF;font-weight:800;font-size:20px;cursor:pointer;font-family:IBM Plex Mono;';
+          b.textContent=n; b.style.cssText='padding:18px 4px;border:2px solid rgba(0,210,255,.35);border-radius:0;background:rgba(0,210,255,.08);color:#00D2FF;font-weight:800;font-size:20px;cursor:pointer;font-family:IBM Plex Mono;';
           b.onclick=function(){ m.style.display='none'; const c=G.pendingWave; G.pendingWave=null; resolveWave(c,n); };
           g.appendChild(b);
         })(n); }
@@ -3137,18 +3137,18 @@ document.head.appendChild(printStyle);
       +board.map(function(p,i){
         const read=Math.round(100*(p.near||0)/total);
         const S=stR[p.id];
-        return '<div style="display:flex;align-items:center;gap:12px;background:rgba(247,249,250,.05);border:1.5px solid '+(i===0?'#FFD166':'rgba(247,249,250,.1)')+';border-radius:18px;padding:14px 16px;margin-bottom:10px;">'
+        return '<div style="display:flex;align-items:center;gap:12px;background:rgba(247,249,250,.05);border:1.5px solid '+(i===0?'#FFD166':'rgba(247,249,250,.1)')+';border-radius:0;padding:14px 16px;margin-bottom:10px;">'
           +'<span style="'+F_D+'font-size:22px;color:'+(i===0?'#FFD166':'rgba(247,249,250,.45)')+';width:34px;">'+(i+1)+'°</span>'
           +'<span style="width:18px;height:18px;border-radius:50%;background:'+p.color+';border:2px solid rgba(6,28,43,.4);"></span>'
           +'<span style="flex:1;font-weight:800;font-size:16px;">'+p.name+'</span>'
           +'<span style="text-align:right;"><span style="'+F_D+'font-size:22px;color:#00D2FF;">'+S.total.toFixed(1)+'</span><br><span style="'+F_M+'font-size:9px;color:rgba(247,249,250,.5);">'+(S.best.length?S.best.map(function(x){return x.toFixed(1);}).join(' + ')+' · ':'')+S.n+(S.n===1?' ola':' olas')+' · lectura '+read+'%'+(S.waste!==null?' · <span style=\"color:'+(S.waste<=25?'#06D6A0':S.waste>=38?'#FF6B6B':'#FFD166')+';\">desp '+S.waste+'%</span>':'')+'</span></span></div>';
       }).join('')
-      +'<div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:18px;padding:14px 16px;font-size:13px;color:rgba(247,249,250,.8);margin-top:12px;">'
+      +'<div style="background:rgba(0,210,255,.06);border:1px solid rgba(0,210,255,.25);border-radius:0;padding:14px 16px;font-size:13px;color:rgba(247,249,250,.8);margin-top:12px;">'
       +'🌊 '+G.waves.length+' olas · celdas calientes: <strong style="color:#FFD166;">'+(hot||'—')+'</strong>'+peakLine+'<br>'
       +'<span style="font-size:12px;color:rgba(247,249,250,.5);">Puntaje = suma de tus 2 mejores olas (regla ISA). Lectura % = olas que salieron a ≤1 celda de tu posición. Desp % = tus olas bajo 2.0 — en data real los ganadores desperdician 23% y los perdedores 38%: elegí mejor, no remes más.</span></div>'
       +gridSVG()
-      +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:999px;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Otro heat · mismo spot →</button>'
-      +'<button id="lgFresh" style="margin-top:10px;width:100%;padding:15px;border:1.5px solid rgba(255,209,102,.5);border-radius:999px;background:none;color:#FFD166;'+F_M+'font-size:11px;cursor:pointer;">🗺 Spot nuevo · borrar mapa</button></div>';
+      +'<button id="lgAgain" style="margin-top:16px;width:100%;padding:17px;border:none;border-radius:0;background:#00D2FF;color:#061C2B;'+F_M+'font-size:12px;cursor:pointer;">Otro heat · mismo spot →</button>'
+      +'<button id="lgFresh" style="margin-top:10px;width:100%;padding:15px;border:1.5px solid rgba(255,209,102,.5);border-radius:0;background:none;color:#FFD166;'+F_M+'font-size:11px;cursor:pointer;">🗺 Spot nuevo · borrar mapa</button></div>';
   }
   function wireResults(){
     document.getElementById('lgAgain').onclick=function(){ G.screen='setup'; save(); paint(); };
