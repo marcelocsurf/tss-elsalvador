@@ -2219,29 +2219,46 @@ async function loadHoy(date){
       <div style="height:6px;background:var(--bg3);border-radius:0;margin-top:8px;overflow:hidden;">
         <div style="height:100%;width:${sleepPct}%;background:${sleepColor};border-radius:0;transition:width .5s;"></div>
       </div>
-    </div>` : `<div class="card anim-up" style="margin-bottom:12px;border:1px solid rgba(255,140,66,.3);background:rgba(255,140,66,.05);cursor:pointer;" onclick="document.getElementById('ciForm')?.scrollIntoView({behavior:'smooth',block:'center'});">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:18px;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
-            <span style="font-size:11px;font-weight:700;color:var(--white);letter-spacing:.5px;">Falta registrar tu sueño</span>
-          </div>
-          <div style="font-size:10px;color:var(--amber);">Llena el check-in diario · tap aquí para ir 👇</div>
-        </div>
-        <div style="font-size:22px;color:var(--amber);">→</div>
+    </div>` : `<div class="card anim-up" style="margin-bottom:12px;border:1px solid rgba(255,140,66,.3);background:rgba(255,140,66,.05);">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="font-size:18px;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+        <span style="font-size:11px;font-weight:700;color:var(--white);letter-spacing:.5px;">¿Cuántas horas dormiste?</span>
+        <span style="font-size:9px;color:var(--grey);margin-left:auto;">un tap y queda grabado</span>
       </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${[5.5,6,6.5,7,7.5,8,8.5,9,10].map(h=>`<button onclick="saveSleepQuick(${h},'${date}')" style="flex:1;min-width:44px;padding:10px 4px;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--white);font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;">${h}${h===10?'+':''}</button>`).join('')}
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--grey);">El resto del check-in (agua, energía, nutrición) lo llenás al final del día abajo <span style="color:var(--amber);">↓</span></div>
     </div>`;
 
     el.innerHTML=`${sleepHtml}<div id="plansSection">${planHtml}</div>`+ciHtml;
   } catch(e){ el.innerHTML='<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar</p>'; console.error(e); }
 }
 
-// DEPRECATED — sleep_hours ahora se guarda únicamente vía saveCheckin (ruta única + validación)
-// Se mantiene la función como no-op para evitar errores si algún cache antiguo todavía la invoca.
-async function saveSleepHours(hours){
-  toast('Llena el check-in completo para registrar el sueño','info');
-  document.getElementById('ciForm')?.scrollIntoView({behavior:'smooth',block:'center'});
+/* Check-in en 2 momentos: el sueño se registra a la mañana con un tap
+   (dato fresco al despertar) · el resto del check-in se llena al cierre
+   del día. Guardado PARCIAL: solo toca sleep_hours; la misma fila se
+   completa después con saveCheckin. El form del cierre pre-llena el
+   sueño desde la fila, así la validación completa no lo vuelve a pedir. */
+async function saveSleepQuick(hours, date){
+  showLoad(true);
+  try {
+    const existing = (await db.from('tss_daily_checkins').select('id').eq('athlete_id',S.user.id).eq('date',date).maybeSingle()).data;
+    let error;
+    if(existing){
+      ({error} = await db.from('tss_daily_checkins').update({sleep_hours:hours}).eq('athlete_id',S.user.id).eq('date',date));
+    } else {
+      ({error} = await db.from('tss_daily_checkins').insert({athlete_id:S.user.id,date,sleep_hours:hours}));
+    }
+    if(error) throw error;
+    toast(`${hours}h de sueño registradas`,'success');
+    loadHoy(date);
+  } catch(e){ toast('Error al guardar el sueño','error'); console.error(e); }
+  finally{ showLoad(false); }
 }
+
+// Compat: caches antiguos podían invocar este nombre
+async function saveSleepHours(hours){ return saveSleepQuick(hours, todayStr()); }
 
 /* ── COMPLETION TRACKING — saved to Supabase ── */
 /* ════════════════════════════════════════════════════════════════════
