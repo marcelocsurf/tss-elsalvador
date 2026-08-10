@@ -11828,10 +11828,18 @@ async function saveNewUser(){
     if(role==='athlete'){
       payload.stance = document.getElementById('newStanceGoofy')?.classList.contains('btn-cyan')?'Goofy':'Regular';
     }
-    const{data,error} = await db.from('tss_profiles').insert(payload).select().single();
+    // NO usar .select() acá: `anon` tiene INSERT pero el SELECT de tss_profiles
+    // está restringido por columna (para no exponer `pin`), así que pedir la fila
+    // de vuelta hace fallar todo con 42501 permission denied. Insertamos a ciegas
+    // y releemos con la proyección permitida.
+    const{error} = await db.from('tss_profiles').insert(payload);
     if(error) throw error;
-    if(role==='athlete'){ S.athletes.push(data); }
-    else { (S.coaches||[]).push(data); S.coaches.sort((a,b)=>a.name.localeCompare(b.name)); }
+    const{data} = await db.from('tss_profiles')
+      .select('id,name,role,avatar_url,active,stance,specialty')
+      .eq('user_id', payload.user_id).maybeSingle();
+    const created = data || { ...payload, id: undefined };
+    if(role==='athlete'){ S.athletes.push(created); }
+    else { (S.coaches||[]).push(created); S.coaches.sort((a,b)=>a.name.localeCompare(b.name)); }
     const labels={athlete:'atleta', acoach:'coach asistente', coach:'head coach', specialist:specialty==='mental'?'psicólogo deportivo':'preparador físico'};
     toast(`${name} agregado como ${labels[role]||role}`,'success');
     closeModal('addUserModal');
