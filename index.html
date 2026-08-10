@@ -11834,10 +11834,14 @@ async function saveNewUser(){
     // y releemos con la proyección permitida.
     const{error} = await db.from('tss_profiles').insert(payload);
     if(error) throw error;
+    // OJO: `specialty` NO está en las columnas que `anon` puede leer —
+    // incluirla acá devuelve 42501. Se toma del payload local más abajo.
     const{data} = await db.from('tss_profiles')
-      .select('id,name,role,avatar_url,active,stance,specialty')
+      .select('id,name,role,avatar_url,active,stance')
       .eq('user_id', payload.user_id).maybeSingle();
-    const created = data || { ...payload, id: undefined };
+    // La fila leída no trae `specialty` (sin permiso para anon) — la reponemos
+    // desde el payload para que el panel de especialistas la vea al instante.
+    const created = data ? { ...data, ...(specialty ? {specialty} : {}) } : { ...payload };
     if(role==='athlete'){ S.athletes.push(created); }
     else { (S.coaches||[]).push(created); S.coaches.sort((a,b)=>a.name.localeCompare(b.name)); }
     const labels={athlete:'atleta', acoach:'coach asistente', coach:'head coach', specialist:specialty==='mental'?'psicólogo deportivo':'preparador físico'};
