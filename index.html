@@ -5680,24 +5680,150 @@ async function openApplyTemplate(date){
       <select class="sel" id="tmplGroupSel" style="margin-bottom:4px;">${S.groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}</select>
       <select class="sel" id="tmplAthSel">${S.athletes.map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}</select>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      ${templates.map(t=>{
-        let blocks=[]; try{blocks=JSON.parse(t.blocks||'[]');}catch(e){}
-        return `<div style="background:var(--bg3);border-radius:0;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-size:14px;font-weight:700;">${t.name}</div>
-            <div style="font-size:11px;color:var(--grey);margin-top:2px;">${blocks.length} actividades</div>
-          </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn btn-cyan btn-sm" onclick="applyTemplate('${t.id}','${date}')">Aplicar</button>
-            <button class="btn btn-ghost btn-sm" onclick="deleteTemplate('${t.id}')"><svg class="ic ic-coral" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-          </div>
-        </div>`;
-      }).join('')}
+    <input type="text" class="inp" id="tmplSearch" placeholder="Buscar por nombre…" style="margin-bottom:10px;font-size:13px;" oninput="filterTemplateList(this.value)">
+    <div style="display:flex;flex-direction:column;gap:8px;" id="tmplList">
+      ${templates.map(t=>renderTemplateRow(t, date)).join('')}
     </div>
   </div>`;
   document.body.appendChild(m);
   m.addEventListener('click',e=>{if(e.target===m)closeModal('templateModal');});
+}
+
+/* Cache de templates parseados para la ficha/editor (id → {..., _blocks}) */
+var _tmplCache = {};
+
+/* Una fila del listado: cabecera + ficha desplegable con TODO el contenido
+   real de los bloques (objetivo, notas completas, video, reps) + edición. */
+function renderTemplateRow(t, date){
+  let blocks=[]; try{ blocks = typeof t.blocks==='string' ? JSON.parse(t.blocks||'[]') : (t.blocks||[]); }catch(e){}
+  if(!Array.isArray(blocks)) blocks = [];
+  _tmplCache[t.id] = { ...t, _blocks: blocks };
+  const tipos = [...new Set(blocks.map(b=>getBlockType(b.work_type).label))];
+  return `<div class="tmpl-row" data-name="${esc((t.name||'').toLowerCase())}" style="background:var(--bg3);padding:0;border:1px solid var(--border2);">
+    <div style="padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="toggleTemplateDetail('${t.id}')">
+        <div style="font-size:14px;font-weight:700;line-height:1.3;">${esc(t.name||'Sin nombre')}</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:3px;">${blocks.length} bloque${blocks.length===1?'':'s'}${tipos.length?' · '+tipos.map(esc).join(' · '):''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-ghost btn-sm" onclick="toggleTemplateDetail('${t.id}')" title="Ver contenido">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button class="btn btn-cyan btn-sm" onclick="applyTemplate('${t.id}','${date}')">Aplicar</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteTemplate('${t.id}')" title="Eliminar"><svg class="ic ic-coral" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      </div>
+    </div>
+    <div id="tmplDetail-${t.id}" style="display:none;border-top:1px solid var(--border2);padding:12px 14px;background:rgba(0,0,0,.15);"></div>
+  </div>`;
+}
+
+function filterTemplateList(q){
+  const term = (q||'').toLowerCase().trim();
+  document.querySelectorAll('.tmpl-row').forEach(r=>{
+    r.style.display = !term || (r.dataset.name||'').includes(term) ? '' : 'none';
+  });
+}
+
+function toggleTemplateDetail(id){
+  const el = document.getElementById('tmplDetail-'+id);
+  if(!el) return;
+  if(el.style.display !== 'none'){ el.style.display='none'; return; }
+  const t = _tmplCache[id];
+  if(!t){ el.innerHTML='<div style="font-size:12px;color:var(--red);">No se pudo leer el contenido</div>'; el.style.display='block'; return; }
+  el.innerHTML = t._blocks.map((b,i)=>{
+    const bt = getBlockType(b.work_type);
+    const vid = ytId(b.video_url);
+    let exs=[]; try{ exs = b.exercises ? (typeof b.exercises==='string'?JSON.parse(b.exercises):b.exercises) : []; }catch(e){}
+    return `<div style="padding:10px 0;${i?'border-top:1px solid var(--border2);':''}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;">${esc(bt.label)}</span>
+        ${b.sesion_time?`<span style="font-size:10px;color:var(--grey);">${esc(b.sesion_time)}</span>`:''}
+        ${b.sesion_reps?`<span style="font-size:10px;color:var(--grey);">${esc(b.sesion_reps)}</span>`:''}
+      </div>
+      <div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:6px;">${esc(b.objective||'(sin objetivo)')}</div>
+      ${b.notes?`<div style="font-size:12px;color:var(--text-soft);line-height:1.6;white-space:pre-wrap;background:rgba(255,255,255,.03);padding:10px 12px;border-left:2px solid var(--cyan);">${esc(b.notes)}</div>`:'<div style="font-size:11px;color:var(--grey);font-style:italic;">Sin descripción</div>'}
+      ${vid?`<div style="margin-top:8px;"><a href="${esc(b.video_url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--cyan);text-decoration:none;">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Ver video</a></div>`:''}
+      ${exs.length?`<div style="margin-top:8px;font-size:11px;color:var(--text-soft);">${exs.length} ejercicio${exs.length===1?'':'s'}</div>`:''}
+    </div>`;
+  }).join('') + `<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="openEditTemplate('${id}')">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar contenido</button>`;
+  el.style.display='block';
+}
+
+/* Editor: nombre del template + objetivo/notas/video/reps de cada bloque.
+   Guarda en tss_templates. NO toca planes ya aplicados (tablas separadas). */
+function openEditTemplate(id){
+  const t = _tmplCache[id];
+  if(!t){ toast('No se pudo cargar','error'); return; }
+  let m = document.getElementById('tmplEditModal'); if(m) m.remove();
+  m = document.createElement('div'); m.className='modal-overlay'; m.id='tmplEditModal';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">Editar contenido</div><div class="modal-sub">${esc(t.name||'')}</div></div>
+      <button class="modal-close" onclick="closeModal('tmplEditModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <label class="inp-label">Nombre</label>
+    <input type="text" class="inp" id="te-name" value="${esc(t.name||'')}">
+    ${t._blocks.map((b,i)=>{
+      const bt = getBlockType(b.work_type);
+      return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2);">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Bloque ${i+1} · ${esc(bt.label)}</div>
+        <label class="inp-label">Tipo</label>
+        <select class="sel inp" id="te-type-${i}">${BLOCK_TYPES.map(x=>`<option value="${x.id}"${x.id===b.work_type?' selected':''}>${esc(x.label)}</option>`).join('')}</select>
+        <label class="inp-label" style="margin-top:10px;">Objetivo</label>
+        <input type="text" class="inp" id="te-obj-${i}" value="${esc(b.objective||'')}">
+        <label class="inp-label" style="margin-top:10px;">Descripción / instrucciones</label>
+        <textarea class="ta" id="te-notes-${i}" style="min-height:140px;font-size:13px;line-height:1.6;">${esc(b.notes||'')}</textarea>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+          <div><label class="inp-label">Tiempo</label><input type="text" class="inp" id="te-time-${i}" value="${esc(b.sesion_time||'')}" placeholder="ej. 20 min"></div>
+          <div><label class="inp-label">Reps / series</label><input type="text" class="inp" id="te-reps-${i}" value="${esc(b.sesion_reps||'')}" placeholder="ej. 3x10"></div>
+        </div>
+        <label class="inp-label" style="margin-top:10px;">Video (YouTube)</label>
+        <input type="url" class="inp" id="te-video-${i}" value="${esc(b.video_url||'')}" placeholder="https://youtube.com/...">
+      </div>`;
+    }).join('')}
+    <button class="save-btn" style="margin-top:18px;" onclick="saveTemplateEdits('${id}')">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar cambios</button>
+    <div style="margin-top:8px;font-size:10px;color:var(--grey);line-height:1.5;">Editar acá NO modifica los planes ya publicados a los atletas — solo lo que apliques de ahora en adelante.</div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)closeModal('tmplEditModal');});
+}
+
+async function saveTemplateEdits(id){
+  const t = _tmplCache[id];
+  if(!t) return;
+  const name = document.getElementById('te-name')?.value?.trim();
+  if(!name){ toast('El nombre no puede quedar vacío','error'); return; }
+  const blocks = t._blocks.map((b,i)=>({
+    ...b,
+    work_type: document.getElementById('te-type-'+i)?.value || b.work_type,
+    objective: document.getElementById('te-obj-'+i)?.value?.trim() || '',
+    notes: document.getElementById('te-notes-'+i)?.value || '',
+    sesion_time: document.getElementById('te-time-'+i)?.value?.trim() || null,
+    sesion_reps: document.getElementById('te-reps-'+i)?.value?.trim() || null,
+    video_url: document.getElementById('te-video-'+i)?.value?.trim() || null,
+  }));
+  showLoad(true);
+  try {
+    const{error} = await db.from('tss_templates')
+      .update({ name, blocks: JSON.stringify(blocks) })
+      .eq('id', id);
+    if(error) throw error;
+    _tmplCache[id] = { ...t, name, _blocks: blocks };
+    toast('Cambios guardados','success');
+    closeModal('tmplEditModal');
+    // Refrescar la fila y su ficha abierta
+    const row = document.querySelector(`.tmpl-row [id="tmplDetail-${id}"]`)?.closest('.tmpl-row');
+    if(row){
+      const wasOpen = document.getElementById('tmplDetail-'+id)?.style.display !== 'none';
+      const date = document.querySelector('#templateModal .modal-sub')?.textContent?.trim() || todayStr();
+      row.outerHTML = renderTemplateRow({ id, name, blocks: JSON.stringify(blocks) }, date);
+      if(wasOpen) toggleTemplateDetail(id);
+    }
+  } catch(e){ toast('Error al guardar','error'); console.error(e); }
+  finally{ showLoad(false); }
 }
 
 async function applyTemplate(templateId, date){
