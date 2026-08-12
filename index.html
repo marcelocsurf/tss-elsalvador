@@ -3161,7 +3161,8 @@ function vPlaneacion(){
     <div class="inner-tabs">
       <button class="itab active" id="it-dias" onclick="pTab('dias')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Días</button>
       <button class="itab" id="it-grupos" onclick="pTab('grupos')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Grupos</button>
-      <button class="itab" id="it-videos" onclick="pTab('videos')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Videos</button>
+      <button class="itab" id="it-biblioteca" onclick="pTab('biblioteca')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Biblioteca</button>
+      <button class="itab" id="it-videos" onclick="pTab('videos')"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Videos</button>
     </div>
     <div id="planTab"></div>`);
   pTab('dias');
@@ -3171,7 +3172,162 @@ function pTab(t){
   const el=document.getElementById(`it-${t}`); if(el) el.classList.add('active');
   if(t==='dias') renderPlanDias();
   else if(t==='grupos') renderGrupos();
+  else if(t==='biblioteca') renderBiblioteca();
   else if(t==='videos') renderVideoLibrary();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   BIBLIOTECA TSS · todo el material filtrable por cinta, pilar y tipo
+   Fuente: tss_templates (drills/sesiones/días, clasificados) +
+   tss_steps (los 59 pasos del Canon, importados del Sequence Bible).
+   ════════════════════════════════════════════════════════════════════ */
+const LIB_BELTS = [
+  {id:'all',    label:'Todas',    color:'var(--cyan)'},
+  {id:'white',  label:'Blanca',   color:'#E8E8E8'},
+  {id:'yellow', label:'Amarilla', color:'#F5C518'},
+  {id:'blue',   label:'Azul',     color:'#1E6FBF'},
+  {id:'purple', label:'Morada',   color:'#7B4FBE'},
+  {id:'brown',  label:'Marrón',   color:'#7D4E27'},
+  {id:'black',  label:'Negra',    color:'#E8F0F5'},
+];
+const LIB_PILLARS = [
+  {id:'technical', label:'Técnico'},
+  {id:'physical',  label:'Físico'},
+  {id:'tactical',  label:'Táctico'},
+  {id:'mental',    label:'Mental'},
+];
+let _lib = { items:[], steps:[], kind:'drill', belt:null, pillar:null, q:'' };
+
+async function renderBiblioteca(){
+  const el = document.getElementById('planTab');
+  el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando biblioteca…</div>';
+  try {
+    const [{data:tmpl}, {data:steps}] = await Promise.all([
+      db.from('tss_templates').select('id,name,kind,belt,pillar,family,blocks').order('name'),
+      db.from('tss_steps').select('*').order('sort_order'),
+    ]);
+    _lib.items = tmpl||[];
+    _lib.steps = steps||[];
+    (_lib.items).forEach(t=>{ try{ _tmplCache[t.id] = {...t, _blocks: typeof t.blocks==='string'?JSON.parse(t.blocks||'[]'):(t.blocks||[])}; }catch(e){} });
+    paintBiblioteca();
+  } catch(e){
+    console.error('renderBiblioteca', e);
+    el.innerHTML = '<p style="padding:20px;text-align:center;color:var(--red);font-size:12px;">Error al cargar la biblioteca</p>';
+  }
+}
+
+function libSet(k, v){ _lib[k] = (_lib[k]===v ? null : v); paintBiblioteca(); }
+function libClear(){ _lib.belt=null; _lib.pillar=null; _lib.q=''; paintBiblioteca(); }
+function libKind(k){ _lib.kind = k; paintBiblioteca(); }
+function libSearch(v){ _lib.q = (v||'').toLowerCase().trim(); paintBiblioteca(); }
+
+function libFiltered(){
+  return _lib.items.filter(t=>{
+    if(_lib.kind && t.kind !== _lib.kind) return false;
+    if(_lib.belt && t.belt !== _lib.belt && t.belt !== 'all') return false;
+    if(_lib.pillar && t.pillar !== _lib.pillar) return false;
+    if(_lib.q && !(t.name||'').toLowerCase().includes(_lib.q)) return false;
+    return true;
+  });
+}
+
+function paintBiblioteca(){
+  const KINDS = [
+    {id:'drill',   label:'Drills',    n:_lib.items.filter(x=>x.kind==='drill').length},
+    {id:'session', label:'Sesiones',  n:_lib.items.filter(x=>x.kind==='session').length},
+    {id:'day',     label:'Días',      n:_lib.items.filter(x=>x.kind==='day').length},
+    {id:'canon',   label:'Canon',     n:_lib.steps.length},
+  ];
+  const list = _lib.kind==='canon' ? [] : libFiltered();
+  const chip = (on, label, extra='') => `padding:6px 12px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.12)':'transparent'};color:${on?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;${extra}`;
+
+  document.getElementById('planTab').innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;">
+      ${KINDS.map(k=>`<button onclick="libKind('${k.id}')" style="${chip(_lib.kind===k.id, k.label)}">${k.label} <span style="opacity:.6;font-family:'IBM Plex Mono',monospace;">${k.n}</span></button>`).join('')}
+    </div>
+    ${_lib.kind==='canon' ? renderCanonList() : `
+      <input type="text" class="inp" placeholder="Buscar por nombre…" value="${esc(_lib.q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:10px;">
+      <div style="display:flex;gap:5px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;">
+        ${LIB_BELTS.filter(b=>b.id!=='all').map(b=>`<button onclick="libSet('belt','${b.id}')" style="${chip(_lib.belt===b.id, b.label)}">${b.label}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;">
+        ${LIB_PILLARS.map(p=>`<button onclick="libSet('pillar','${p.id}')" style="${chip(_lib.pillar===p.id, p.label)}">${p.label}</button>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--grey);margin-bottom:10px;font-family:'IBM Plex Mono',monospace;">${list.length} resultado${list.length===1?'':'s'}${(_lib.belt||_lib.pillar||_lib.q)?' · <button onclick="libClear()" style="color:var(--cyan);text-decoration:underline;">limpiar filtros</button>':''}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${list.length ? list.map(t=>libRow(t)).join('') : '<div class="empty" style="padding:30px;"><p class="empty-txt">Nada con esos filtros</p></div>'}
+      </div>
+    `}`;
+}
+
+function libRow(t){
+  const belt = LIB_BELTS.find(b=>b.id===t.belt);
+  const pil = LIB_PILLARS.find(p=>p.id===t.pillar);
+  const nb = (_tmplCache[t.id]?._blocks||[]).length;
+  return `<div style="background:var(--bg3);border:1px solid var(--border2);">
+    <div style="padding:11px 13px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="toggleTemplateDetail('${t.id}')">
+        <div style="font-size:13px;font-weight:600;line-height:1.35;">${esc(t.name||'Sin nombre')}</div>
+        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center;">
+          ${belt&&t.belt!=='all'?`<span style="font-size:9px;padding:2px 7px;background:${belt.color};color:${['white','yellow','black'].includes(belt.id)?'#061C2B':'#fff'};font-weight:700;letter-spacing:.5px;">${belt.label.toUpperCase()}</span>`:''}
+          ${t.belt==='all'?`<span style="font-size:9px;padding:2px 7px;border:1px solid var(--border2);color:var(--text-soft);letter-spacing:.5px;">TODAS</span>`:''}
+          ${pil?`<span style="font-size:10px;color:var(--cyan);">${pil.label}</span>`:''}
+          ${nb>1?`<span style="font-size:10px;color:var(--grey);">${nb} bloques</span>`:''}
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleTemplateDetail('${t.id}')" title="Ver contenido">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <div id="tmplDetail-${t.id}" style="display:none;border-top:1px solid var(--border2);padding:12px 13px;background:rgba(0,0,0,.15);"></div>
+  </div>`;
+}
+
+/* Los 59 pasos del Canon (Sequence Bible) — referencia de solo lectura */
+function renderCanonList(){
+  const byBelt = {};
+  _lib.steps.forEach(s=>{ (byBelt[s.introduced_belt||'—'] = byBelt[s.introduced_belt||'—']||[]).push(s); });
+  const order = ['White Belt','Yellow Belt','Blue Belt','Purple Belt','Brown Belt','Black Belt'];
+  const keys = Object.keys(byBelt).sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+  return `<div style="font-size:11px;color:var(--grey);margin-bottom:12px;line-height:1.5;">Los ${_lib.steps.length} pasos oficiales del método · TSS Sequence Bible</div>
+  ${keys.map(k=>`
+    <div style="margin-bottom:16px;">
+      <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:8px;">${esc(k)} · ${byBelt[k].length}</div>
+      ${byBelt[k].map(s=>`<div style="border-top:1px solid var(--border2);padding:9px 2px;cursor:pointer;" onclick="openStepDetail('${s.step_id}')">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;">
+          <span style="font-size:13px;color:var(--white);flex:1;min-width:0;">${esc(s.sequence_part||'')}</span>
+          <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--grey);white-space:nowrap;">${esc(s.step_id)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:2px;">${esc(s.pillar||'')}${s.canon_block?' · '+esc(s.canon_block):''}${s.mastered_belt&&s.mastered_belt!==s.introduced_belt?' · domina en '+esc(s.mastered_belt):''}</div>
+      </div>`).join('')}
+    </div>`).join('')}`;
+}
+
+function openStepDetail(stepId){
+  const s = _lib.steps.find(x=>x.step_id===stepId);
+  if(!s) return;
+  let m=document.getElementById('stepModal'); if(m) m.remove();
+  m=document.createElement('div'); m.className='modal-overlay'; m.id='stepModal';
+  const row = (lbl, val) => val ? `<div style="margin-top:12px;"><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:3px;">${lbl}</div><div style="font-size:13px;color:var(--text);line-height:1.55;">${esc(val)}</div></div>` : '';
+  const succ = [s.success_1,s.success_2,s.success_3].filter(Boolean);
+  m.innerHTML = `<div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">${esc(s.sequence_part||'')}</div>
+      <div class="modal-sub">${esc(s.step_id)} · ${esc(s.introduced_belt||'')}${s.canon_block?' · '+esc(s.canon_block):''}</div></div>
+      <button class="modal-close" onclick="closeModal('stepModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    ${s.coach_cue?`<div style="padding:12px 14px;border-left:2px solid var(--cyan);background:rgba(0,210,255,.06);font-size:15px;font-style:italic;color:var(--white);">"${esc(s.coach_cue)}"</div>`:''}
+    ${row('Descripción', s.description)}
+    ${row('Conceptos clave', s.key_concepts)}
+    ${row('Biomecánica', s.biomechanics_notes)}
+    ${succ.length?`<div style="margin-top:12px;"><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:5px;">Indicadores de éxito</div>
+      ${succ.map(x=>`<div style="display:flex;gap:8px;font-size:13px;color:var(--text);line-height:1.5;margin-top:4px;"><span style="color:var(--foam);">✓</span><span>${esc(x)}</span></div>`).join('')}</div>`:''}
+    ${row('Pilar', s.pillar)}
+    ${s.mastered_belt?row('Se domina en', s.mastered_belt):''}
+    ${s.drill_reference||s.video_reference?`<div style="margin-top:12px;font-size:11px;color:var(--grey);font-family:'IBM Plex Mono',monospace;">${s.drill_reference?'DRILL: '+esc(s.drill_reference):''}${s.video_reference?' · VIDEO: '+esc(s.video_reference):''}</div>`:''}
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)closeModal('stepModal');});
 }
 
 function renderPlanDias(){
