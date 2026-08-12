@@ -3332,19 +3332,25 @@ const LIB_PILLARS = [
   {id:'tactical',  label:'Táctico'},
   {id:'mental',    label:'Mental'},
 ];
-let _lib = { items:[], steps:[], kind:'seq', belt:null, pillar:null, q:'' };
+let _lib = { items:[], steps:[], drills:[], diffs:[], blocks:[], kind:'seq', belt:null, pillar:null, q:'' };
 
 async function renderBiblioteca(){
   const el = document.getElementById('planTab');
   el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando biblioteca…</div>';
   try {
-    const [{data:tmpl}, {data:steps}, {data:errs}] = await Promise.all([
+    const [{data:tmpl}, {data:steps}, {data:errs}, {data:drills}, {data:diffs}, {data:blocks}] = await Promise.all([
       db.from('tss_templates').select('id,name,kind,belt,pillar,family,step_ref,blocks').order('name'),
       db.from('tss_steps').select('*').order('sort_order'),
       db.from('tss_errors').select('*').order('error_id'),
+      db.from('tss_drills').select('*').order('drill_id'),
+      db.from('tss_difficulties').select('*').order('diff_num'),
+      db.from('tss_blocks').select('*').order('block_id'),
     ]);
     _lib.items = tmpl||[];
     _lib.steps = steps||[];
+    _lib.drills = drills||[];
+    _lib.diffs = diffs||[];
+    _lib.blocks = blocks||[];
     if(errs) _errCache = errs;
     (_lib.items).forEach(t=>{ try{ _tmplCache[t.id] = {...t, _blocks: typeof t.blocks==='string'?JSON.parse(t.blocks||'[]'):(t.blocks||[])}; }catch(e){} });
     paintBiblioteca();
@@ -3372,20 +3378,23 @@ function libFiltered(){
 function paintBiblioteca(){
   const KINDS = [
     {id:'seq',     label:'Secuencia', n:_lib.steps.length},
-    {id:'drill',   label:'Drills',    n:_lib.items.filter(x=>x.kind==='drill').length},
+    {id:'drill',   label:'Drills',    n:(_lib.drills||[]).length},
+    {id:'mission', label:'Misiones',  n:_lib.items.filter(x=>x.kind==='mission').length},
     {id:'session', label:'Sesiones',  n:_lib.items.filter(x=>x.kind==='session').length},
     {id:'day',     label:'Días',      n:_lib.items.filter(x=>x.kind==='day').length},
+    {id:'diff',    label:'Dificultades', n:(_lib.diffs||[]).length},
     {id:'canon',   label:'Canon',     n:_lib.steps.length},
     {id:'cues',    label:'Cues',      n:_errCache.length||159},
   ];
-  const list = ['canon','cues','seq'].includes(_lib.kind) ? [] : libFiltered();
+  const VIRTUAL = ['canon','cues','seq','drill','diff'];
+  const list = VIRTUAL.includes(_lib.kind) ? [] : libFiltered();
   const chip = (on, label, extra='') => `padding:6px 12px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.12)':'transparent'};color:${on?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;${extra}`;
 
   document.getElementById('planTab').innerHTML = `
     <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;">
       ${KINDS.map(k=>`<button onclick="libKind('${k.id}')" style="${chip(_lib.kind===k.id, k.label)}">${k.label} <span style="opacity:.6;font-family:'IBM Plex Mono',monospace;">${k.n}</span></button>`).join('')}
     </div>
-    ${_lib.kind==='seq' ? renderSequenceView() : _lib.kind==='cues' ? renderCuesList() : _lib.kind==='canon' ? renderCanonList() : `
+    ${_lib.kind==='seq' ? renderSequenceView() : _lib.kind==='cues' ? renderCuesList() : _lib.kind==='canon' ? renderCanonList() : _lib.kind==='drill' ? renderDrillsView() : _lib.kind==='diff' ? renderDiffsView() : `
       <input type="text" class="inp" placeholder="Buscar por nombre…" value="${esc(_lib.q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:10px;">
       <div style="display:flex;gap:5px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;">
         ${LIB_BELTS.filter(b=>b.id!=='all').map(b=>`<button onclick="libSet('belt','${b.id}')" style="${chip(_lib.belt===b.id, b.label)}">${b.label}</button>`).join('')}
@@ -3398,6 +3407,148 @@ function paintBiblioteca(){
         ${list.length ? list.map(t=>libRow(t)).join('') : '<div class="empty" style="padding:30px;"><p class="empty-txt">Nada con esos filtros</p></div>'}
       </div>
     `}`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   DRILLS · 274 del Excel con constraint / variabilidad / reflexión
+   ════════════════════════════════════════════════════════════════════ */
+const DRILL_PILLARS = [
+  {id:'technical', label:'Técnico'}, {id:'physical', label:'Físico'},
+  {id:'tactical', label:'Táctico'},  {id:'mental', label:'Mental'}, {id:'safety', label:'Seguridad'},
+];
+
+function drillsFiltered(){
+  return (_lib.drills||[]).filter(d=>{
+    if(_lib.belt && d.belt !== _lib.belt && d.belt !== 'all') return false;
+    if(_lib.pillar && d.pillar !== _lib.pillar) return false;
+    if(_lib.q){
+      const hay = [d.drill_name,d.pilar_part,d.related_error,d.goal,d.key_cue,d.drill_type]
+        .filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(_lib.q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderDrillsView(){
+  const chip = (on,label)=>`padding:6px 12px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.12)':'transparent'};color:${on?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;`;
+  const list = drillsFiltered();
+  const byPart = {};
+  list.forEach(d=>{ (byPart[d.pilar_part||'—'] = byPart[d.pilar_part||'—']||[]).push(d); });
+  return `
+    <input type="text" class="inp" placeholder="Buscar: bottom turn, pop-up, error…" value="${esc(_lib.q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:10px;">
+    <div style="display:flex;gap:5px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;">
+      ${LIB_BELTS.filter(b=>b.id!=='all').map(b=>`<button onclick="libSet('belt','${b.id}')" style="${chip(_lib.belt===b.id,b.label)}">${b.label}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;">
+      ${DRILL_PILLARS.map(p=>`<button onclick="libSet('pillar','${p.id}')" style="${chip(_lib.pillar===p.id,p.label)}">${p.label}</button>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--grey);margin-bottom:10px;font-family:'IBM Plex Mono',monospace;">${list.length} drill${list.length===1?'':'s'}${(_lib.belt||_lib.pillar||_lib.q)?' · <button onclick="libClear()" style="color:var(--cyan);">limpiar</button>':''}</div>
+    ${Object.keys(byPart).sort().map(part=>`
+      <div style="margin-bottom:14px;">
+        <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;">${esc(part)} · ${byPart[part].length}</div>
+        ${byPart[part].map(d=>drillRow(d)).join('')}
+      </div>`).join('') || '<div class="empty" style="padding:30px;"><p class="empty-txt">Nada con esos filtros</p></div>'}`;
+}
+
+function drillRow(d){
+  const belt = LIB_BELTS.find(b=>b.id===d.belt);
+  return `<div style="background:var(--bg3);border:1px solid var(--border2);margin-bottom:6px;">
+    <div style="padding:11px 13px;cursor:pointer;" onclick="toggleDrill('${d.drill_id}')">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;line-height:1.35;">${esc(d.drill_name||'')}</div>
+          <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center;">
+            ${belt&&d.belt!=='all'?`<span style="font-size:9px;padding:2px 7px;background:${belt.color};color:${['white','yellow','black'].includes(belt.id)?'#061C2B':'#fff'};font-weight:700;letter-spacing:.5px;">${belt.label.toUpperCase()}</span>`:''}
+            ${d.drill_type?`<span style="font-size:10px;color:var(--text-soft);">${esc(d.drill_type)}</span>`:''}
+            ${d.environment?`<span style="font-size:10px;color:var(--grey);">· ${esc(d.environment)}</span>`:''}
+          </div>
+        </div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--grey);flex-shrink:0;">${esc(d.drill_id||'')}</span>
+      </div>
+      ${d.related_error?`<div style="font-size:11px;color:var(--sunset);margin-top:6px;line-height:1.4;">⚠ ${esc(d.related_error)}</div>`:''}
+    </div>
+    <div id="drl-${d.drill_id}" style="display:none;padding:0 13px 13px;border-top:1px solid var(--border2);"></div>
+  </div>`;
+}
+
+function toggleDrill(id){
+  const box = document.getElementById('drl-'+id);
+  if(!box) return;
+  if(box.style.display==='block'){ box.style.display='none'; return; }
+  const d = (_lib.drills||[]).find(x=>x.drill_id===id);
+  if(!d) return;
+  const fld = (lbl,val,color)=> val ? `<div style="margin-top:9px;">
+      <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.2px;text-transform:uppercase;color:${color||'var(--grey)'};margin-bottom:3px;">${lbl}</div>
+      <div style="font-size:12.5px;color:var(--text);line-height:1.5;">${esc(val)}</div>
+    </div>` : '';
+  box.innerHTML = `
+    ${d.key_cue?`<div style="margin-top:11px;padding:9px 11px;border-left:2px solid var(--cyan);background:rgba(0,210,255,.06);">
+      <div style="font-size:13px;color:var(--cyan);font-style:italic;">"${esc(d.key_cue)}"</div></div>`:''}
+    ${fld('Objetivo', d.goal)}
+    ${fld('Cómo se ejecuta', d.notes)}
+    ${fld('Solución que aporta', d.related_solution, 'var(--foam)')}
+    ${fld('Constraint', d.constraint_txt, 'var(--cyan)')}
+    ${fld('Variabilidad', d.variability, 'var(--cyan)')}
+    ${fld('Indicador de éxito', d.success_indicator, 'var(--foam)')}
+    ${fld('Pregunta de reflexión', d.reflection_question, 'var(--purple)')}
+    ${fld('Anti-patrón', d.anti_pattern, 'var(--coral)')}
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--grey);">
+      ${d.belt_range?`<span>${esc(d.belt_range)}</span>`:''}
+      ${d.training_block?`<span>· BLOQUE ${esc(d.training_block)}</span>`:''}
+      ${d.age?`<span>· ${esc(d.age)}</span>`:''}
+    </div>
+    ${d.step_ref?`<div style="margin-top:9px;"><button class="btn btn-ghost btn-sm" style="font-size:10px;" onclick="event.stopPropagation();libKind('seq');setTimeout(()=>openStep('${d.step_ref}'),150);">EN LA SECUENCIA →</button></div>`:''}`;
+  box.style.display='block';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   DIFICULTADES · las 17 raíces del método, con sus bloques solución
+   ════════════════════════════════════════════════════════════════════ */
+function renderDiffsView(){
+  const prio = p => (p||'').includes('1') ? 'var(--coral)' : (p||'').includes('2') ? 'var(--sunset)' : 'var(--grey)';
+  return `<div style="font-size:11px;color:var(--grey);margin-bottom:12px;line-height:1.5;">Las dificultades raíz del método. Cada una lista sus síntomas, los bloques que la resuelven y por dónde empezar.</div>
+    ${(_lib.diffs||[]).map(d=>`
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-left:3px solid ${prio(d.impact_priority)};margin-bottom:7px;">
+      <div style="padding:11px 13px;cursor:pointer;" onclick="toggleDiff(${d.diff_num})">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+          <div style="font-size:13px;font-weight:600;">${d.diff_num}. ${esc(d.difficulty_name||'')}</div>
+          <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${prio(d.impact_priority)};white-space:nowrap;">${esc((d.impact_priority||'').replace('Nivel ','N'))}</span>
+        </div>
+        <div style="font-size:10px;color:var(--grey);margin-top:4px;">${esc(d.pillar||'')} · ${esc(d.level||'')}${d.solution_blocks?` · bloques ${esc(d.solution_blocks)}`:''}</div>
+      </div>
+      <div id="dif-${d.diff_num}" style="display:none;padding:0 13px 13px;border-top:1px solid var(--border2);"></div>
+    </div>`).join('')}`;
+}
+
+function toggleDiff(num){
+  const box = document.getElementById('dif-'+num);
+  if(!box) return;
+  if(box.style.display==='block'){ box.style.display='none'; return; }
+  const d = (_lib.diffs||[]).find(x=>x.diff_num===num);
+  if(!d) return;
+  const sintomas = (d.errors_symptoms||'').split('|').map(s=>s.trim()).filter(Boolean);
+  const bloqueIds = (d.solution_blocks||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const bloques = (_lib.blocks||[]).filter(b=>bloqueIds.includes(b.block_id));
+  box.innerHTML = `
+    ${d.key_concept?`<div style="margin-top:11px;padding:9px 11px;border-left:2px solid var(--cyan);background:rgba(0,210,255,.06);font-size:12.5px;color:var(--cyan);">${esc(d.key_concept)}</div>`:''}
+    ${sintomas.length?`<div style="margin-top:10px;">
+      <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.2px;text-transform:uppercase;color:var(--sunset);margin-bottom:5px;">Síntomas</div>
+      ${sintomas.map(s=>`<div style="font-size:12px;color:var(--text);line-height:1.5;padding:3px 0;">· ${esc(s)}</div>`).join('')}
+    </div>`:''}
+    ${bloques.length?`<div style="margin-top:11px;">
+      <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.2px;text-transform:uppercase;color:var(--foam);margin-bottom:5px;">Bloques que la resuelven</div>
+      ${bloques.map(b=>`<div style="padding:8px 10px;background:rgba(6,214,160,.06);border-left:2px solid var(--foam);margin-bottom:4px;">
+        <div style="font-size:12px;font-weight:600;color:var(--white);">${esc(b.block_id)} · ${esc(b.block_name||'')}</div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:2px;line-height:1.45;">${esc(b.phase||'')}</div>
+      </div>`).join('')}
+    </div>`:''}
+    ${d.first_drill?`<div style="margin-top:10px;">
+      <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.2px;text-transform:uppercase;color:var(--cyan);margin-bottom:3px;">Empezá por</div>
+      <div style="font-size:12.5px;color:var(--text);">${esc(d.first_drill)}</div>
+    </div>`:''}
+    ${d.notes?`<div style="margin-top:9px;font-size:11px;color:var(--grey);font-style:italic;">${esc(d.notes)}</div>`:''}`;
+  box.style.display='block';
 }
 
 function libRow(t){
@@ -3439,7 +3590,9 @@ const BELT_META = {
 };
 
 function stepErrors(stepId){ return _errCache.filter(e=>e.step_ref===stepId); }
-function stepDrills(stepId){ return _lib.items.filter(t=>t.step_ref===stepId && t.kind==='drill'); }
+/* Drills ricos del Excel (tss_drills) + misiones del app (tss_templates) */
+function stepDrills(stepId){ return (_lib.drills||[]).filter(d=>d.step_ref===stepId); }
+function stepMissions(stepId){ return _lib.items.filter(t=>t.step_ref===stepId && t.kind==='mission'); }
 function pillarShort(p){
   if(!p) return '';
   if(/safety/i.test(p)) return 'SEG';
@@ -3626,12 +3779,22 @@ function openStepDetail(stepId){
         <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:8px;">📚 ${dr.length} drill${dr.length===1?'':'s'} que lo entrenan</div>
         ${dr.map(t=>{
           const bm = LIB_BELTS.find(b=>b.id===t.belt);
-          return `<div onclick="closeModal('stepModal');libKind('drill');libSearch('${esc((t.name||'').slice(0,28)).replace(/'/g,"\\'")}')" style="padding:9px 11px;margin-bottom:5px;border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;gap:8px;">
-            ${bm&&t.belt!=='all'?`<span style="width:8px;height:8px;background:${bm.color};flex-shrink:0;"></span>`:''}
-            <span style="font-size:12px;color:var(--white);flex:1;min-width:0;line-height:1.35;">${esc(t.name||'')}</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--grey)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+          return `<div onclick="closeModal('stepModal');libKind('drill');libSearch('${esc((t.drill_name||'').slice(0,26)).replace(/'/g,"\\'")}')" style="padding:9px 11px;margin-bottom:5px;background:rgba(255,255,255,.03);border:1px solid var(--border2);cursor:pointer;">
+            <div style="display:flex;gap:8px;align-items:center;">
+              ${bm&&t.belt!=='all'?`<span style="width:8px;height:8px;background:${bm.color};flex-shrink:0;"></span>`:''}
+              <span style="font-size:12px;color:var(--white);flex:1;min-width:0;line-height:1.35;">${esc(t.drill_name||'')}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--grey);flex-shrink:0;">${esc(t.drill_type||'')}</span>
+            </div>
+            ${t.key_cue?`<div style="font-size:10.5px;color:var(--cyan);margin-top:3px;font-style:italic;">"${esc(t.key_cue)}"</div>`:''}
           </div>`;
         }).join('')}
+      </div>`; })()}
+
+    ${(()=>{ const ms = stepMissions(stepId);
+      if(!ms.length) return '';
+      return `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
+        <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--foam);margin-bottom:8px;">🎯 ${ms.length} misión${ms.length===1?'':'es'} para el plan del día</div>
+        ${ms.map(t=>`<div onclick="closeModal('stepModal');toggleTemplateDetail('${t.id}')" style="padding:9px 11px;margin-bottom:5px;background:rgba(6,214,160,.05);border:1px solid var(--border2);cursor:pointer;font-size:12px;color:var(--white);line-height:1.35;">${esc(t.name||'')}</div>`).join('')}
       </div>`; })()}
 
     ${s.video_reference?`<div style="margin-top:14px;font-size:11px;color:var(--grey);font-family:'IBM Plex Mono',monospace;">VIDEO DE REFERENCIA: ${esc(s.video_reference)}</div>`:''}
