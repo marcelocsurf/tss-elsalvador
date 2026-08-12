@@ -3332,18 +3332,20 @@ const LIB_PILLARS = [
   {id:'tactical',  label:'Táctico'},
   {id:'mental',    label:'Mental'},
 ];
-let _lib = { items:[], steps:[], kind:'drill', belt:null, pillar:null, q:'' };
+let _lib = { items:[], steps:[], kind:'seq', belt:null, pillar:null, q:'' };
 
 async function renderBiblioteca(){
   const el = document.getElementById('planTab');
   el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando biblioteca…</div>';
   try {
-    const [{data:tmpl}, {data:steps}] = await Promise.all([
-      db.from('tss_templates').select('id,name,kind,belt,pillar,family,blocks').order('name'),
+    const [{data:tmpl}, {data:steps}, {data:errs}] = await Promise.all([
+      db.from('tss_templates').select('id,name,kind,belt,pillar,family,step_ref,blocks').order('name'),
       db.from('tss_steps').select('*').order('sort_order'),
+      db.from('tss_errors').select('*').order('error_id'),
     ]);
     _lib.items = tmpl||[];
     _lib.steps = steps||[];
+    if(errs) _errCache = errs;
     (_lib.items).forEach(t=>{ try{ _tmplCache[t.id] = {...t, _blocks: typeof t.blocks==='string'?JSON.parse(t.blocks||'[]'):(t.blocks||[])}; }catch(e){} });
     paintBiblioteca();
   } catch(e){
@@ -3369,20 +3371,21 @@ function libFiltered(){
 
 function paintBiblioteca(){
   const KINDS = [
+    {id:'seq',     label:'Secuencia', n:_lib.steps.length},
     {id:'drill',   label:'Drills',    n:_lib.items.filter(x=>x.kind==='drill').length},
     {id:'session', label:'Sesiones',  n:_lib.items.filter(x=>x.kind==='session').length},
     {id:'day',     label:'Días',      n:_lib.items.filter(x=>x.kind==='day').length},
     {id:'canon',   label:'Canon',     n:_lib.steps.length},
     {id:'cues',    label:'Cues',      n:_errCache.length||159},
   ];
-  const list = (_lib.kind==='canon'||_lib.kind==='cues') ? [] : libFiltered();
+  const list = ['canon','cues','seq'].includes(_lib.kind) ? [] : libFiltered();
   const chip = (on, label, extra='') => `padding:6px 12px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.12)':'transparent'};color:${on?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;${extra}`;
 
   document.getElementById('planTab').innerHTML = `
     <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;">
       ${KINDS.map(k=>`<button onclick="libKind('${k.id}')" style="${chip(_lib.kind===k.id, k.label)}">${k.label} <span style="opacity:.6;font-family:'IBM Plex Mono',monospace;">${k.n}</span></button>`).join('')}
     </div>
-    ${_lib.kind==='cues' ? renderCuesList() : _lib.kind==='canon' ? renderCanonList() : `
+    ${_lib.kind==='seq' ? renderSequenceView() : _lib.kind==='cues' ? renderCuesList() : _lib.kind==='canon' ? renderCanonList() : `
       <input type="text" class="inp" placeholder="Buscar por nombre…" value="${esc(_lib.q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:10px;">
       <div style="display:flex;gap:5px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;">
         ${LIB_BELTS.filter(b=>b.id!=='all').map(b=>`<button onclick="libSet('belt','${b.id}')" style="${chip(_lib.belt===b.id, b.label)}">${b.label}</button>`).join('')}
@@ -3420,6 +3423,108 @@ function libRow(t){
   </div>`;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   LA SECUENCIA · la columna vertebral del método
+   Los 59 pasos en orden. De cada paso cuelgan sus errores conocidos,
+   los drills que lo entrenan y su video. Fiel al Canon: nada se
+   fuerza — lo que no pertenece a un paso queda en "Avanzado".
+   ════════════════════════════════════════════════════════════════════ */
+const BELT_META = {
+  'White Belt':  {label:'Blanca',   color:'#E8E8E8'},
+  'Yellow Belt': {label:'Amarilla', color:'#F5C518'},
+  'Blue Belt':   {label:'Azul',     color:'#1E6FBF'},
+  'Purple Belt': {label:'Morada',   color:'#7B4FBE'},
+  'Brown Belt':  {label:'Marrón',   color:'#7D4E27'},
+  'Black Belt':  {label:'Negra',    color:'#E8F0F5'},
+};
+
+function stepErrors(stepId){ return _errCache.filter(e=>e.step_ref===stepId); }
+function stepDrills(stepId){ return _lib.items.filter(t=>t.step_ref===stepId && t.kind==='drill'); }
+function pillarShort(p){
+  if(!p) return '';
+  if(/safety/i.test(p)) return 'SEG';
+  if(/physical/i.test(p)) return 'FÍS';
+  if(/mental/i.test(p)) return 'MEN';
+  if(/tactical/i.test(p)) return 'TÁC';
+  return 'TÉC';
+}
+
+function renderSequenceView(){
+  if(!_lib.steps.length) return '<div style="padding:24px;text-align:center;color:var(--grey);font-size:12px;">Cargando secuencia…</div>';
+  const q = _lib.q;
+  const steps = _lib.steps.filter(s=>{
+    if(!q) return true;
+    return [s.sequence_part, s.step_id, s.coach_cue, s.description].filter(Boolean).some(x=>x.toLowerCase().includes(q));
+  });
+  const byBelt = {};
+  steps.forEach(s=>{ (byBelt[s.introduced_belt||'—'] = byBelt[s.introduced_belt||'—']||[]).push(s); });
+  const order = Object.keys(BELT_META);
+  const keys = Object.keys(byBelt).sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+  const advanced = _errCache.filter(e=>e.is_advanced);
+  const advParts = [...new Set(advanced.map(e=>e.pilar_part))].sort();
+
+  return `
+    <input type="text" class="inp" placeholder="Buscar paso, cue o concepto…" value="${esc(q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:12px;">
+    <div style="font-size:11px;color:var(--grey);margin-bottom:14px;line-height:1.5;">El camino del método · ${steps.length} pasos · tap para ver errores, drills y video de cada uno</div>
+    ${keys.map(k=>{
+      const bm = BELT_META[k] || {label:k, color:'var(--cyan)'};
+      const seqs = [...new Set(byBelt[k].map(s=>s.introduced_seq))].sort((a,b)=>a-b);
+      return `<div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid ${bm.color};">
+          <span style="width:11px;height:11px;background:${bm.color};flex-shrink:0;"></span>
+          <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--white);font-weight:700;">${esc(bm.label)}</span>
+          <span style="font-size:10px;color:var(--grey);margin-left:auto;font-family:'IBM Plex Mono',monospace;">${byBelt[k].length} pasos · sec ${seqs[0]}–${seqs[seqs.length-1]}</span>
+        </div>
+        ${byBelt[k].map(s=>{
+          const errs = stepErrors(s.step_id).length;
+          const dr = stepDrills(s.step_id).length;
+          const masteredLater = s.mastered_belt && s.mastered_belt !== s.introduced_belt;
+          return `<div onclick="openStepDetail('${s.step_id}')" style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border2);cursor:pointer;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--grey);width:26px;flex-shrink:0;">${s.introduced_seq!=null?Number(s.introduced_seq).toFixed(1):''}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--white);line-height:1.35;">${esc(s.sequence_part||'')}</div>
+              ${masteredLater?`<div style="font-size:10px;color:var(--text-soft);margin-top:2px;">domina en ${esc((BELT_META[s.mastered_belt]||{}).label||s.mastered_belt)}</div>`:''}
+            </div>
+            <div style="display:flex;gap:7px;align-items:center;flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:10px;">
+              <span style="color:var(--text-soft);">${pillarShort(s.pillar)}</span>
+              ${dr?`<span style="color:var(--cyan);" title="drills">${dr}📚</span>`:''}
+              ${errs?`<span style="color:var(--sunset);" title="errores conocidos">${errs}⚠</span>`:''}
+              ${s.video_reference?`<span style="color:var(--foam);" title="video">▶</span>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('')}
+    ${!q && advParts.length ? `
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border2);">
+      <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--sunset);margin-bottom:6px;">Avanzado · fuera del Canon documentado</div>
+      <div style="font-size:11px;color:var(--grey);margin-bottom:10px;line-height:1.5;">${advanced.length} errores de maniobras que todavía no están en los 59 pasos. Quedan acá hasta que se documenten.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${advParts.map(p=>`<button onclick="openAdvancedPart('${esc(p).replace(/'/g,"\\'")}')" style="padding:6px 11px;border:1px solid var(--border2);background:transparent;color:var(--text-soft);font-size:11px;cursor:pointer;">${esc(p)} <span style="color:var(--sunset);font-family:'IBM Plex Mono',monospace;">${advanced.filter(e=>e.pilar_part===p).length}</span></button>`).join('')}
+      </div>
+    </div>` : ''}`;
+}
+
+function openAdvancedPart(part){
+  const errs = _errCache.filter(e=>e.pilar_part===part);
+  if(!errs.length) return;
+  let m=document.getElementById('advModal'); if(m) m.remove();
+  m=document.createElement('div'); m.className='modal-overlay'; m.id='advModal';
+  m.innerHTML=`<div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+    <div class="modal-head">
+      <div><div class="modal-title">${esc(part)}</div><div class="modal-sub">${errs.length} errores · maniobra avanzada</div></div>
+      <button class="modal-close" onclick="closeModal('advModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    ${errs.map(e=>`<div style="border-top:1px solid var(--border2);padding:10px 0;">
+      <div style="font-size:13px;color:var(--white);line-height:1.4;">${esc(e.common_error||'')}</div>
+      ${e.related_solution?`<div style="font-size:11.5px;color:var(--text-soft);margin-top:3px;">→ ${esc(e.related_solution)}</div>`:''}
+      ${e.coach_cue?`<div style="font-size:12px;color:var(--cyan);margin-top:3px;font-style:italic;">"${esc(e.coach_cue)}"</div>`:''}
+    </div>`).join('')}
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',ev=>{if(ev.target===m)closeModal('advModal');});
+}
+
 /* Cues · los 159 errores comunes como referencia de bolsillo para la playa.
    Buscás la maniobra y tenés el error, la corrección y qué decir en voz alta. */
 function renderCuesList(){
@@ -3448,11 +3553,15 @@ function renderCuesList(){
     ${Object.keys(byPart).sort().map(part=>`
       <div style="margin-bottom:14px;">
         <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;">${esc(part)} · ${byPart[part].length}</div>
-        ${byPart[part].map(e=>`<div style="border-top:1px solid var(--border2);padding:9px 2px;">
+        ${byPart[part].map(e=>{
+          const st = e.step_ref ? _lib.steps.find(x=>x.step_id===e.step_ref) : null;
+          return `<div style="border-top:1px solid var(--border2);padding:9px 2px;">
           <div style="font-size:12.5px;color:var(--white);line-height:1.4;">${esc(e.common_error||'')}</div>
           ${e.related_solution?`<div style="font-size:11px;color:var(--text-soft);margin-top:3px;">→ ${esc(e.related_solution)}</div>`:''}
           ${e.coach_cue?`<div style="font-size:12px;color:var(--cyan);margin-top:3px;font-style:italic;">"${esc(e.coach_cue)}"</div>`:''}
-        </div>`).join('')}
+          ${st?`<button onclick="openStepDetail('${st.step_id}')" style="margin-top:5px;font-size:10px;color:var(--foam);font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;display:inline-flex;align-items:center;gap:4px;">EN LA SECUENCIA: ${esc(st.sequence_part)} <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>`
+            : `<div style="margin-top:5px;font-size:10px;color:var(--sunset);font-family:'IBM Plex Mono',monospace;">AVANZADO · fuera del Canon</div>`}
+        </div>`;}).join('')}
       </div>`).join('') || '<div class="empty" style="padding:30px;"><p class="empty-txt">Sin resultados</p></div>'}`;
 }
 
@@ -3496,8 +3605,36 @@ function openStepDetail(stepId){
     ${succ.length?`<div style="margin-top:12px;"><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:5px;">Indicadores de éxito</div>
       ${succ.map(x=>`<div style="display:flex;gap:8px;font-size:13px;color:var(--text);line-height:1.5;margin-top:4px;"><span style="color:var(--foam);">✓</span><span>${esc(x)}</span></div>`).join('')}</div>`:''}
     ${row('Pilar', s.pillar)}
-    ${s.mastered_belt?row('Se domina en', s.mastered_belt):''}
-    ${s.drill_reference||s.video_reference?`<div style="margin-top:12px;font-size:11px;color:var(--grey);font-family:'IBM Plex Mono',monospace;">${s.drill_reference?'DRILL: '+esc(s.drill_reference):''}${s.video_reference?' · VIDEO: '+esc(s.video_reference):''}</div>`:''}
+    ${s.mastered_belt?row('Se domina en', (BELT_META[s.mastered_belt]||{}).label||s.mastered_belt):''}
+
+    ${(()=>{ const errs = stepErrors(stepId); if(!errs.length) return '';
+      return `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
+        <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--sunset);margin-bottom:8px;">⚠ ${errs.length} error${errs.length===1?'':'es'} que se ven acá</div>
+        ${errs.map(e=>`<div style="padding:9px 11px;margin-bottom:5px;border-left:2px solid var(--sunset);background:rgba(255,140,66,.05);">
+          <div style="font-size:12.5px;color:var(--white);line-height:1.4;">${esc(e.common_error||'')}</div>
+          ${e.related_solution?`<div style="font-size:11px;color:var(--text-soft);margin-top:3px;">→ ${esc(e.related_solution)}</div>`:''}
+          ${e.coach_cue?`<div style="font-size:11.5px;color:var(--cyan);margin-top:2px;font-style:italic;">"${esc(e.coach_cue)}"</div>`:''}
+        </div>`).join('')}
+      </div>`; })()}
+
+    ${(()=>{ const dr = stepDrills(stepId);
+      if(!dr.length) return `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
+        <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;">Drills que lo entrenan</div>
+        <div style="font-size:11.5px;color:var(--grey);font-style:italic;line-height:1.5;">Todavía no hay drills enganchados a este paso.${s.drill_reference?` El Canon referencia <span style="font-family:'IBM Plex Mono',monospace;color:var(--text-soft);">${esc(s.drill_reference)}</span>.`:''}</div>
+      </div>`;
+      return `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
+        <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:8px;">📚 ${dr.length} drill${dr.length===1?'':'s'} que lo entrenan</div>
+        ${dr.map(t=>{
+          const bm = LIB_BELTS.find(b=>b.id===t.belt);
+          return `<div onclick="closeModal('stepModal');libKind('drill');libSearch('${esc((t.name||'').slice(0,28)).replace(/'/g,"\\'")}')" style="padding:9px 11px;margin-bottom:5px;border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;gap:8px;">
+            ${bm&&t.belt!=='all'?`<span style="width:8px;height:8px;background:${bm.color};flex-shrink:0;"></span>`:''}
+            <span style="font-size:12px;color:var(--white);flex:1;min-width:0;line-height:1.35;">${esc(t.name||'')}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--grey)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>`;
+        }).join('')}
+      </div>`; })()}
+
+    ${s.video_reference?`<div style="margin-top:14px;font-size:11px;color:var(--grey);font-family:'IBM Plex Mono',monospace;">VIDEO DE REFERENCIA: ${esc(s.video_reference)}</div>`:''}
   </div>`;
   document.body.appendChild(m);
   m.addEventListener('click',e=>{if(e.target===m)closeModal('stepModal');});
