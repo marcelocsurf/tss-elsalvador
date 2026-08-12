@@ -977,6 +977,12 @@ function openSpFeedback(sessionId, sessionTitle, athleteIds){
             ${['Sí','Parcial','No'].map(v=>`<button type="button" class="opt-pill" onclick="pickSpOpt('achieved-${a.id}',this,'${v}')">${v}</button>`).join('')}
           </div>
           <input type="hidden" id="fb-achieved-${a.id}" value="">
+          <div class="drill-label" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>¿Qué viste?</span>
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 10px;" onclick="openErrorPicker('${a.id}','${esc(a.name)}')">+ Diagnóstico</button>
+          </div>
+          <div id="fb-errbox-${a.id}" style="display:flex;flex-direction:column;gap:5px;"></div>
+          <input type="hidden" id="fb-errors-${a.id}" value="">
           <div class="drill-label" style="margin-top:8px;"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>Nota del coach</div>
           <textarea class="ta" id="fb-note-${a.id}" placeholder="Observaciones específicas..." style="min-height:48px;"></textarea>
         </div>`).join('')}
@@ -987,6 +993,8 @@ function openSpFeedback(sessionId, sessionTitle, athleteIds){
   </div>`;
   document.body.appendChild(m);
   m.onclick = e => { if(e.target===m) closeModal('spFeedbackModal'); };
+  // Precargar catálogo de errores y pintar el estado vacío del diagnóstico
+  loadErrors().then(()=>{ document.querySelectorAll('[id^="fb-errbox-"]').forEach(b=>paintErrorChips(b.id.replace('fb-errbox-',''))); });
 }
 
 function pickFb(id, val, btn){
@@ -999,6 +1007,132 @@ function pickSpOpt(id, btn, val){
   btn.closest('div').querySelectorAll('.opt-pill').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   document.getElementById(`fb-${id}`).value = val;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   DIAGNÓSTICO · errores comunes del Canon (tss_errors, 159 registros)
+   El coach elige qué vio → el sistema aporta solución y cue.
+   ════════════════════════════════════════════════════════════════════ */
+let _errCache = [];
+let _errPickerFor = null;
+
+async function loadErrors(){
+  if(_errCache.length) return _errCache;
+  try {
+    const{data} = await db.from('tss_errors').select('*').order('error_id');
+    _errCache = data||[];
+  } catch(e){ console.error('loadErrors', e); }
+  return _errCache;
+}
+
+async function openErrorPicker(athleteId, athleteName){
+  await loadErrors();
+  _errPickerFor = athleteId;
+  let m=document.getElementById('errPickerModal'); if(m) m.remove();
+  m=document.createElement('div'); m.className='modal-overlay'; m.id='errPickerModal';
+  m.style.zIndex='200';
+  m.innerHTML = `<div class="modal-sheet" style="max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-head">
+      <div><div class="modal-title">¿Qué viste?</div><div class="modal-sub">${esc(athleteName||'')}</div></div>
+      <button class="modal-close" onclick="closeModal('errPickerModal')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <input type="text" class="inp" id="errSearch" placeholder="Buscar: bottom turn, rotación, postura…" oninput="paintErrorPicker()" style="font-size:13px;">
+    <div style="display:flex;gap:5px;margin-top:8px;overflow-x:auto;padding-bottom:2px;" id="errPillars"></div>
+    <div id="errResults" style="margin-top:10px;overflow-y:auto;flex:1;"></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)closeModal('errPickerModal');});
+  _errFilterPillar = null;
+  paintErrorPicker();
+  setTimeout(()=>document.getElementById('errSearch')?.focus(), 100);
+}
+
+let _errFilterPillar = null;
+function errSetPillar(p){ _errFilterPillar = (_errFilterPillar===p?null:p); paintErrorPicker(); }
+
+function errPillarLabel(p){
+  return {Technical:'Técnico', Physical:'Físico', Mental:'Mental', Safety:'Seguridad'}[p] || p;
+}
+
+function paintErrorPicker(){
+  const q = (document.getElementById('errSearch')?.value||'').toLowerCase().trim();
+  const sel = getSelectedErrors(_errPickerFor);
+  const pillars = [...new Set(_errCache.map(e=>e.related_pillar))].filter(Boolean);
+  const pc = document.getElementById('errPillars');
+  if(pc) pc.innerHTML = pillars.map(p=>`<button type="button" onclick="errSetPillar('${p}')" style="padding:5px 11px;border:1px solid ${_errFilterPillar===p?'var(--cyan)':'var(--border2)'};background:${_errFilterPillar===p?'rgba(0,210,255,.12)':'transparent'};color:${_errFilterPillar===p?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">${esc(errPillarLabel(p))}</button>`).join('');
+
+  const list = _errCache.filter(e=>{
+    if(_errFilterPillar && e.related_pillar !== _errFilterPillar) return false;
+    if(!q) return true;
+    return [e.common_error, e.pilar_part, e.related_solution, e.coach_cue]
+      .filter(Boolean).some(x=>x.toLowerCase().includes(q));
+  });
+
+  // Agrupar por maniobra/parte para que sea navegable
+  const byPart = {};
+  list.forEach(e=>{ (byPart[e.pilar_part||'—'] = byPart[e.pilar_part||'—']||[]).push(e); });
+  const res = document.getElementById('errResults');
+  if(!res) return;
+  if(!list.length){ res.innerHTML='<div style="padding:24px;text-align:center;color:var(--grey);font-size:12px;">Sin resultados</div>'; return; }
+  res.innerHTML = Object.keys(byPart).sort().map(part=>`
+    <div style="margin-bottom:12px;">
+      <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:5px;">${esc(part)}</div>
+      ${byPart[part].map(e=>{
+        const on = sel.includes(e.error_id);
+        return `<div onclick="toggleError('${e.error_id}')" style="display:flex;gap:9px;align-items:flex-start;padding:8px 10px;margin-bottom:4px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.08)':'transparent'};cursor:pointer;">
+          <span style="width:15px;height:15px;flex-shrink:0;margin-top:2px;border:2px solid ${on?'var(--cyan)':'rgba(255,255,255,.25)'};background:${on?'var(--cyan)':'transparent'};display:inline-flex;align-items:center;justify-content:center;">
+            ${on?'<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#061C2B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':''}
+          </span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;color:var(--white);line-height:1.4;">${esc(e.common_error||'')}</div>
+            ${on&&e.coach_cue?`<div style="font-size:11px;color:var(--cyan);margin-top:4px;font-style:italic;">"${esc(e.coach_cue)}"</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('') +
+    `<button class="btn btn-cyan btn-block" style="margin-top:6px;position:sticky;bottom:0;" onclick="closeModal('errPickerModal')">Listo · ${sel.length} seleccionado${sel.length===1?'':'s'}</button>`;
+}
+
+function getSelectedErrors(athleteId){
+  const v = document.getElementById(`fb-errors-${athleteId}`)?.value || '';
+  return v ? v.split(',').filter(Boolean) : [];
+}
+
+function toggleError(errorId){
+  const inp = document.getElementById(`fb-errors-${_errPickerFor}`);
+  if(!inp) return;
+  let sel = getSelectedErrors(_errPickerFor);
+  sel = sel.includes(errorId) ? sel.filter(x=>x!==errorId) : [...sel, errorId];
+  inp.value = sel.join(',');
+  paintErrorPicker();
+  paintErrorChips(_errPickerFor);
+}
+
+/* Chips resumen en la ficha del atleta, con la solución y el cue visibles */
+function paintErrorChips(athleteId){
+  const box = document.getElementById(`fb-errbox-${athleteId}`);
+  if(!box) return;
+  const sel = getSelectedErrors(athleteId);
+  if(!sel.length){ box.innerHTML = '<div style="font-size:11px;color:var(--grey);font-style:italic;">Sin diagnóstico · tap "+ Diagnóstico"</div>'; return; }
+  box.innerHTML = sel.map(id=>{
+    const e = _errCache.find(x=>x.error_id===id);
+    if(!e) return '';
+    return `<div style="padding:8px 10px;border-left:2px solid var(--sunset);background:rgba(255,140,66,.06);">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+        <span style="font-size:12px;color:var(--white);line-height:1.4;flex:1;">${esc(e.common_error||'')}</span>
+        <button type="button" onclick="removeErrorChip('${athleteId}','${id}')" style="color:var(--coral);font-size:14px;line-height:1;flex-shrink:0;">×</button>
+      </div>
+      ${e.related_solution?`<div style="font-size:11px;color:var(--text-soft);margin-top:3px;">→ ${esc(e.related_solution)}</div>`:''}
+      ${e.coach_cue?`<div style="font-size:11px;color:var(--cyan);margin-top:2px;font-style:italic;">"${esc(e.coach_cue)}"</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function removeErrorChip(athleteId, errorId){
+  const inp = document.getElementById(`fb-errors-${athleteId}`);
+  if(!inp) return;
+  inp.value = getSelectedErrors(athleteId).filter(x=>x!==errorId).join(',');
+  paintErrorChips(athleteId);
 }
 
 async function finalizeSp(sessionId){
@@ -1023,10 +1157,12 @@ async function finalizeSp(sessionId){
       const frustration = parseInt(document.getElementById(`fb-frust-${a.id}`)?.value || 0);
       const achieved = document.getElementById(`fb-achieved-${a.id}`)?.value || '';
       const note = document.getElementById(`fb-note-${a.id}`)?.value || '';
+      const errIds = getSelectedErrors(a.id);
       feedbacks.push({
         session_id: sessionId, athlete_id: a.id,
         focus_rating: focus || null, frustration_rating: frustration || null,
         achieved: achieved || null, coach_note: note || null,
+        error_ids: errIds.length ? errIds : null,
         recorded_by: S.user.id
       });
     }
@@ -3237,15 +3373,16 @@ function paintBiblioteca(){
     {id:'session', label:'Sesiones',  n:_lib.items.filter(x=>x.kind==='session').length},
     {id:'day',     label:'Días',      n:_lib.items.filter(x=>x.kind==='day').length},
     {id:'canon',   label:'Canon',     n:_lib.steps.length},
+    {id:'cues',    label:'Cues',      n:_errCache.length||159},
   ];
-  const list = _lib.kind==='canon' ? [] : libFiltered();
+  const list = (_lib.kind==='canon'||_lib.kind==='cues') ? [] : libFiltered();
   const chip = (on, label, extra='') => `padding:6px 12px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.12)':'transparent'};color:${on?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;${extra}`;
 
   document.getElementById('planTab').innerHTML = `
     <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;">
       ${KINDS.map(k=>`<button onclick="libKind('${k.id}')" style="${chip(_lib.kind===k.id, k.label)}">${k.label} <span style="opacity:.6;font-family:'IBM Plex Mono',monospace;">${k.n}</span></button>`).join('')}
     </div>
-    ${_lib.kind==='canon' ? renderCanonList() : `
+    ${_lib.kind==='cues' ? renderCuesList() : _lib.kind==='canon' ? renderCanonList() : `
       <input type="text" class="inp" placeholder="Buscar por nombre…" value="${esc(_lib.q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:10px;">
       <div style="display:flex;gap:5px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;">
         ${LIB_BELTS.filter(b=>b.id!=='all').map(b=>`<button onclick="libSet('belt','${b.id}')" style="${chip(_lib.belt===b.id, b.label)}">${b.label}</button>`).join('')}
@@ -3281,6 +3418,42 @@ function libRow(t){
     </div>
     <div id="tmplDetail-${t.id}" style="display:none;border-top:1px solid var(--border2);padding:12px 13px;background:rgba(0,0,0,.15);"></div>
   </div>`;
+}
+
+/* Cues · los 159 errores comunes como referencia de bolsillo para la playa.
+   Buscás la maniobra y tenés el error, la corrección y qué decir en voz alta. */
+function renderCuesList(){
+  if(!_errCache.length){
+    loadErrors().then(()=>paintBiblioteca());
+    return '<div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando cues…</div>';
+  }
+  const q = _lib.q;
+  const list = _errCache.filter(e=>{
+    if(_lib.pillar){
+      const map = {technical:'Technical', physical:'Physical', mental:'Mental', tactical:'Technical'};
+      if(e.related_pillar !== map[_lib.pillar]) return false;
+    }
+    if(!q) return true;
+    return [e.common_error, e.pilar_part, e.related_solution, e.coach_cue]
+      .filter(Boolean).some(x=>x.toLowerCase().includes(q));
+  });
+  const byPart = {};
+  list.forEach(e=>{ (byPart[e.pilar_part||'—'] = byPart[e.pilar_part||'—']||[]).push(e); });
+  return `
+    <input type="text" class="inp" placeholder="Buscar: bottom turn, rotación, postura…" value="${esc(q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:10px;">
+    <div style="display:flex;gap:5px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;">
+      ${LIB_PILLARS.filter(p=>p.id!=='tactical').map(p=>`<button onclick="libSet('pillar','${p.id}')" style="padding:6px 12px;border:1px solid ${_lib.pillar===p.id?'var(--cyan)':'var(--border2)'};background:${_lib.pillar===p.id?'rgba(0,210,255,.12)':'transparent'};color:${_lib.pillar===p.id?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">${p.label}</button>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--grey);margin-bottom:10px;font-family:'IBM Plex Mono',monospace;">${list.length} error${list.length===1?'':'es'} · error → corrección → qué decir</div>
+    ${Object.keys(byPart).sort().map(part=>`
+      <div style="margin-bottom:14px;">
+        <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;">${esc(part)} · ${byPart[part].length}</div>
+        ${byPart[part].map(e=>`<div style="border-top:1px solid var(--border2);padding:9px 2px;">
+          <div style="font-size:12.5px;color:var(--white);line-height:1.4;">${esc(e.common_error||'')}</div>
+          ${e.related_solution?`<div style="font-size:11px;color:var(--text-soft);margin-top:3px;">→ ${esc(e.related_solution)}</div>`:''}
+          ${e.coach_cue?`<div style="font-size:12px;color:var(--cyan);margin-top:3px;font-style:italic;">"${esc(e.coach_cue)}"</div>`:''}
+        </div>`).join('')}
+      </div>`).join('') || '<div class="empty" style="padding:30px;"><p class="empty-txt">Sin resultados</p></div>'}`;
 }
 
 /* Los 59 pasos del Canon (Sequence Bible) — referencia de solo lectura */
