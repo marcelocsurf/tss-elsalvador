@@ -3332,25 +3332,27 @@ const LIB_PILLARS = [
   {id:'tactical',  label:'Táctico'},
   {id:'mental',    label:'Mental'},
 ];
-let _lib = { items:[], steps:[], drills:[], diffs:[], blocks:[], kind:'seq', belt:null, pillar:null, q:'' };
+let _lib = { items:[], steps:[], drills:[], diffs:[], blocks:[], seqs:[], kind:'seq', belt:null, pillar:null, q:'' };
 
 async function renderBiblioteca(){
   const el = document.getElementById('planTab');
   el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--grey);font-size:12px;">Cargando biblioteca…</div>';
   try {
-    const [{data:tmpl}, {data:steps}, {data:errs}, {data:drills}, {data:diffs}, {data:blocks}] = await Promise.all([
+    const [{data:tmpl}, {data:steps}, {data:errs}, {data:drills}, {data:diffs}, {data:blocks}, {data:seqs}] = await Promise.all([
       db.from('tss_templates').select('id,name,kind,belt,pillar,family,step_ref,blocks').order('name'),
       db.from('tss_steps').select('*').order('sort_order'),
       db.from('tss_errors').select('*').order('error_id'),
       db.from('tss_drills').select('*').order('drill_id'),
       db.from('tss_difficulties').select('*').order('diff_num'),
       db.from('tss_blocks').select('*').order('block_id'),
+      db.from('tss_sequences').select('*').order('sort_order'),
     ]);
     _lib.items = tmpl||[];
     _lib.steps = steps||[];
     _lib.drills = drills||[];
     _lib.diffs = diffs||[];
     _lib.blocks = blocks||[];
+    _lib.seqs = seqs||[];
     if(errs) _errCache = errs;
     (_lib.items).forEach(t=>{ try{ _tmplCache[t.id] = {...t, _blocks: typeof t.blocks==='string'?JSON.parse(t.blocks||'[]'):(t.blocks||[])}; }catch(e){} });
     paintBiblioteca();
@@ -3378,6 +3380,7 @@ function libFiltered(){
 function paintBiblioteca(){
   const KINDS = [
     {id:'seq',     label:'Secuencia', n:_lib.steps.length},
+    {id:'chain',   label:'Cadenas',   n:(_lib.seqs||[]).length},
     {id:'drill',   label:'Drills',    n:(_lib.drills||[]).length},
     {id:'mission', label:'Misiones',  n:_lib.items.filter(x=>x.kind==='mission').length},
     {id:'session', label:'Sesiones',  n:_lib.items.filter(x=>x.kind==='session').length},
@@ -3386,7 +3389,7 @@ function paintBiblioteca(){
     {id:'canon',   label:'Canon',     n:_lib.steps.length},
     {id:'cues',    label:'Cues',      n:_errCache.length||159},
   ];
-  const VIRTUAL = ['canon','cues','seq','drill','diff'];
+  const VIRTUAL = ['canon','cues','seq','drill','diff','chain'];
   const list = VIRTUAL.includes(_lib.kind) ? [] : libFiltered();
   const chip = (on, label, extra='') => `padding:6px 12px;border:1px solid ${on?'var(--cyan)':'var(--border2)'};background:${on?'rgba(0,210,255,.12)':'transparent'};color:${on?'var(--cyan)':'var(--text-soft)'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;${extra}`;
 
@@ -3394,7 +3397,7 @@ function paintBiblioteca(){
     <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;">
       ${KINDS.map(k=>`<button onclick="libKind('${k.id}')" style="${chip(_lib.kind===k.id, k.label)}">${k.label} <span style="opacity:.6;font-family:'IBM Plex Mono',monospace;">${k.n}</span></button>`).join('')}
     </div>
-    ${_lib.kind==='seq' ? renderSequenceView() : _lib.kind==='cues' ? renderCuesList() : _lib.kind==='canon' ? renderCanonList() : _lib.kind==='drill' ? renderDrillsView() : _lib.kind==='diff' ? renderDiffsView() : `
+    ${_lib.kind==='chain' ? renderChainsView() : _lib.kind==='seq' ? renderSequenceView() : _lib.kind==='cues' ? renderCuesList() : _lib.kind==='canon' ? renderCanonList() : _lib.kind==='drill' ? renderDrillsView() : _lib.kind==='diff' ? renderDiffsView() : `
       <input type="text" class="inp" placeholder="Buscar por nombre…" value="${esc(_lib.q)}" oninput="libSearch(this.value)" style="font-size:13px;margin-bottom:10px;">
       <div style="display:flex;gap:5px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px;">
         ${LIB_BELTS.filter(b=>b.id!=='all').map(b=>`<button onclick="libSet('belt','${b.id}')" style="${chip(_lib.belt===b.id, b.label)}">${b.label}</button>`).join('')}
@@ -3738,13 +3741,91 @@ function renderCanonList(){
     </div>`).join('')}`;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   INDICADORES DE EJECUCIÓN
+   2 a 5 por paso. Cada uno trae lo que se VE cuando salió bien (ok)
+   y lo que se ve cuando faltó (no) — el «no» es el diagnóstico.
+   Vienen de tss_steps.success_indicators (jsonb). Si un paso todavía
+   no los tiene, cae a los success_1/2/3 viejos para no dejar hueco.
+   ════════════════════════════════════════════════════════════════════ */
+const FOCO_META = {
+  mirada: { label:'MIRADA', color:'var(--golden)' },
+  cuerpo: { label:'CUERPO', color:'var(--cyan)'   },
+  tabla:  { label:'TABLA',  color:'var(--foam)'   },
+  ola:    { label:'OLA',    color:'var(--purple)' },
+  tiempo: { label:'TIEMPO', color:'var(--sunset)' },
+};
+
+function stepIndicators(s){
+  const raw = s.success_indicators;
+  const arr = typeof raw==='string' ? (()=>{ try{ return JSON.parse(raw); }catch(e){ return []; } })() : (raw||[]);
+  if(Array.isArray(arr) && arr.length) return arr;
+  // respaldo: los tres campos originales, sin el «qué faltó»
+  return [s.success_1,s.success_2,s.success_3].filter(Boolean).map((t,i)=>({n:i+1,ok:t,no:'',foco:'',err:[]}));
+}
+
+function indicatorRow(x, i){
+  const f = FOCO_META[x.foco] || null;
+  const errs = (x.err||[]).length
+    ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--grey);margin-top:3px;">${(x.err||[]).join(' · ')}</div>` : '';
+  const falla = x.no
+    ? `<div style="display:flex;gap:7px;margin-top:3px;"><span style="color:var(--sunset);font-size:12px;line-height:1.5;">✕</span><span style="font-size:12px;color:var(--text-soft);line-height:1.5;">${esc(x.no)}</span></div>` : '';
+  return `<div style="padding:9px 0;border-top:1px solid var(--border2);">
+    ${f?`<div style="font-size:8.5px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.4px;color:${f.color};margin-bottom:4px;">${f.label}</div>`:''}
+    <div style="display:flex;gap:7px;"><span style="color:var(--foam);font-size:12px;line-height:1.5;">✓</span><span style="font-size:13px;color:var(--text);line-height:1.5;">${esc(x.ok||'')}</span></div>
+    ${falla}${errs}
+  </div>`;
+}
+
+/* Cadenas: la secuencia completa. Sus indicadores miden el ENGANCHE
+   entre partes, que es lo que los pasos sueltos no pueden decir. */
+function renderChainsView(){
+  const seqs = _lib.seqs||[];
+  if(!seqs.length) return `<p style="padding:24px;text-align:center;color:var(--grey);font-size:12px;">No hay cadenas cargadas todavía.</p>`;
+  const byPhase = {};
+  seqs.forEach(q=>{ (byPhase[q.phase||'Otras'] = byPhase[q.phase||'Otras']||[]).push(q); });
+  return `<div style="font-size:11.5px;color:var(--text-soft);line-height:1.5;margin-bottom:14px;">
+      Una cadena es la secuencia completa. Sus indicadores miden lo que los pasos sueltos no pueden decir: si las partes <b style="color:var(--white);">enganchan</b>.
+    </div>` + Object.entries(byPhase).map(([ph,list])=>`
+    <div style="margin-bottom:18px;">
+      <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.6px;text-transform:uppercase;color:var(--grey);margin-bottom:7px;">${esc(ph)}</div>
+      ${list.map(q=>chainRow(q)).join('')}
+    </div>`).join('');
+}
+
+function chainRow(q){
+  const open = _openChain===q.seq_id;
+  const inds = typeof q.indicators==='string' ? (()=>{ try{ return JSON.parse(q.indicators); }catch(e){ return []; } })() : (q.indicators||[]);
+  const steps = (q.step_ids||[]).map(id=>{
+    const st = (_lib.steps||[]).find(x=>x.step_id===id);
+    return st ? `<button onclick="event.stopPropagation();openStepDetail('${id}')" style="padding:4px 8px;border:1px solid var(--border2);background:transparent;color:var(--text-soft);font-size:11px;cursor:pointer;white-space:nowrap;">${esc(st.sequence_part)}</button>` : '';
+  }).join('<span style="color:var(--grey);font-size:11px;align-self:center;">›</span>');
+  return `<div style="border:1px solid ${open?'var(--cyan)':'var(--border2)'};margin-bottom:6px;">
+    <div onclick="toggleChain('${q.seq_id}')" style="padding:11px 13px;cursor:pointer;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;">
+        <div style="font-size:13.5px;font-weight:700;color:var(--white);line-height:1.35;">${esc(q.seq_name)}</div>
+        <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--grey);white-space:nowrap;">${inds.length} IND</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-soft);margin-top:3px;">${esc(q.seq_id)} · ${esc(q.belt||'')} · ${(q.step_ids||[]).length} pasos</div>
+    </div>
+    ${open?`<div style="padding:0 13px 13px;">
+      ${q.description?`<div style="font-size:12.5px;color:var(--text);line-height:1.55;margin-bottom:10px;">${esc(q.description)}</div>`:''}
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;">${steps}</div>
+      <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);">Indicadores de la cadena</div>
+      ${inds.map(indicatorRow).join('')}
+    </div>`:''}
+  </div>`;
+}
+let _openChain = null;
+function toggleChain(id){ _openChain = (_openChain===id ? null : id); paintBiblioteca(); }
+
 function openStepDetail(stepId){
   const s = _lib.steps.find(x=>x.step_id===stepId);
   if(!s) return;
   let m=document.getElementById('stepModal'); if(m) m.remove();
   m=document.createElement('div'); m.className='modal-overlay'; m.id='stepModal';
   const row = (lbl, val) => val ? `<div style="margin-top:12px;"><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:3px;">${lbl}</div><div style="font-size:13px;color:var(--text);line-height:1.55;">${esc(val)}</div></div>` : '';
-  const succ = [s.success_1,s.success_2,s.success_3].filter(Boolean);
+  const succ = stepIndicators(s);
   m.innerHTML = `<div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
     <div class="modal-head">
       <div><div class="modal-title">${esc(s.sequence_part||'')}</div>
@@ -3755,8 +3836,8 @@ function openStepDetail(stepId){
     ${row('Descripción', s.description)}
     ${row('Conceptos clave', s.key_concepts)}
     ${row('Biomecánica', s.biomechanics_notes)}
-    ${succ.length?`<div style="margin-top:12px;"><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:5px;">Indicadores de éxito</div>
-      ${succ.map(x=>`<div style="display:flex;gap:8px;font-size:13px;color:var(--text);line-height:1.5;margin-top:4px;"><span style="color:var(--foam);">✓</span><span>${esc(x)}</span></div>`).join('')}</div>`:''}
+    ${succ.length?`<div style="margin-top:14px;"><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);margin-bottom:6px;">${succ.length} indicadores de ejecución</div>
+      ${succ.map(indicatorRow).join('')}</div>`:''}
     ${row('Pilar', s.pillar)}
     ${s.mastered_belt?row('Se domina en', (BELT_META[s.mastered_belt]||{}).label||s.mastered_belt):''}
 
