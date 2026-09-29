@@ -340,7 +340,7 @@ header{padding:10px 16px;display:flex;align-items:center;justify-content:space-b
   </div>
   <div class="copyright-block">
     <span style="color:var(--cyan);font-weight:700;font-size:10px;">© TSS — The Surf Sequence®</span><br>
-    Propiedad intelectual exclusiva de <strong style="color:var(--grey);">Marcelo Castellanos</strong>. Todos los derechos reservados.
+    Propiedad intelectual exclusiva de <strong style="color:var(--grey);">Enkrateia, S.A. de C.V.</strong> · Creado por Marcelo Castellanos. Todos los derechos reservados.
   </div>
 </div>
 
@@ -4959,7 +4959,7 @@ async function genPDF(athleteId, athleteName){
     for(let i=1;i<=pages;i++){
       doc.setPage(i);
       doc.setFontSize(8); doc.setTextColor(70,96,112);
-      doc.text('© TSS — The Surf Sequence® | Propiedad intelectual de Marcelo Castellanos',M,290);
+      doc.text('© TSS — The Surf Sequence® | Propiedad intelectual exclusiva de Enkrateia, S.A. de C.V.',M,290);
       doc.text(`${i}/${pages}`,W-M,290,{align:'right'});
     }
 
@@ -5723,7 +5723,7 @@ async function genMonthlyPDF(athleteIdOrTeam){
     for(let i=1;i<=totalPages;i++){
       doc.setPage(i);
       doc.setFontSize(7); doc.setTextColor(107,138,154);
-      doc.text('© TSS — The Surf Sequence® | Propiedad intelectual de Marcelo Castellanos',M,292);
+      doc.text('© TSS — The Surf Sequence® | Propiedad intelectual exclusiva de Enkrateia, S.A. de C.V.',M,292);
       doc.text('Pág '+i+'/'+totalPages,210-M,292,{align:'right'});
     }
     const fileName = isTeam

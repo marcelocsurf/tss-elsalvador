@@ -19,7 +19,7 @@
 :root{
   /* ═══════════════════════════════════════════════════════════════
      BRAND MANUAL v5.0 · The Surf Sequence Method®
-     Owner: Marcelo Castellanos · Enkrateia SA de CV
+     Owner: Enkrateia, S.A. de C.V.
      ═══════════════════════════════════════════════════════════════ */
   /* Backgrounds — Ocean Navy palette */
   --bg:#061C2B;--bg2:#0A2438;--bg3:#123049;
@@ -366,7 +366,7 @@ header{padding:calc(10px + env(safe-area-inset-top,0)) 16px 10px;display:flex;al
   </div>
   <div class="copyright-block">
     <span style="color:var(--cyan);font-weight:700;font-size:10px;">© The Surf Sequence Method®</span><br>
-    Propiedad intelectual exclusiva de <strong style="color:var(--grey);">Marcelo Castellanos</strong> · Enkrateia SA de CV. Todos los derechos reservados.
+    Propiedad intelectual exclusiva de <strong style="color:var(--grey);">Enkrateia, S.A. de C.V.</strong> · Creado por Marcelo Castellanos. Todos los derechos reservados.
     <div style="margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);">Hecho en El Salvador</div>
   </div>
 </div>
@@ -12393,7 +12393,7 @@ async function genPDF(athleteId, athleteName){
     for(let i=1;i<=pages;i++){
       doc.setPage(i);
       doc.setFontSize(8); doc.setTextColor(70,96,112);
-      doc.text('© The Surf Sequence Method® · Propiedad intelectual de Marcelo Castellanos · Enkrateia SA de CV',M,290);
+      doc.text('© The Surf Sequence Method® · Propiedad intelectual exclusiva de Enkrateia, S.A. de C.V.',M,290);
       doc.text(`${i}/${pages}`,W-M,290,{align:'right'});
     }
 
@@ -13303,7 +13303,7 @@ async function genMonthlyPDF(athleteIdOrTeam){
     for(let i=1;i<=totalPages;i++){
       doc.setPage(i);
       doc.setFontSize(7); doc.setTextColor(107,138,154);
-      doc.text('© The Surf Sequence Method® · Propiedad intelectual de Marcelo Castellanos · Enkrateia SA de CV',M,292);
+      doc.text('© The Surf Sequence Method® · Propiedad intelectual exclusiva de Enkrateia, S.A. de C.V.',M,292);
       doc.text('Pág '+i+'/'+totalPages,210-M,292,{align:'right'});
     }
     const fileName = isTeam
